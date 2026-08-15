@@ -290,7 +290,7 @@ async def test_wall_clock_timeout_preempts_sync_tool_commit_and_is_durable(tmp_p
     original = base_registry.resolve("search_bls").handler
 
     def slow_search(run_id, action_id, target_id, parameters):
-        time.sleep(0.1)
+        time.sleep(0.3)
         return original(run_id, action_id, target_id, parameters)
 
     science_registry = ScientificToolRegistry(
@@ -303,7 +303,7 @@ async def test_wall_clock_timeout_preempts_sync_tool_commit_and_is_durable(tmp_p
         controller,
         registry,
         runs_dir=tmp_path / "runs",
-        timeout_seconds=0.01,
+        timeout_seconds=0.1,
         sse_poll_interval_seconds=0.001,
     )
 
@@ -316,7 +316,7 @@ async def test_wall_clock_timeout_preempts_sync_tool_commit_and_is_durable(tmp_p
     assert "RUNNER_TIMEOUT" in (durable.terminal_reason or "")
     assert durable.tool_executions[-1].status == ToolExecutionStatus.FAILED
 
-    await asyncio.sleep(0.12)
+    await asyncio.sleep(0.32)
     assert controller.get(state.run_id).status == InvestigationStatus.FAILED
     assert controller.evidence(state.run_id) == ()
 

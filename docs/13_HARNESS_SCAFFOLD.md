@@ -19,7 +19,7 @@ Current surfaces:
 | Tools and schemas | Allowlisted `ScientificToolRegistry` and typed `ScientificToolResult` |
 | Permissions | Side-effect and approval metadata on every registered tool |
 | Model routing | One provider boundary; Featherless is configured when a nonblank key exists, with scripted clients injectable for tests/fallback |
-| Loop control | One-cycle `advance()` with mandatory policy, Skeptic request, Critic review, validation, execution, update, and stopping |
+| Loop control | One-cycle `advance()` invokes the sole LangGraph topology; guarded controller operations own policy, validation, execution, persistence, and stopping |
 | Durable state | Atomic `state.json`; append-only `trace.jsonl` and Evidence Ledger writer |
 | Context | Explicit agent-safe `AgentContextPacket` assembled from durable state |
 | Output validation | Strict Pydantic models with forbidden extra fields and semantic validators |

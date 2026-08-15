@@ -18,6 +18,13 @@ from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import assemble_context
 from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
+from exoswarm.agents.director import (
+    DirectorRoute,
+    DirectorStateView,
+    FreshCycleRoute,
+    determine_director_route,
+)
+from exoswarm.agents.graph import InvestigationGraphUpdate, build_investigation_graph
 from exoswarm.agents.inference_telemetry import (
     concise_inference_summary,
     derive_inference_summary,
@@ -158,6 +165,7 @@ class InvestigationController:
         self._states: dict[str, InvestigationState] = {}
         self._events: dict[str, list[InvestigationEvent]] = {}
         self._advance_locks: dict[str, asyncio.Lock] = {}
+        self._investigation_graph = build_investigation_graph(self)
 
     def create(self, opaque_target_id: str) -> InvestigationState:
         run_id = f"run_{token_hex(8)}"
@@ -311,146 +319,456 @@ class InvestigationController:
         return self.get(run_id)
 
     async def advance(self, run_id: str) -> InvestigationState:
-        """Advance one durable, bounded controller cycle and return its checkpointed state."""
+        """Invoke the sole LangGraph topology under the single-writer guard."""
 
         lock = self._advance_locks.setdefault(run_id, asyncio.Lock())
         async with lock:
-            return await self._advance_locked(run_id)
+            try:
+                await self._investigation_graph.ainvoke(
+                    {"run_id": run_id},
+                    {"recursion_limit": 16},
+                )
+            except _HarnessAbort as exc:
+                return self._terminate(
+                    self.get(run_id),
+                    exc.kind,
+                    exc.reason,
+                    status=exc.status,
+                    recoverable=exc.recoverable,
+                    action_id=exc.action_id,
+                )
+            return self.get(run_id)
 
-    async def _advance_locked(self, run_id: str) -> InvestigationState:
-        """Advance while holding the controller-local single-writer guard."""
+    async def recover_prepared_execution(self, run_id: str) -> InvestigationGraphUpdate:
+        """Recover controller-prepared work before any graph routing decision."""
 
         state = self.get(run_id)
         if self._cannot_advance(state):
+            return {}
+        await self._recover_prepared_execution(state)
+        return {}
+
+    def begin_cycle(self, run_id: str) -> InvestigationState:
+        """Durably charge one step, idempotently across node-boundary restarts."""
+
+        state = self.get(run_id)
+        if self._cannot_advance(state) or not self._cycle_requires_begin(state):
             return state
-        try:
-            state = await self._recover_prepared_execution(state)
-            if self._cannot_advance(state):
-                return state
-            if state.step_count >= state.max_steps:
+        if state.step_count >= state.max_steps:
+            raise _HarnessAbort(
+                HarnessFailureKind.BUDGET_EXHAUSTED,
+                "maximum total step budget reached",
+                status=InvestigationStatus.BUDGET_EXHAUSTED,
+                recoverable=False,
+            )
+        state = self._replace(state, step_count=state.step_count + 1)
+        self._emit(state, "budget.updated", self._budget_payload(state))
+        return state
+
+    def determine_route(self, run_id: str) -> DirectorRoute:
+        """Reload durable state and ask the deterministic Director for the next node."""
+
+        state = self.get(run_id)
+        skeptic = self._current_skeptic(state)
+        critic = self._current_critic(state, skeptic)
+        persisted_revisions = sum(
+            item.verdict == CriticVerdict.REVISE for item in state.critic_decisions
+        )
+        prepared = any(
+            item.status == ToolExecutionStatus.PREPARED for item in state.tool_executions
+        )
+        pending_evaluation = self._has_pending_evaluation(state)
+        if self._cannot_advance(state) or prepared or pending_evaluation or skeptic is not None:
+            return determine_director_route(
+                DirectorStateView(
+                    status=state.status,
+                    terminal=self._cannot_advance(state),
+                    has_prepared_execution=prepared,
+                    has_uncommitted_result=pending_evaluation,
+                    skeptic_decision_id=skeptic.decision_id if skeptic else None,
+                    critic_decision_id=critic.decision_id if critic else None,
+                    critic_verdict=critic.verdict if critic else None,
+                    critic_requires_resolution=(
+                        critic is not None
+                        and critic.verdict == CriticVerdict.REVISE
+                        and state.critic_revision_count != persisted_revisions
+                    ),
+                )
+            )
+        if state.status in {
+            InvestigationStatus.WAITING_FOR_CRITIC,
+            InvestigationStatus.RUNNING_TOOL,
+        }:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                f"durable lifecycle state is incomplete: {state.status}",
+                recoverable=False,
+            )
+        state = self.begin_cycle(run_id)
+        fresh_route = self._fresh_cycle_route(state)
+        return determine_director_route(
+            DirectorStateView(
+                status=state.status,
+                terminal=False,
+                has_prepared_execution=False,
+                has_uncommitted_result=False,
+                skeptic_decision_id=None,
+                critic_decision_id=None,
+                critic_verdict=None,
+                critic_requires_resolution=False,
+                fresh_cycle_route=fresh_route,
+            )
+        )
+
+    def record_director_route(
+        self, run_id: str, route: DirectorRoute, *, source: str
+    ) -> None:
+        """Persist a concise audit record for each effective graph branch."""
+
+        if route == DirectorRoute.NOOP_TERMINAL:
+            return
+        state = self.get(run_id)
+        self._emit(
+            state,
+            "director.route",
+            {
+                "route": route.value,
+                "source": source,
+                "status": state.status.value,
+            },
+        )
+
+    async def run_mandatory_cycle(self, run_id: str) -> InvestigationGraphUpdate:
+        """Execute the next controller-authorized mandatory action."""
+
+        state = self.get(run_id)
+        missing = missing_mandatory_tests(set(state.completed_tests))
+        candidates = [
+            spec
+            for spec in self.registry.specs
+            if spec.mandatory_test in missing
+            and spec.required_completed_tests.issubset(state.completed_tests)
+        ]
+        if not candidates:
+            self._terminate(
+                state,
+                HarnessFailureKind.INSUFFICIENT_EVIDENCE,
+                f"no registered action can complete mandatory tests: {sorted(missing)}",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=False,
+            )
+            return {}
+        state = self._replace(state, status=InvestigationStatus.VETTING_MANDATORY)
+        spec = candidates[0]
+        await self._execute_action(state, spec.name, {}, adaptive=False)
+        return {}
+
+    async def run_skeptic_node(self, run_id: str) -> InvestigationGraphUpdate:
+        """Persist exactly one validated Skeptic decision for the current step."""
+
+        state = self.get(run_id)
+        existing = self._current_skeptic(state)
+        if existing is not None:
+            if state.status == InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT:
+                self._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)
+            return {}
+        available = self._available_adaptive_actions(state)
+        state = self._replace(
+            state,
+            status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
+            available_tests=list(available),
+        )
+        skeptic, skeptic_call = await self._infer(
+            state, role="skeptic", schema=SkepticDecision, available=available
+        )
+        state = self.get(run_id)
+        assert isinstance(skeptic, SkepticDecision)
+        self._validate_skeptic_identity(state, skeptic)
+        state = self._replace(state, accepted_decisions=[*state.accepted_decisions, skeptic])
+        self._emit(
+            state,
+            "agent.decision",
+            {
+                "role": "skeptic",
+                "provider": skeptic_call.provider,
+                "model_identity": skeptic_call.model_identity,
+                "fallback_used": skeptic_call.fallback_used,
+                "inference_call_id": skeptic_call.call_id,
+                "decision": skeptic.model_dump(mode="json"),
+                "context_version": state.context_version,
+            },
+        )
+        self._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)
+        return {}
+
+    async def run_critic_node(self, run_id: str) -> InvestigationGraphUpdate:
+        """Persist exactly one validated Critic review for the current proposal."""
+
+        state = self.get(run_id)
+        skeptic = self._current_skeptic(state)
+        if skeptic is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "Critic routing requires a durable current-step Skeptic decision",
+                recoverable=False,
+            )
+        existing = self._current_critic(state, skeptic)
+        if existing is not None:
+            return {}
+        available = tuple(state.available_tests)
+        critic, critic_call = await self._infer(
+            state,
+            role="critic",
+            schema=CriticDecision,
+            available=available,
+            proposed_decision=skeptic,
+        )
+        state = self.get(run_id)
+        assert isinstance(critic, CriticDecision)
+        self._validate_critic_identity(state, skeptic, critic)
+        state = self._replace(state, critic_decisions=[*state.critic_decisions, critic])
+        self._emit(
+            state,
+            "critic.review",
+            {
+                "provider": critic_call.provider,
+                "model_identity": critic_call.model_identity,
+                "fallback_used": critic_call.fallback_used,
+                "inference_call_id": critic_call.call_id,
+                "decision": critic.model_dump(mode="json"),
+                "context_version": state.context_version,
+            },
+        )
+        return {}
+
+    def resolve_critic_verdict(self, run_id: str) -> DirectorRoute:
+        """Validate the durable Critic verdict and authorize its graph branch."""
+
+        state = self.get(run_id)
+        skeptic = self._current_skeptic(state)
+        critic = self._current_critic(state, skeptic)
+        if skeptic is None or critic is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "Critic route requires matching durable decisions",
+                recoverable=False,
+            )
+        if critic.verdict == CriticVerdict.VETO:
+            return DirectorRoute.FINALIZE
+        if critic.verdict == CriticVerdict.REVISE:
+            revision_count = sum(
+                item.verdict == CriticVerdict.REVISE for item in state.critic_decisions
+            )
+            prior_revisions = revision_count - 1
+            if prior_revisions >= state.max_critic_revisions:
                 raise _HarnessAbort(
                     HarnessFailureKind.BUDGET_EXHAUSTED,
-                    "maximum total step budget reached",
+                    "Critic revision budget reached",
                     status=InvestigationStatus.BUDGET_EXHAUSTED,
                     recoverable=False,
                 )
-            state = self._replace(state, step_count=state.step_count + 1)
-            self._emit(state, "budget.updated", self._budget_payload(state))
-
-            missing = missing_mandatory_tests(set(state.completed_tests))
-            if missing:
-                return await self._run_next_mandatory(state, missing)
-            if not state.candidate_signals:
-                return self._terminate(
-                    state,
-                    HarnessFailureKind.INSUFFICIENT_EVIDENCE,
-                    "mandatory baseline completed without candidate evidence",
-                    status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+            if state.critic_revision_count < revision_count:
+                self._replace(state, critic_revision_count=revision_count)
+            elif state.critic_revision_count > revision_count:
+                raise _HarnessAbort(
+                    HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                    "durable Critic revision counter exceeds persisted reviews",
                     recoverable=False,
                 )
-            if state.adaptive_experiments_used >= state.max_adaptive_experiments:
-                return self._finalize(state, "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED")
-            if state.adaptive_cost_units_remaining == 0:
-                return self._finalize(state, "ADAPTIVE_COST_BUDGET_EXHAUSTED")
+        return DirectorRoute.EXECUTE_APPROVED_ACTION
 
-            available = self._available_adaptive_actions(state)
-            if not available:
-                reason = (
-                    "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT"
-                    if self._has_unaffordable_adaptive_action(state)
-                    else "NO_AVAILABLE_ADAPTIVE_ACTION"
-                )
-                return self._finalize(state, reason)
-            state = self._replace(
-                state,
-                status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
-                available_tests=list(available),
-            )
-            skeptic, skeptic_call = await self._infer(
-                state, role="skeptic", schema=SkepticDecision, available=available
-            )
-            state = self.get(run_id)
-            assert isinstance(skeptic, SkepticDecision)
-            self._validate_skeptic_identity(state, skeptic)
-            state = self._replace(
-                state, accepted_decisions=[*state.accepted_decisions, skeptic]
-            )
-            self._emit(
-                state,
-                "agent.decision",
-                {
-                    "role": "skeptic",
-                    "provider": skeptic_call.provider,
-                    "model_identity": skeptic_call.model_identity,
-                    "fallback_used": skeptic_call.fallback_used,
-                    "inference_call_id": skeptic_call.call_id,
-                    "decision": skeptic.model_dump(mode="json"),
-                    "context_version": state.context_version,
-                },
-            )
+    async def run_adaptive_cycle(self, run_id: str) -> InvestigationGraphUpdate:
+        """Execute the current Critic-authorized adaptive action once."""
 
-            state = self._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)
-            critic, critic_call = await self._infer(
-                state,
-                role="critic",
-                schema=CriticDecision,
-                available=available,
-                proposed_decision=skeptic,
+        state = self.get(run_id)
+        skeptic = self._current_skeptic(state)
+        critic = self._current_critic(state, skeptic)
+        if skeptic is None or critic is None or critic.verdict == CriticVerdict.VETO:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "adaptive execution requires an approved durable proposal",
+                recoverable=False,
             )
-            state = self.get(run_id)
-            assert isinstance(critic, CriticDecision)
-            self._validate_critic_identity(state, skeptic, critic)
-            state = self._replace(state, critic_decisions=[*state.critic_decisions, critic])
-            self._emit(
-                state,
-                "critic.review",
-                {
-                    "provider": critic_call.provider,
-                    "model_identity": critic_call.model_identity,
-                    "fallback_used": critic_call.fallback_used,
-                    "inference_call_id": critic_call.call_id,
-                    "decision": critic.model_dump(mode="json"),
-                    "context_version": state.context_version,
-                },
-            )
+        tool_name = skeptic.requested_experiment
+        parameters = skeptic.parameters
+        if critic.verdict == CriticVerdict.REVISE:
+            tool_name = critic.revised_experiment or ""
+            parameters = critic.revised_parameters or {}
+        await self._execute_action(
+            state,
+            tool_name,
+            parameters,
+            adaptive=True,
+            agent_decision_id=skeptic.decision_id,
+            critic_decision_id=critic.decision_id,
+        )
+        return {}
 
-            if critic.verdict == CriticVerdict.VETO:
-                return self._finalize(state, f"CRITIC_VETO:{critic.reason_code}")
-            tool_name = skeptic.requested_experiment
-            parameters = skeptic.parameters
-            if critic.verdict == CriticVerdict.REVISE:
-                if state.critic_revision_count >= state.max_critic_revisions:
-                    raise _HarnessAbort(
-                        HarnessFailureKind.BUDGET_EXHAUSTED,
-                        "Critic revision budget reached",
-                        status=InvestigationStatus.BUDGET_EXHAUSTED,
-                        recoverable=False,
-                    )
-                tool_name = critic.revised_experiment or ""
-                parameters = critic.revised_parameters or {}
-                state = self._replace(
-                    state, critic_revision_count=state.critic_revision_count + 1
-                )
+    def evaluate_cycle_result(self, run_id: str) -> InvestigationGraphUpdate:
+        """Apply deterministic post-result policy to the latest durable evidence."""
 
-            result = await self._execute_action(
-                state,
-                tool_name,
-                parameters,
-                adaptive=True,
-                agent_decision_id=skeptic.decision_id,
-                critic_decision_id=critic.decision_id,
+        state = self.get(run_id)
+        if self._cannot_advance(state):
+            return {}
+        if state.status != InvestigationStatus.UPDATING_EVIDENCE:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                f"result evaluation requires UPDATING_EVIDENCE, got {state.status}",
+                recoverable=False,
             )
-            state = self.get(run_id)
-            return self._after_result(state, result)
-        except _HarnessAbort as exc:
-            return self._terminate(
-                self.get(run_id),
-                exc.kind,
-                exc.reason,
-                status=exc.status,
-                recoverable=exc.recoverable,
-                action_id=exc.action_id,
+        result = self._latest_cycle_result(state)
+        self._after_result(state, result)
+        return {}
+
+    def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate:
+        """Finalize from durable evidence using the existing deterministic rules."""
+
+        state = self.get(run_id)
+        skeptic = self._current_skeptic(state)
+        critic = self._current_critic(state, skeptic)
+        if critic is not None and critic.verdict == CriticVerdict.VETO:
+            reason = f"CRITIC_VETO:{critic.reason_code}"
+        elif state.adaptive_experiments_used >= state.max_adaptive_experiments:
+            reason = "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED"
+        elif state.adaptive_cost_units_remaining == 0:
+            reason = "ADAPTIVE_COST_BUDGET_EXHAUSTED"
+        elif not self._available_adaptive_actions(state):
+            reason = (
+                "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT"
+                if self._has_unaffordable_adaptive_action(state)
+                else "NO_AVAILABLE_ADAPTIVE_ACTION"
             )
+        else:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "finalize route has no durable stopping reason",
+                recoverable=False,
+            )
+        self._finalize(state, reason)
+        return {}
+
+    def terminate_cycle(self, run_id: str) -> InvestigationGraphUpdate:
+        """Terminate the controller-classified non-candidate path."""
+
+        state = self.get(run_id)
+        self._terminate(
+            state,
+            HarnessFailureKind.INSUFFICIENT_EVIDENCE,
+            "mandatory baseline completed without candidate evidence",
+            status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+            recoverable=False,
+        )
+        return {}
+
+    def _fresh_cycle_route(self, state: InvestigationState) -> FreshCycleRoute:
+        missing = missing_mandatory_tests(set(state.completed_tests))
+        if missing:
+            return FreshCycleRoute.RUN_MANDATORY
+        if not state.candidate_signals:
+            return FreshCycleRoute.TERMINATE
+        if state.adaptive_experiments_used >= state.max_adaptive_experiments:
+            return FreshCycleRoute.FINALIZE
+        if state.adaptive_cost_units_remaining == 0:
+            return FreshCycleRoute.FINALIZE
+        available = self._available_adaptive_actions(state)
+        if not available:
+            return FreshCycleRoute.FINALIZE
+        self._replace(
+            state,
+            status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
+            available_tests=list(available),
+        )
+        return FreshCycleRoute.CALL_SKEPTIC
+
+    def _cycle_requires_begin(self, state: InvestigationState) -> bool:
+        if state.status in {
+            InvestigationStatus.WAITING_FOR_CRITIC,
+            InvestigationStatus.RUNNING_TOOL,
+        }:
+            return False
+        if self._has_pending_evaluation(state):
+            return False
+        step_id = f"step_{state.step_count:04d}"
+        current_events = [event for event in self._events[state.run_id] if event.step_id == step_id]
+        latest_budget = max(
+            (event.sequence for event in current_events if event.type == "budget.updated"),
+            default=0,
+        )
+        latest_boundary = max(
+            (
+                event.sequence
+                for event in current_events
+                if event.type in {"evidence.appended", "recovery.completed"}
+            ),
+            default=0,
+        )
+        return latest_budget == 0 or latest_boundary > latest_budget
+
+    def _has_pending_evaluation(self, state: InvestigationState) -> bool:
+        if state.status != InvestigationStatus.UPDATING_EVIDENCE:
+            return False
+        step_id = f"step_{state.step_count:04d}"
+        return any(
+            event.step_id == step_id and event.type in {"budget.updated", "recovery.completed"}
+            for event in self._events[state.run_id]
+        )
+
+    @staticmethod
+    def _current_skeptic(state: InvestigationState) -> SkepticDecision | None:
+        step_id = f"step_{state.step_count:04d}"
+        return next(
+            (item for item in reversed(state.accepted_decisions) if item.step_id == step_id),
+            None,
+        )
+
+    @staticmethod
+    def _current_critic(
+        state: InvestigationState, skeptic: SkepticDecision | None
+    ) -> CriticDecision | None:
+        if skeptic is None:
+            return None
+        return next(
+            (
+                item
+                for item in reversed(state.critic_decisions)
+                if item.step_id == skeptic.step_id
+                and item.skeptic_decision_id == skeptic.decision_id
+            ),
+            None,
+        )
+
+    def _latest_cycle_result(self, state: InvestigationState) -> ScientificToolResult:
+        step_id = f"step_{state.step_count:04d}"
+        execution = next(
+            (
+                item
+                for item in reversed(state.tool_executions)
+                if item.step_id == step_id and item.evidence_ref is not None
+            ),
+            None,
+        )
+        if execution is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "UPDATING_EVIDENCE has no completed current-step execution",
+                recoverable=False,
+            )
+        record = next(
+            (
+                item
+                for item in reversed(self.artifacts.read_evidence(state))
+                if item.evidence_id == execution.evidence_ref
+            ),
+            None,
+        )
+        if record is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "completed execution has no matching durable evidence",
+                recoverable=False,
+                action_id=execution.action_id,
+            )
+        return record.result
 
     @property
     def _model_identity(self) -> str:
@@ -941,31 +1259,6 @@ class InvestigationController:
         state = self._replace(self.get(state.run_id), inference_summary=summary)
         self.artifacts.write_inference_summary(state, summary)
         return state
-
-    async def _run_next_mandatory(
-        self, state: InvestigationState, missing: frozenset[str]
-    ) -> InvestigationState:
-        candidates = [
-            spec
-            for spec in self.registry.specs
-            if spec.mandatory_test in missing
-            and spec.required_completed_tests.issubset(state.completed_tests)
-        ]
-        if not candidates:
-            return self._terminate(
-                state,
-                HarnessFailureKind.INSUFFICIENT_EVIDENCE,
-                f"no registered action can complete mandatory tests: {sorted(missing)}",
-                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
-                recoverable=False,
-            )
-        state = self._replace(state, status=InvestigationStatus.VETTING_MANDATORY)
-        spec = candidates[0]
-        try:
-            result = await self._execute_action(state, spec.name, {}, adaptive=False)
-        except _HarnessAbort:
-            raise
-        return self._after_result(self.get(state.run_id), result)
 
     def _available_adaptive_actions(self, state: InvestigationState) -> tuple[str, ...]:
         completed = set(state.completed_tests)
@@ -1967,9 +2260,21 @@ class InvestigationController:
                         action_id=execution.action_id,
                     ) from exc
                 state = self.get(state.run_id)
-            state = self._after_result(state, result)
-            if self._cannot_advance(state):
-                break
+                self._emit(
+                    state,
+                    "recovery.completed",
+                    {
+                        "action_id": execution.action_id,
+                        "evidence_ref": next(
+                            item.evidence_ref
+                            for item in state.tool_executions
+                            if item.action_id == execution.action_id
+                        ),
+                        "result_status": result.status,
+                        "reexecuted": True,
+                    },
+                    action_id=execution.action_id,
+                )
         return state
 
     def _commit_recovered_record(

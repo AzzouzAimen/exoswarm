@@ -69,7 +69,7 @@
         "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 18,
+        "trace_events": 20,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -138,7 +138,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 21,
+        "trace_events": 23,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -209,7 +209,7 @@
         "tool_invocations": {
           "alternate_detrend": 1
         },
-        "trace_events": 21,
+        "trace_events": 23,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -278,7 +278,7 @@
         "tool_invocations": {
           "centroid_localization": 1
         },
-        "trace_events": 21,
+        "trace_events": 23,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -342,7 +342,7 @@
         "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 18,
+        "trace_events": 20,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -414,7 +414,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 23,
+        "trace_events": 25,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -476,7 +476,7 @@
         "terminal_reason": "INVALID_MODEL_OUTPUT:skeptic returned invalid structured output",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 16,
+        "trace_events": 17,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -550,7 +550,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 24,
+        "trace_events": 26,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -612,7 +612,7 @@
         "terminal_reason": "INVALID_MODEL_OUTPUT:Skeptic step identifier is stale or mismatched",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 16,
+        "trace_events": 17,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -663,7 +663,7 @@
         "terminal_reason": "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 12,
+        "trace_events": 13,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -726,7 +726,7 @@
         "terminal_reason": "REPEATED_ACTION:identical action has already been accepted: harmonic_test",
         "tool_calls": 5,
         "tool_invocations": {},
-        "trace_events": 18,
+        "trace_events": 19,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -797,7 +797,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 20,
+        "trace_events": 22,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -868,7 +868,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 20,
+        "trace_events": 22,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -922,7 +922,7 @@
         "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
         "tool_calls": 5,
         "tool_invocations": {},
-        "trace_events": 12,
+        "trace_events": 13,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1001,7 +1001,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 37,
+        "trace_events": 39,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1103,7 +1103,7 @@
         "tool_invocations": {
           "search_bls": 1
         },
-        "trace_events": 7,
+        "trace_events": 8,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1156,7 +1156,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:model-call budget reached before inference",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 12,
+        "trace_events": 13,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1215,7 +1215,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:tool-call budget reached before inferred action",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 14,
+        "trace_events": 15,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1266,7 +1266,7 @@
         "terminal_reason": "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 12,
+        "trace_events": 13,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1317,7 +1317,7 @@
         "terminal_reason": "ADAPTIVE_COST_BUDGET_EXHAUSTED",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 12,
+        "trace_events": 13,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1381,7 +1381,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:Critic revision budget reached",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 17,
+        "trace_events": 18,
         "unnecessary_tool_calls": 0
       },
       "failures": [],

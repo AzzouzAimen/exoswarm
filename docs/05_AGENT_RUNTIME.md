@@ -56,9 +56,19 @@ The exact names are a scaffold convention, but every terminal state must include
 
 ### Scientific Director / investigation controller
 
-Owns control flow as deterministic application code. "Scientific Director" is a UI/product label,
-not a distinct P0 inference role. The controller routes bounded model decisions, enforces mandatory
-diagnostics and budgets, and owns terminal transitions and the catalog gate.
+"Scientific Director" is the deterministic routing adapter used by the investigation LangGraph,
+not a distinct P0 inference role. LangGraph is the only investigation topology: it sequences
+mandatory actions, Skeptic selection, Critic review, adaptive execution, result evaluation, and
+terminal nodes. The controller remains the guarded public facade that authorizes actions, enforces
+mandatory diagnostics and budgets, persists decisions/results, and owns terminal mutations. The
+run service owns process lifecycle, leases, and wall-clock timeout.
+
+LangGraph state is a disposable routing envelope keyed by `run_id`; it is never a second durable
+copy of `InvestigationState`. Nodes reload authoritative artifacts before acting and persist every
+decision or side effect before returning. ExoSwarm's `state.json`, JSONL trace/evidence records, and
+prepared executions remain the restart mechanism, so the graph is compiled without a checkpointer.
+Each effective nonterminal Director branch is persisted as a concise `director.route` trace event;
+the event records the typed route, its routing source, and the durable status used at that boundary.
 
 ### Observer Agent
 

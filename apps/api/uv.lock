@@ -467,6 +467,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "langgraph" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "uvicorn", extra = ["standard"] },
@@ -474,7 +475,6 @@ dependencies = [
 
 [package.optional-dependencies]
 agents = [
-    { name = "langgraph" },
     { name = "openai" },
 ]
 science = [
@@ -500,7 +500,7 @@ requires-dist = [
     { name = "astropy", marker = "extra == 'science'", specifier = ">=7,<9" },
     { name = "fastapi", specifier = ">=0.116,<1" },
     { name = "httpx", marker = "extra == 'science'", specifier = ">=0.28,<1" },
-    { name = "langgraph", marker = "extra == 'agents'", specifier = ">=0.6,<1" },
+    { name = "langgraph", specifier = ">=0.6,<1" },
     { name = "lightkurve", marker = "extra == 'science'", specifier = ">=2.5,<3" },
     { name = "matplotlib", marker = "extra == 'science'", specifier = ">=3.10,<4" },
     { name = "numpy", marker = "extra == 'science'", specifier = ">=2.2,<3" },

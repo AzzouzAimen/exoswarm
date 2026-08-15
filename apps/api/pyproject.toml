@@ -9,6 +9,7 @@ description = "ExoSwarm FastAPI and bounded investigation harness scaffold"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "fastapi>=0.116,<1",
+  "langgraph>=0.6,<1",
   "pydantic-settings>=2.10,<3",
   "pydantic>=2.11,<3",
   "uvicorn[standard]>=0.35,<1",
@@ -16,7 +17,6 @@ dependencies = [
 
 [project.optional-dependencies]
 agents = [
-  "langgraph>=0.6,<1",
   "openai>=1.100,<3",
 ]
 science = [

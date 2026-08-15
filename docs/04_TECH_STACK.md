@@ -35,7 +35,8 @@
 | Transit Hunter | deterministic controller + scientific tools for P0 |
 | Skeptic Agent | Featherless structured decision |
 | Critic Agent | structured APPROVE / REVISE / VETO |
-| Shared state | LangGraph StateGraph + Pydantic / TypedDict |
+| Durable shared state | Pydantic `InvestigationState` + JSON/JSONL artifacts |
+| Graph routing envelope | LangGraph `StateGraph` + minimal `run_id`/route `TypedDict` |
 | Validation | Pydantic + deterministic policy checks |
 | Maximum turns | LangGraph / Python |
 | Experiment budget | cost units in state + per-action cost + Python checks |
