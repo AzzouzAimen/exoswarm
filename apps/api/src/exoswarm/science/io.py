@@ -35,6 +35,7 @@ class CachedTessLightCurve:
     source_size_bytes: int
     fits_checksum: str | None
     fits_datasum: str | None
+    crowdsap: float | None
 
     @property
     def source_data_ref(self) -> str:
@@ -145,6 +146,14 @@ def load_cached_tess_fits(path: Path) -> CachedTessLightCurve:
 
             checksum = table_header.get("CHECKSUM")
             datasum = table_header.get("DATASUM")
+            crowdsap_header = _header_value(primary_header, table_header, "CROWDSAP")
+            crowdsap = None if crowdsap_header is None else float(crowdsap_header)
+            if crowdsap is not None and (
+                not np.isfinite(crowdsap) or crowdsap < 0.0 or crowdsap > 1.0
+            ):
+                raise CachedLightCurvePreconditionError(
+                    "CROWDSAP must be a finite fraction in [0, 1] when present"
+                )
     except CachedLightCurveError:
         raise
     except (OSError, TypeError, ValueError, IndexError) as exc:
@@ -167,6 +176,7 @@ def load_cached_tess_fits(path: Path) -> CachedTessLightCurve:
         source_size_bytes=len(source_bytes),
         fits_checksum=str(checksum) if checksum is not None else None,
         fits_datasum=str(datasum) if datasum is not None else None,
+        crowdsap=crowdsap,
     )
 
 

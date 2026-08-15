@@ -1,7 +1,8 @@
 # Agent Harness Scaffold
 
-This document records the mocked bounded-harness milestone. The control loop is operational with
-scripted inference and deterministic fixture results; live provider configuration remains deferred.
+This document records the bounded production-harness milestone. The control loop is operational
+with live or scripted inference, deterministic science, durable execution, and explicit failure
+boundaries.
 
 ## Harness boundary
 
@@ -17,14 +18,14 @@ Current surfaces:
 | Instructions | Repository contract plus role-specific adapter modules |
 | Tools and schemas | Allowlisted `ScientificToolRegistry` and typed `ScientificToolResult` |
 | Permissions | Side-effect and approval metadata on every registered tool |
-| Model routing | One `InferenceClient` boundary plus queued `ScriptedInferenceClient`; live provider intentionally unconfigured |
+| Model routing | One provider boundary; Featherless is configured when a nonblank key exists, with scripted clients injectable for tests/fallback |
 | Loop control | One-cycle `advance()` with mandatory policy, Skeptic request, Critic review, validation, execution, update, and stopping |
 | Durable state | Atomic `state.json`; append-only `trace.jsonl` and Evidence Ledger writer |
 | Context | Explicit agent-safe `AgentContextPacket` assembled from durable state |
 | Output validation | Strict Pydantic models with forbidden extra fields and semantic validators |
-| Retries | Bounded transient model retry; validation and domain failures do not retry |
+| Retries | Bounded transient retry plus one schema/semantic repair; optional fallback is explicit and labeled |
 | Tracing | Stable run, step, action, event IDs and monotonically ordered event envelopes |
-| Recovery | State, trace, ledger, decisions, and prepared/completed invocations reload after restart |
+| Recovery | State, trace, ledger, decisions, prepared/completed invocations, runner failures, and leases survive restart |
 | Evaluation | Four branch scenarios plus schema, authorization, failure, context, restart, blind-protocol, result-lock, and API tests |
 
 ## Authority classes
@@ -56,6 +57,12 @@ the execution record, trace, result parameters, or agent context. The science sl
 standalone ledger append on this controller-owned path so the harness remains the sole evidence
 committer.
 
+Candidate-dependent vetting receives no model-selected paths. The controller resolves the accepted
+candidate artifact only from committed `search_bls` evidence in the same run, confines it to that
+run's `artifacts/` directory, and injects it through strict runtime-only schemas. Contamination uses
+typed cached neighbors when supplied; otherwise it may use the cached SPOC `CROWDSAP` header as an
+explicitly labeled aggregate-capacity screen, never as source or centroid localization.
+
 ## Approval and failure policy
 
 Model output is a request, never authority. Schema, role/run/step identity, registry membership,
@@ -72,11 +79,10 @@ hypotheses, validated adaptive actions, remaining budgets, and context/provenanc
 omits raw arrays, cached paths, recognizable identity, catalog/reveal data, and hidden reasoning.
 Candidate measurements enter state only from matching deterministic ledger records.
 
-The default API currently has no configured opaque-target-to-cached-source resolver. It therefore
-terminates the mandatory `search_bls` step with an explicit recoverable precondition failure before
-preparing or executing an action. A test/eval resolver can run the locally cached acceptance FITS
-through the controller, but production provider-canary readiness still requires a versioned,
-backend-only target mapping to be configured at application composition time.
+The default API loads a strict versioned opaque-target manifest from
+`data/targets/source_manifest.json`. Missing mappings or cached files fail explicitly before
+execution. Paths and identity-bearing provenance remain backend-only and are recursively rejected
+from public state, event, and target payloads.
 
 Result lock is a backend policy boundary. A run must be `READY_TO_LOCK` with a disposition and
 terminal reason. The service writes exact canonical JSON bytes, hashes those bytes, updates durable
@@ -85,17 +91,15 @@ calling a reveal provider.
 
 ## Human approval points
 
-No current scaffold endpoint deploys, merges, accesses secrets, deletes artifacts, or contacts a
-catalog/model provider. Enabling those capabilities requires explicit configuration and a later
-implementation task with its own tests and approval boundaries.
+No current endpoint deploys, merges, deletes artifacts, or reveals catalog truth without a result
+lock. Supplying `FEATHERLESS_API_KEY` enables model-provider contact for Skeptic/Critic only. The
+real provider canary is credential-gated and never runs as part of ordinary offline tests.
 
 ## Final-stretch delta
 
-The current scaffold is not yet the submission inference path. The next harness work is narrowly
-limited to: a live Featherless adapter for the existing `InferenceClient`; Skeptic/Critic structured
-calls; attempt/validate/bounded-repair/fallback behavior; recorded token, latency, validation,
-repair, and fallback metadata; and a run-level inference summary. The deterministic controller
-remains the Scientific Director authority.
+The submission inference path is implemented. Next work should exercise the credential-gated live
+canary, connect the mission-control UI to real SSE/state, add a contrasting cached target, and build
+trajectory evaluations. The deterministic controller remains the Scientific Director authority.
 
 Current adaptive limits count experiments rather than cost units, and the current
 `SkepticDecision` omits the cost fields described in `docs/05_AGENT_RUNTIME.md`. Implement those as

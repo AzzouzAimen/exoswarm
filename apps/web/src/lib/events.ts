@@ -11,11 +11,19 @@ export function subscribeToInvestigation(
   const eventTypes = [
     "investigation.created",
     "status.changed",
+    "agent.started",
     "agent.decision",
+    "inference.attempt",
+    "inference.fallback",
+    "inference.summary",
     "critic.review",
+    "tool.started",
     "tool.completed",
     "tool.failed",
     "evidence.appended",
+    "budget.updated",
+    "model.retry",
+    "recovery.completed",
     "result.locked",
     "catalog.revealed",
     "run.failed",
@@ -27,4 +35,3 @@ export function subscribeToInvestigation(
   }
   return () => source.close();
 }
-

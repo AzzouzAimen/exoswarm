@@ -75,3 +75,16 @@ values that Astropy reports as invalid through both tested official MAST deliver
 acquisition record retains each embedded value and validity result plus a local SHA-256. Invalid
 `DATASUM` values remain fatal; absent `DATASUM` keywords are recorded explicitly rather than
 invented.
+
+## Deterministic vetting pack
+
+The accepted candidate artifact now feeds strict odd/even depth comparison, phase-window
+secondary-eclipse search, fixed P/2-P-2P harmonic trials, and contamination screening. Each tool
+returns measurements with units, method/provenance, warnings, typed negative/precondition outcomes,
+and an `interpretation_code`; application code—not the model—maps those codes to disposition.
+
+The controller derives the artifact path from committed same-run `search_bls` evidence and never
+copies it into model parameters, decisions, state, or public events. Cached-neighbor contamination
+is preferred when available. The current cached-real case falls back to official SPOC `CROWDSAP`
+and labels that result as an aggregate aperture-contamination capacity check with no source or
+centroid localization claim.

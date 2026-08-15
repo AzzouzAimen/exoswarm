@@ -13,9 +13,13 @@ export async function getInvestigation(runId: string): Promise<InvestigationView
 }
 
 export async function createInvestigation(opaqueTargetId: string) {
+  const idempotencyKey = globalThis.crypto.randomUUID();
   const response = await fetch(`${apiBase}/api/investigations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
     body: JSON.stringify({ opaque_target_id: opaqueTargetId }),
   });
   if (!response.ok) {
@@ -27,6 +31,14 @@ export async function createInvestigation(opaqueTargetId: string) {
     status: string;
     lock_state: string;
     event_stream_url: string;
+    execution: {
+      run_id: string;
+      status: "PAUSED" | "RUNNING" | "STOPPED" | "FAILED";
+      active: boolean;
+      advances: number;
+      stop_reason: string | null;
+      started_at: string | null;
+      finished_at: string | null;
+    };
   }>;
 }
-

@@ -8,8 +8,10 @@ from pydantic import ValidationError
 from exoswarm.domain.errors import ActionValidationError, ToolPermissionError, UnknownToolError
 from exoswarm.domain.models import ScientificToolResult
 from exoswarm.science.bls import search_bls
+from exoswarm.science.candidate_artifact import CandidateArtifactRuntimeInputs
 from exoswarm.science.centroid import localize_centroid
-from exoswarm.science.contracts import NoParameters, ScientificToolSpec, not_implemented_result
+from exoswarm.science.contamination import ContaminationRuntimeInputs, screen_contamination
+from exoswarm.science.contracts import NoParameters, ScientificToolSpec
 from exoswarm.science.harmonic import test_harmonics
 from exoswarm.science.io import load_cached_lightcurve, load_cached_tpf
 from exoswarm.science.odd_even import compare_odd_even
@@ -21,18 +23,6 @@ from exoswarm.science.pipeline import (
 from exoswarm.science.preprocessing import preprocess
 from exoswarm.science.secondary import search_secondary
 from exoswarm.science.transit import measure_transit
-
-
-def _contamination_screening_stub(
-    run_id: str, action_id: str, target_id: str, parameters: dict[str, Any]
-) -> ScientificToolResult:
-    return not_implemented_result(
-        tool_name="contamination_screening",
-        run_id=run_id,
-        action_id=action_id,
-        target_id=target_id,
-        parameters=parameters,
-    )
 
 
 class ScientificToolRegistry:
@@ -160,7 +150,7 @@ def scaffold_tool_registry() -> ScientificToolRegistry:
         "secondary_eclipse": search_secondary,
         "harmonic_test": test_harmonics,
         "centroid_localization": localize_centroid,
-        "contamination_screening": _contamination_screening_stub,
+        "contamination_screening": screen_contamination,
     }
     metadata = {
         "search_bls": {"mandatory_test": "signal_quality", "order": 10},
@@ -174,7 +164,13 @@ def scaffold_tool_registry() -> ScientificToolRegistry:
         "preprocess": PreprocessingParameters,
         "search_bls": CandidateSearchParameters,
     }
-    runtime_schemas = {"search_bls": CandidateSearchRuntimeInputs}
+    runtime_schemas = {
+        "search_bls": CandidateSearchRuntimeInputs,
+        "odd_even": CandidateArtifactRuntimeInputs,
+        "secondary_eclipse": CandidateArtifactRuntimeInputs,
+        "harmonic_test": CandidateArtifactRuntimeInputs,
+        "contamination_screening": ContaminationRuntimeInputs,
+    }
     return ScientificToolRegistry(
         ScientificToolSpec(
             name=name,

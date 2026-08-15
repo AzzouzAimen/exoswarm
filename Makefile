@@ -4,13 +4,13 @@ dev:
 	@echo "Run 'make dev-api' and 'make dev-web' in separate terminals."
 
 dev-api:
-	uv run --project apps/api --extra science uvicorn exoswarm.api.app:app --reload --port 8000
+	uv run --project apps/api --extra science --extra agents uvicorn exoswarm.api.app:app --reload --port 8000
 
 dev-web:
 	pnpm --dir apps/web dev
 
 test:
-	uv run --project apps/api --extra science pytest apps/api/tests
+	uv run --project apps/api --extra science --extra agents pytest apps/api/tests
 
 lint:
 	uv run --project apps/api ruff check apps/api/src apps/api/tests scripts
@@ -18,7 +18,7 @@ lint:
 	pnpm --dir apps/web typecheck
 
 build:
-	uv run --project apps/api --extra science python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
+	uv run --project apps/api --extra science --extra agents python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
 	pnpm --dir apps/web build
 
 reproduce:

@@ -1,15 +1,28 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
+from pathlib import Path, PurePosixPath
 from secrets import token_hex
+from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import assemble_context
-from exoswarm.agents.model_client import InferenceClient, UnconfiguredInferenceClient
+from exoswarm.agents.inference_telemetry import (
+    concise_inference_summary,
+    derive_inference_summary,
+)
+from exoswarm.agents.model_client import (
+    AttemptKind,
+    InferenceAttemptOutcome,
+    InferenceClient,
+    UnconfiguredInferenceClient,
+)
 from exoswarm.config import Settings
 from exoswarm.domain.enums import (
     CriticVerdict,
@@ -23,6 +36,7 @@ from exoswarm.domain.enums import (
 from exoswarm.domain.errors import (
     ActionValidationError,
     InvalidModelOutputError,
+    ModelNotConfiguredError,
     ModelProviderError,
     ModelProviderTimeoutError,
     RunNotFoundError,
@@ -35,6 +49,7 @@ from exoswarm.domain.models import (
     CriticDecision,
     EvidenceRecord,
     HarnessFailureRecord,
+    InferenceTraceRecord,
     InvestigationState,
     LockReceipt,
     Measurement,
@@ -56,8 +71,17 @@ _SUCCESSFUL_TEST_STATUSES = frozenset(
     {ToolStatus.SUCCESS, ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
 )
 _DECISIVE_INTERPRETATIONS = frozenset(
-    {"CLEAN_PLANET_LIKE", "ODD_EVEN_MISMATCH", "CONTAMINATION_LIKELY", "WEAK_NOISY"}
+    {
+        "CLEAN_PLANET_LIKE",
+        "ODD_EVEN_MISMATCH",
+        "CONTAMINATION_LIKELY",
+        "WEAK_NOISY",
+    }
 )
+_WEAK_PLANETARY_INTERPRETATIONS = frozenset(
+    {"SECONDARY_ECLIPSE_DETECTED", "CONTAMINATION_POSSIBLE", "HARMONIC_ALIAS_PREFERRED"}
+)
+_LOGGER = logging.getLogger(__name__)
 
 
 class _HarnessAbort(Exception):
@@ -89,6 +113,7 @@ class InvestigationController:
         catalog_gate: CatalogGate,
         *,
         inference: InferenceClient | None = None,
+        fallback_inference: InferenceClient | None = None,
         registry: ScientificToolRegistry | None = None,
         candidate_sources: CandidateSourceResolver | None = None,
         granted_scopes: set[str] | frozenset[str] = frozenset({"science:execute"}),
@@ -98,6 +123,7 @@ class InvestigationController:
         self.result_lock = result_lock
         self.catalog_gate = catalog_gate
         self.inference = inference or UnconfiguredInferenceClient()
+        self.fallback_inference = fallback_inference
         self.registry = registry or scaffold_tool_registry()
         self.candidate_sources = candidate_sources
         self.granted_scopes = frozenset(granted_scopes)
@@ -169,6 +195,36 @@ class InvestigationController:
         self._emit(updated, "catalog.revealed", {"catalog_source": reveal.catalog_source})
         return reveal
 
+    def fail_run(
+        self,
+        run_id: str,
+        reason: str,
+        *,
+        kind: HarnessFailureKind = HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+        recoverable: bool = True,
+    ) -> InvestigationState:
+        """Checkpoint a runner-boundary failure through the durable harness path."""
+
+        state = self.get(run_id)
+        if self._cannot_advance(state):
+            return state
+        prepared_action_id = next(
+            (
+                execution.action_id
+                for execution in reversed(state.tool_executions)
+                if execution.status == ToolExecutionStatus.PREPARED
+            ),
+            None,
+        )
+        return self._terminate(
+            state,
+            kind,
+            reason,
+            status=InvestigationStatus.FAILED,
+            recoverable=recoverable,
+            action_id=prepared_action_id,
+        )
+
     def record_tool_result(self, run_id: str, result: ScientificToolResult) -> InvestigationState:
         """Admit an already deterministic result, including test/eval fixture results."""
 
@@ -208,7 +264,7 @@ class InvestigationController:
         if self._cannot_advance(state):
             return state
         try:
-            state = self._recover_prepared_execution(state)
+            state = await self._recover_prepared_execution(state)
             if self._cannot_advance(state):
                 return state
             if state.step_count >= state.max_steps:
@@ -223,7 +279,7 @@ class InvestigationController:
 
             missing = missing_mandatory_tests(set(state.completed_tests))
             if missing:
-                return self._run_next_mandatory(state, missing)
+                return await self._run_next_mandatory(state, missing)
             if not state.candidate_signals:
                 return self._terminate(
                     state,
@@ -243,7 +299,7 @@ class InvestigationController:
                 status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
                 available_tests=list(available),
             )
-            skeptic = await self._infer(
+            skeptic, skeptic_call = await self._infer(
                 state, role="skeptic", schema=SkepticDecision, available=available
             )
             state = self.get(run_id)
@@ -257,14 +313,17 @@ class InvestigationController:
                 "agent.decision",
                 {
                     "role": "skeptic",
-                    "model_identity": self._model_identity,
+                    "provider": skeptic_call.provider,
+                    "model_identity": skeptic_call.model_identity,
+                    "fallback_used": skeptic_call.fallback_used,
+                    "inference_call_id": skeptic_call.call_id,
                     "decision": skeptic.model_dump(mode="json"),
                     "context_version": state.context_version,
                 },
             )
 
             state = self._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)
-            critic = await self._infer(
+            critic, critic_call = await self._infer(
                 state,
                 role="critic",
                 schema=CriticDecision,
@@ -279,7 +338,10 @@ class InvestigationController:
                 state,
                 "critic.review",
                 {
-                    "model_identity": self._model_identity,
+                    "provider": critic_call.provider,
+                    "model_identity": critic_call.model_identity,
+                    "fallback_used": critic_call.fallback_used,
+                    "inference_call_id": critic_call.call_id,
                     "decision": critic.model_dump(mode="json"),
                     "context_version": state.context_version,
                 },
@@ -303,7 +365,7 @@ class InvestigationController:
                     state, critic_revision_count=state.critic_revision_count + 1
                 )
 
-            result = self._execute_action(
+            result = await self._execute_action(
                 state,
                 tool_name,
                 parameters,
@@ -335,53 +397,138 @@ class InvestigationController:
         schema: type[BaseModel],
         available: tuple[str, ...],
         proposed_decision: SkepticDecision | None = None,
-    ) -> BaseModel:
+    ) -> tuple[BaseModel, InferenceTraceRecord]:
+        context = assemble_context(
+            state,
+            self.artifacts.read_evidence(state),
+            role=role,  # type: ignore[arg-type]
+            available_experiments=available,
+            proposed_decision=proposed_decision,
+        )
+        attempt_kind: AttemptKind = "primary"
+        first_validation_failure: _HarnessAbort | None = None
+
         while True:
+            outcome = await self._run_inference_attempt(
+                state.run_id,
+                client=self.inference,
+                role=role,
+                context=context,
+                schema=schema,
+                attempt_kind=attempt_kind,
+                validation_error_code=(
+                    first_validation_failure.kind if first_validation_failure else None
+                ),
+            )
             state = self.get(state.run_id)
-            if state.model_call_count >= state.max_model_calls:
-                raise _HarnessAbort(
-                    HarnessFailureKind.BUDGET_EXHAUSTED,
-                    "model-call budget reached before inference",
-                    status=InvestigationStatus.BUDGET_EXHAUSTED,
-                    recoverable=False,
-                )
-            context = assemble_context(
-                state,
-                self.artifacts.read_evidence(state),
-                role=role,  # type: ignore[arg-type]
-                available_experiments=available,
-                proposed_decision=proposed_decision,
-            )
-            state = self._replace(state, model_call_count=state.model_call_count + 1)
-            self._emit(
-                state,
-                "agent.started",
-                {
-                    "role": role,
-                    "model_identity": self._model_identity,
-                    "context_version": context.context_version,
-                },
-            )
-            try:
-                output = await self.inference.decide(
-                    role=role, context=context, output_schema=schema
-                )
-                return schema.model_validate(output, strict=True)
-            except (ModelProviderTimeoutError, TimeoutError):
+
+            if outcome.error is None and outcome.decision is not None:
+                try:
+                    decision = schema.model_validate(outcome.decision, strict=True)
+                    self._validate_inference_decision(
+                        state,
+                        role=role,
+                        decision=decision,
+                        available=available,
+                        proposed_decision=proposed_decision,
+                    )
+                except _HarnessAbort as exc:
+                    invalid_call = outcome.call.model_copy(
+                        update={
+                            "status": "INVALID",
+                            "schema_valid": False,
+                            "validation_error_code": str(exc.kind),
+                        }
+                    )
+                    self._record_inference_attempt(state, invalid_call)
+                    if exc.kind == HarnessFailureKind.BUDGET_EXHAUSTED:
+                        raise
+                    if first_validation_failure is None:
+                        first_validation_failure = exc
+                    if attempt_kind == "primary":
+                        attempt_kind = "repair"
+                        continue
+                    return await self._fallback_or_abort(
+                        state,
+                        role=role,
+                        context=context,
+                        schema=schema,
+                        available=available,
+                        proposed_decision=proposed_decision,
+                        failure=first_validation_failure,
+                    )
+                except (ValidationError, TypeError) as exc:
+                    invalid = _HarnessAbort(
+                        HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                        f"{role} returned invalid structured output: {type(exc).__name__}",
+                    )
+                    invalid_call = outcome.call.model_copy(
+                        update={
+                            "status": "INVALID",
+                            "schema_valid": False,
+                            "validation_error_code": str(invalid.kind),
+                        }
+                    )
+                    self._record_inference_attempt(state, invalid_call)
+                    if first_validation_failure is None:
+                        first_validation_failure = invalid
+                    if attempt_kind == "primary":
+                        attempt_kind = "repair"
+                        continue
+                    return await self._fallback_or_abort(
+                        state,
+                        role=role,
+                        context=context,
+                        schema=schema,
+                        available=available,
+                        proposed_decision=proposed_decision,
+                        failure=first_validation_failure,
+                    )
+                self._record_inference_attempt(state, outcome.call)
+                return decision, outcome.call
+
+            self._record_inference_attempt(state, outcome.call)
+            error = outcome.error
+            if isinstance(error, (ModelProviderTimeoutError, TimeoutError)):
                 kind = HarnessFailureKind.MODEL_TIMEOUT
                 reason = f"{role} inference timed out"
-            except (ModelProviderError, ConnectionError):
+            elif isinstance(
+                error,
+                (ModelProviderError, ModelNotConfiguredError, ConnectionError),
+            ):
                 kind = HarnessFailureKind.MODEL_PROVIDER_FAILURE
                 reason = f"{role} inference provider failed"
-            except (InvalidModelOutputError, ValidationError, TypeError) as exc:
-                raise _HarnessAbort(
+            else:
+                invalid = _HarnessAbort(
                     HarnessFailureKind.INVALID_MODEL_OUTPUT,
-                    f"{role} returned invalid structured output: {exc}",
-                ) from exc
+                    f"{role} returned invalid structured output",
+                )
+                if first_validation_failure is None:
+                    first_validation_failure = invalid
+                if attempt_kind == "primary":
+                    attempt_kind = "repair"
+                    continue
+                return await self._fallback_or_abort(
+                    state,
+                    role=role,
+                    context=context,
+                    schema=schema,
+                    available=available,
+                    proposed_decision=proposed_decision,
+                    failure=first_validation_failure,
+                )
 
             state = self.get(state.run_id)
             if state.model_retry_count >= state.max_model_retries:
-                raise _HarnessAbort(kind, reason)
+                return await self._fallback_or_abort(
+                    state,
+                    role=role,
+                    context=context,
+                    schema=schema,
+                    available=available,
+                    proposed_decision=proposed_decision,
+                    failure=_HarnessAbort(kind, reason),
+                )
             failure = HarnessFailureRecord(
                 step_id=f"step_{state.step_count:04d}",
                 kind=kind,
@@ -397,10 +544,289 @@ class InvestigationController:
             self._emit(
                 state,
                 "model.retry",
-                {"role": role, "kind": kind, "retry_count": state.model_retry_count},
+                {
+                    "role": role,
+                    "kind": kind,
+                    "attempt_kind": attempt_kind,
+                    "retry_count": state.model_retry_count,
+                },
             )
 
-    def _run_next_mandatory(
+    async def _run_inference_attempt(
+        self,
+        run_id: str,
+        *,
+        client: InferenceClient,
+        role: str,
+        context: BaseModel,
+        schema: type[BaseModel],
+        attempt_kind: AttemptKind,
+        validation_error_code: object | None = None,
+        fallback_used: bool = False,
+    ) -> InferenceAttemptOutcome:
+        state = self.get(run_id)
+        if state.model_call_count >= state.max_model_calls:
+            raise _HarnessAbort(
+                HarnessFailureKind.BUDGET_EXHAUSTED,
+                "model-call budget reached before inference",
+                status=InvestigationStatus.BUDGET_EXHAUSTED,
+                recoverable=False,
+            )
+        state = self._replace(state, model_call_count=state.model_call_count + 1)
+        self._emit(
+            state,
+            "agent.started",
+            {
+                "role": role,
+                "provider": str(getattr(client, "provider", "unknown")),
+                "model_identity": str(getattr(client, "model_identity", type(client).__name__)),
+                "attempt_kind": attempt_kind,
+                "context_version": str(getattr(context, "context_version", "unknown")),
+                "fallback": fallback_used,
+            },
+        )
+        decide_attempt = getattr(client, "decide_attempt", None)
+        if callable(decide_attempt):
+            return await decide_attempt(
+                role=role,
+                context=context,
+                output_schema=schema,
+                attempt_kind=attempt_kind,
+                validation_error_code=(
+                    str(validation_error_code) if validation_error_code is not None else None
+                ),
+                fallback_used=fallback_used,
+            )
+
+        started = perf_counter()
+        common = {
+            "call_id": f"call_{token_hex(12)}",
+            "run_id": run_id,
+            "step_id": str(getattr(context, "step_id", "unknown")),
+            "role": role,
+            "provider": str(getattr(client, "provider", "legacy")),
+            "model_identity": str(getattr(client, "model_identity", type(client).__name__)),
+            "attempt_kind": attempt_kind,
+            "context_version": str(getattr(context, "context_version", "unknown")),
+            "fallback_used": fallback_used,
+        }
+        try:
+            decision = await client.decide(role=role, context=context, output_schema=schema)
+        except (ModelProviderTimeoutError, TimeoutError) as exc:
+            call = InferenceTraceRecord(
+                **common,
+                latency_ms=max(0, round((perf_counter() - started) * 1000)),
+                status="TIMEOUT",
+                schema_valid=False,
+                timeout=True,
+            )
+            return InferenceAttemptOutcome(call=call, error=exc)
+        except (ModelProviderError, ModelNotConfiguredError, ConnectionError) as exc:
+            call = InferenceTraceRecord(
+                **common,
+                latency_ms=max(0, round((perf_counter() - started) * 1000)),
+                status="PROVIDER_ERROR",
+                schema_valid=False,
+                provider_error_type=type(exc).__name__,
+            )
+            return InferenceAttemptOutcome(call=call, error=exc)
+        except (InvalidModelOutputError, ValidationError, TypeError) as exc:
+            call = InferenceTraceRecord(
+                **common,
+                latency_ms=max(0, round((perf_counter() - started) * 1000)),
+                status="INVALID",
+                schema_valid=False,
+                validation_error_code=HarnessFailureKind.INVALID_MODEL_OUTPUT,
+            )
+            return InferenceAttemptOutcome(call=call, error=exc)
+        call = InferenceTraceRecord(
+            **common,
+            latency_ms=max(0, round((perf_counter() - started) * 1000)),
+            status="SUCCESS",
+            schema_valid=True,
+        )
+        return InferenceAttemptOutcome(call=call, decision=decision)
+
+    async def _fallback_or_abort(
+        self,
+        state: InvestigationState,
+        *,
+        role: str,
+        context: BaseModel,
+        schema: type[BaseModel],
+        available: tuple[str, ...],
+        proposed_decision: SkepticDecision | None,
+        failure: _HarnessAbort,
+    ) -> tuple[BaseModel, InferenceTraceRecord]:
+        if not self.settings.agent_fallback_enabled or self.fallback_inference is None:
+            raise failure from None
+        self._emit(
+            state,
+            "inference.fallback",
+            {
+                "label": "AGENT_FALLBACK",
+                "role": role,
+                "reason_code": failure.kind,
+                "provider": str(getattr(self.fallback_inference, "provider", "scripted")),
+                "model_identity": str(
+                    getattr(
+                        self.fallback_inference,
+                        "model_identity",
+                        type(self.fallback_inference).__name__,
+                    )
+                ),
+            },
+        )
+        outcome = await self._run_inference_attempt(
+            state.run_id,
+            client=self.fallback_inference,
+            role=role,
+            context=context,
+            schema=schema,
+            attempt_kind="primary",
+            validation_error_code=failure.kind,
+            fallback_used=True,
+        )
+        state = self.get(state.run_id)
+        if outcome.error is not None or outcome.decision is None:
+            self._record_inference_attempt(state, outcome.call)
+            raise failure
+        try:
+            decision = schema.model_validate(outcome.decision, strict=True)
+            self._validate_inference_decision(
+                state,
+                role=role,
+                decision=decision,
+                available=available,
+                proposed_decision=proposed_decision,
+            )
+        except (_HarnessAbort, ValidationError, TypeError):
+            invalid_call = outcome.call.model_copy(
+                update={
+                    "status": "INVALID",
+                    "schema_valid": False,
+                    "validation_error_code": "AGENT_FALLBACK_INVALID",
+                }
+            )
+            self._record_inference_attempt(state, invalid_call)
+            raise failure from None
+        self._record_inference_attempt(state, outcome.call)
+        return decision, outcome.call
+
+    def _validate_inference_decision(
+        self,
+        state: InvestigationState,
+        *,
+        role: str,
+        decision: BaseModel,
+        available: tuple[str, ...],
+        proposed_decision: SkepticDecision | None,
+    ) -> None:
+        if role == "skeptic":
+            skeptic = SkepticDecision.model_validate(decision, strict=True)
+            self._validate_skeptic_identity(state, skeptic)
+            self._validate_inferred_action(
+                state, skeptic.requested_experiment, skeptic.parameters, available
+            )
+            return
+        critic = CriticDecision.model_validate(decision, strict=True)
+        if proposed_decision is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Critic inference is missing its bounded proposal",
+            )
+        self._validate_critic_identity(state, proposed_decision, critic)
+        if critic.verdict == CriticVerdict.REVISE:
+            if state.critic_revision_count >= state.max_critic_revisions:
+                raise _HarnessAbort(
+                    HarnessFailureKind.BUDGET_EXHAUSTED,
+                    "Critic revision budget reached",
+                    status=InvestigationStatus.BUDGET_EXHAUSTED,
+                    recoverable=False,
+                )
+            self._validate_inferred_action(
+                state,
+                critic.revised_experiment or "",
+                critic.revised_parameters or {},
+                available,
+            )
+
+    def _validate_inferred_action(
+        self,
+        state: InvestigationState,
+        tool_name: str,
+        parameters: dict[str, Any],
+        available: tuple[str, ...],
+    ) -> None:
+        if state.tool_call_count >= state.max_tool_calls:
+            raise _HarnessAbort(
+                HarnessFailureKind.BUDGET_EXHAUSTED,
+                "tool-call budget reached before inferred action",
+                status=InvestigationStatus.BUDGET_EXHAUSTED,
+                recoverable=False,
+            )
+        try:
+            spec, validated_parameters = self.registry.validate_request(
+                tool_name,
+                parameters=parameters,
+                granted_scopes=self.granted_scopes,
+            )
+        except UnknownToolError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.UNKNOWN_ACTION,
+                "model requested an unknown scientific action",
+            ) from exc
+        except ToolPermissionError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.UNAUTHORIZED_ACTION,
+                "model requested an action without the required scope",
+            ) from exc
+        except ActionValidationError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.MALFORMED_PARAMETERS,
+                "model requested malformed action parameters",
+            ) from exc
+        signature = self._action_signature(tool_name, validated_parameters)
+        if any(
+            item.action_signature == signature
+            and item.status in {ToolExecutionStatus.PREPARED, ToolExecutionStatus.COMPLETED}
+            for item in state.tool_executions
+        ):
+            raise _HarnessAbort(
+                HarnessFailureKind.REPEATED_ACTION,
+                f"identical action has already been accepted: {tool_name}",
+            )
+        if not spec.adaptive or tool_name not in available:
+            raise _HarnessAbort(
+                HarnessFailureKind.UNAVAILABLE_ACTION,
+                f"adaptive action is not currently available: {tool_name}",
+            )
+        if missing_mandatory_tests(set(state.completed_tests)):
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "adaptive action cannot run before mandatory diagnostics complete",
+            )
+        if not spec.required_completed_tests.issubset(state.completed_tests):
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                f"preconditions are incomplete for action {tool_name}",
+            )
+
+    def _record_inference_attempt(
+        self, state: InvestigationState, call: InferenceTraceRecord
+    ) -> InvestigationState:
+        self._emit(state, "inference.attempt", call.model_dump(mode="json"))
+        records = [
+            InferenceTraceRecord.model_validate(event.payload)
+            for event in self._events[state.run_id]
+            if event.type == "inference.attempt"
+        ]
+        summary = derive_inference_summary(records)
+        state = self._replace(self.get(state.run_id), inference_summary=summary)
+        self.artifacts.write_inference_summary(state, summary)
+        return state
+
+    async def _run_next_mandatory(
         self, state: InvestigationState, missing: frozenset[str]
     ) -> InvestigationState:
         candidates = [
@@ -420,7 +846,7 @@ class InvestigationController:
         state = self._replace(state, status=InvestigationStatus.VETTING_MANDATORY)
         spec = candidates[0]
         try:
-            result = self._execute_action(state, spec.name, {}, adaptive=False)
+            result = await self._execute_action(state, spec.name, {}, adaptive=False)
         except _HarnessAbort:
             raise
         return self._after_result(self.get(state.run_id), result)
@@ -472,7 +898,7 @@ class InvestigationController:
                 "Critic role, run, step, or proposal identifier does not match",
             )
 
-    def _execute_action(
+    async def _execute_action(
         self,
         state: InvestigationState,
         tool_name: str,
@@ -600,8 +1026,12 @@ class InvestigationController:
             action_id=action_id,
         )
         try:
-            result = spec.handler(
-                state.run_id, action_id, state.opaque_target_id, invocation_parameters
+            result = await asyncio.to_thread(
+                spec.handler,
+                state.run_id,
+                action_id,
+                state.opaque_target_id,
+                invocation_parameters,
             )
         except Exception as exc:
             raise _HarnessAbort(
@@ -650,6 +1080,13 @@ class InvestigationController:
     ) -> dict[str, Any]:
         if spec.runtime_input_schema is None:
             return {}
+        if spec.name in {
+            "odd_even",
+            "secondary_eclipse",
+            "harmonic_test",
+            "contamination_screening",
+        }:
+            return {"candidate_artifact_path": self._candidate_artifact_path(state)}
         if spec.name != "search_bls":
             raise _HarnessAbort(
                 HarnessFailureKind.PRECONDITION_FAILED,
@@ -681,6 +1118,49 @@ class InvestigationController:
             "step_id": f"step_{state.step_count:04d}",
             "write_evidence": False,
         }
+
+    def _candidate_artifact_path(self, state: InvestigationState) -> Path:
+        artifact_ref: str | None = None
+        for record in reversed(self.artifacts.read_evidence(state)):
+            if record.tool_name != "search_bls" or record.tool_status != ToolStatus.SUCCESS:
+                continue
+            candidate_ref = record.result.diagnostics.get("masks_artifact_ref")
+            if isinstance(candidate_ref, str):
+                artifact_ref = candidate_ref
+                break
+        if artifact_ref is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "candidate-dependent vetting requires committed search_bls candidate evidence",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            )
+
+        relative = PurePosixPath(artifact_ref)
+        if (
+            relative.is_absolute()
+            or len(relative.parts) != 2
+            or relative.parts[0] != "artifacts"
+            or relative.suffix != ".json"
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "search_bls candidate artifact reference is outside the run artifact boundary",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=False,
+            )
+        run_dir = self.artifacts.run_dir(state.opaque_target_id, state.run_id).resolve()
+        artifact_root = (run_dir / "artifacts").resolve()
+        artifact_path = (run_dir / Path(*relative.parts)).resolve()
+        if not artifact_path.is_relative_to(artifact_root) or not artifact_path.is_file():
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "committed search_bls candidate artifact is unavailable",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            )
+        return artifact_path
 
     def _commit_result(
         self, state: InvestigationState, result: ScientificToolResult
@@ -821,11 +1301,21 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=True,
             )
-        interpretation = result.diagnostics.get("interpretation_code")
-        if interpretation in _DECISIVE_INTERPRETATIONS:
-            return self._finalize(state, f"DETERMINISTIC_EVIDENCE:{interpretation}")
         if missing_mandatory_tests(set(state.completed_tests)):
             return self._replace(state, status=InvestigationStatus.VETTING_MANDATORY)
+        codes = {
+            record.interpretation_code
+            for record in self.artifacts.read_evidence(state)
+            if record.interpretation_code
+        }
+        decisive = sorted(codes.intersection(_DECISIVE_INTERPRETATIONS))
+        if decisive:
+            return self._finalize(state, f"DETERMINISTIC_EVIDENCE:{decisive[0]}")
+        execution = next(
+            (item for item in state.tool_executions if item.action_id == result.action_id), None
+        )
+        if execution is not None and execution.adaptive:
+            return self._finalize(state, f"ADAPTIVE_EVIDENCE:{result.tool_name}")
         if (
             result.status in {ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
             and state.adaptive_experiments_used >= state.max_adaptive_experiments
@@ -857,10 +1347,9 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=False,
             )
-        elif "CLEAN_PLANET_LIKE" in codes or any(
-            item.adaptive and item.status == ToolExecutionStatus.COMPLETED
-            for item in state.tool_executions
-        ):
+        elif codes.intersection(_WEAK_PLANETARY_INTERPRETATIONS):
+            disposition = Disposition.PLANETARY_INTERPRETATION_WEAK
+        elif "CLEAN_PLANET_LIKE" in codes or state.candidate_signals:
             disposition = Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING
         else:
             return self._terminate(
@@ -876,6 +1365,7 @@ class InvestigationController:
             disposition=disposition,
             terminal_reason=reason,
         )
+        state = self._persist_terminal_inference_summary(state)
         self._emit(
             state,
             "status.changed",
@@ -919,6 +1409,7 @@ class InvestigationController:
             failures=[*state.failures, failure],
             tool_executions=executions,
         )
+        state = self._persist_terminal_inference_summary(state)
         if action_id is not None:
             self._emit(
                 state,
@@ -943,7 +1434,27 @@ class InvestigationController:
         )
         return state
 
-    def _recover_prepared_execution(self, state: InvestigationState) -> InvestigationState:
+    def _persist_terminal_inference_summary(self, state: InvestigationState) -> InvestigationState:
+        records = [
+            InferenceTraceRecord.model_validate(event.payload)
+            for event in self._events[state.run_id]
+            if event.type == "inference.attempt"
+        ]
+        summary = derive_inference_summary(records)
+        if summary != state.inference_summary:
+            state = self._replace(state, inference_summary=summary)
+        self.artifacts.write_inference_summary(state, summary)
+        self._emit(
+            state,
+            "inference.summary",
+            summary.model_dump(mode="json"),
+        )
+        _LOGGER.info(concise_inference_summary(summary))
+        return state
+
+    async def _recover_prepared_execution(
+        self, state: InvestigationState
+    ) -> InvestigationState:
         prepared = [
             item for item in state.tool_executions if item.status == ToolExecutionStatus.PREPARED
         ]
@@ -1002,7 +1513,8 @@ class InvestigationController:
                         validated_parameters=recovered_parameters,
                         validated_runtime_inputs=validated_runtime_inputs,
                     )
-                    result = spec.handler(
+                    result = await asyncio.to_thread(
+                        spec.handler,
                         state.run_id,
                         execution.action_id,
                         state.opaque_target_id,

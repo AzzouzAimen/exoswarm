@@ -373,3 +373,58 @@ async def test_cached_real_candidate_can_cross_the_controller_runtime_boundary(
     assert updated.tool_executions[-1].status == ToolExecutionStatus.COMPLETED
     assert len(controller.evidence(state.run_id)) == 1
     assert str(cached_path) not in json.dumps(updated.model_dump(mode="json"))
+
+
+@pytest.mark.asyncio
+async def test_cached_real_candidate_completes_the_production_mandatory_vetting_path(
+    tmp_path,
+) -> None:
+    repository_root = Path(__file__).parents[3]
+    case_path = repository_root / "evals/fixtures/cached_real_tess_case.json"
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    cached_path = repository_root / case["cached_path"]
+    if not cached_path.is_file():
+        pytest.skip("cached-real TESS acceptance artifact is unavailable")
+    resolver = MappingCandidateSourceResolver(
+        {
+            case["opaque_target_id"]: CachedCandidateSource(
+                cached_path=cached_path
+            )
+        }
+    )
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient({}),
+        scaffold_tool_registry(),
+        candidate_sources=resolver,
+    )
+    state = controller.create(case["opaque_target_id"])
+
+    for _ in range(state.max_steps + 1):
+        state = await controller.advance(state.run_id)
+        if state.status in {
+            InvestigationStatus.READY_TO_LOCK,
+            InvestigationStatus.INSUFFICIENT_EVIDENCE,
+            InvestigationStatus.FAILED,
+            InvestigationStatus.BUDGET_EXHAUSTED,
+        }:
+            break
+
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    assert state.completed_tests == [
+        "signal_quality",
+        "odd_even",
+        "secondary_eclipse",
+        "contamination",
+    ]
+    assert [record.tool_name for record in controller.evidence(state.run_id)] == [
+        "search_bls",
+        "odd_even",
+        "secondary_eclipse",
+        "contamination_screening",
+    ]
+    assert state.disposition == Disposition.PLANETARY_INTERPRETATION_REJECTED
+    persisted = json.dumps(state.model_dump(mode="json")) + "\n" + "\n".join(
+        event.model_dump_json() for event in controller.events(state.run_id)
+    )
+    assert str(cached_path) not in persisted

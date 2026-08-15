@@ -20,6 +20,9 @@ Returns only agent-safe, pre-reveal metadata, for example opaque IDs and data-av
 
 `POST /api/investigations`
 
+Requires a caller-generated `Idempotency-Key` header (1-128 characters). Reusing the same key and
+target returns the same run; reusing it for another target returns a conflict.
+
 Request:
 
 ```json
@@ -28,7 +31,15 @@ Request:
 }
 ```
 
-Response contains `run_id`, opaque target ID, initial status, lock state, and event-stream URL.
+Returns `202`. The response contains `run_id`, opaque target ID, initial status, lock state,
+event-stream URL, and the bounded runner execution snapshot.
+
+### Resume investigation
+
+`POST /api/investigations/{run_id}/resume`
+
+Resumes a durable non-terminal run under the same per-run lease and returns `202` with state and
+execution metadata. It never creates a second investigation.
 
 ### Read investigation
 
@@ -78,14 +89,13 @@ Every event should use one envelope:
 }
 ```
 
-Recommended scaffold event types:
+Implemented event types:
 
 - `investigation.created`
 - `status.changed`
 - `agent.started`
 - `agent.decision`
-- `inference.call.completed`
-- `inference.repair`
+- `inference.attempt`
 - `inference.fallback`
 - `inference.summary`
 - `critic.review`
@@ -95,11 +105,15 @@ Recommended scaffold event types:
 - `evidence.appended`
 - `hypothesis.updated`
 - `budget.updated`
+- `model.retry`
+- `recovery.completed`
 - `result.locked`
 - `catalog.revealed`
 - `run.failed`
 
-These event names are conventions, not scientific requirements.
+An `inference.attempt` payload is the sanitized typed trace record described in
+`docs/inference.md`; repairs are identified by `attempt_kind=repair` rather than a second event
+name.
 
 Inference events expose model identity, role, attempt kind, latency, usage when supplied, validation
 status, and fallback status. They must not expose prompt bodies, secrets, hidden reasoning, raw

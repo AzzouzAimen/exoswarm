@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from exoswarm.domain.events import InvestigationEvent
-from exoswarm.domain.models import EvidenceRecord, InvestigationState
+from exoswarm.domain.models import EvidenceRecord, InferenceSummary, InvestigationState
 from exoswarm.investigation.evidence import JsonlEvidenceLedger
 
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -43,6 +43,11 @@ class FileSystemRunArtifactStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(event.model_dump(mode="json"), sort_keys=True) + "\n")
+
+    def write_inference_summary(self, state: InvestigationState, summary: InferenceSummary) -> Path:
+        path = self.run_dir(state.opaque_target_id, state.run_id) / "inference_summary.json"
+        self._write_json_atomic(path, summary.model_dump(mode="json"))
+        return path
 
     def write_bytes(self, state: InvestigationState, name: str, content: bytes) -> Path:
         if name not in {"result.json", "result.json.sha256", "reveal.json"}:

@@ -12,7 +12,7 @@ The P0 provider/model plan is:
 | Field | Value |
 |---|---|
 | Provider | Featherless.ai via an OpenAI-compatible client |
-| Primary model | `DeepSeek-V4-Flash-0731` |
+| Primary model | `deepseek-ai/DeepSeek-V4-Flash-0731` |
 | Live roles | Skeptic and Critic |
 | Model-visible data | compact evidence packet with opaque identity and evidence references |
 | Raw light-curve samples sent to model | `0` |
@@ -20,11 +20,11 @@ The P0 provider/model plan is:
 
 ## Current implementation status
 
-The repository currently has an `InferenceClient` boundary, a deterministic
-`ScriptedInferenceClient`, strict decision schemas, bounded transient retry, and traceable decisions.
-The live Featherless adapter, repair call, provider token/latency capture, deterministic fallback,
-and run-level summary are not yet implemented. Until they exist, provider metrics are
-`not_measured`; do not publish estimates or illustrative numbers as results.
+The live OpenAI-compatible Featherless adapter is implemented for Skeptic and Critic. The
+controller performs strict schema and semantic validation, one repair attempt, bounded transient
+retries, and an optional explicitly injected fallback. Every attempt emits a sanitized
+`inference.attempt` record; terminal runs derive and persist `inference_summary.json`. A blank API
+key means unconfigured rather than attempting a broken client startup.
 
 ## Call policy
 
@@ -80,7 +80,9 @@ fallback_used: false
 ```
 
 Token fields may be null when the provider does not return usage. Null means `not_measured`, not
-zero. Do not store hidden chain-of-thought or secrets.
+zero. A total or latency statistic is reported only when every included attempt supplied that
+field; partial telemetry is not presented as a complete total. Do not store hidden chain-of-thought
+or secrets.
 
 ## Run summary contract
 
@@ -106,7 +108,8 @@ concise summary at run completion and expose the same data to the API/UI so the 
 
 ## Provider canary and acceptance
 
-Before enabling the provider in the judged path, run the real Skeptic schema repeatedly (target: 20
+Before enabling the provider in the judged path, run the credential-gated real canary repeatedly
+(target: 20
 calls if time/provider budget allows) against safe fixed contexts. Accept the integration when:
 
 - model identity and usage/latency metadata are captured where available,

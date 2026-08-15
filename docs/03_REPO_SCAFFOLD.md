@@ -166,14 +166,15 @@ Derived scaffold names:
 EXOSWARM_ENV=development
 EXOSWARM_MODEL=DeepSeek-V4-Flash-0731
 FEATHERLESS_API_KEY=
-FEATHERLESS_BASE_URL=
+FEATHERLESS_BASE_URL=https://api.featherless.ai/v1
 EXOSWARM_RUNS_DIR=./runs
 EXOSWARM_DATA_DIR=./data
 EXOSWARM_MAX_STEPS=12
 EXOSWARM_MAX_ADAPTIVE_EXPERIMENTS=4
 ```
 
-Do not put secrets or real credentials in the repository. The exact Featherless base URL is intentionally not hard-coded in this context pack.
+Do not put secrets or real credentials in the repository. The public OpenAI-compatible Featherless
+base URL may be committed; the API key must remain environment-only.
 
 ## Scaffold behavior
 

@@ -177,6 +177,68 @@ class HarnessFailureRecord(StrictModel):
     retry_count: int = Field(default=0, ge=0)
 
 
+class InferenceTraceRecord(StrictModel):
+    """Sanitized metadata for one provider or scripted inference attempt."""
+
+    call_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    step_id: str = Field(min_length=1)
+    role: Literal["skeptic", "critic"]
+    provider: str = Field(min_length=1)
+    model_identity: str = Field(min_length=1)
+    output_schema: str | None = Field(default=None, min_length=1)
+    attempt_kind: Literal["primary", "repair"]
+    context_version: str = Field(min_length=1)
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    latency_ms: int | None = Field(default=None, ge=0)
+    status: Literal["SUCCESS", "INVALID", "TIMEOUT", "PROVIDER_ERROR"]
+    schema_valid: bool
+    validation_error_code: str | None = Field(default=None, min_length=1, max_length=100)
+    fallback_used: bool = False
+    timeout: bool = False
+    provider_error_type: str | None = Field(default=None, min_length=1, max_length=100)
+    error_type: str | None = Field(default=None, min_length=1, max_length=100)
+    raw_light_curve_samples_sent: Literal[0] = 0
+    timestamp: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def status_fields_are_consistent(self) -> InferenceTraceRecord:
+        if self.status == "SUCCESS" and not self.schema_valid:
+            raise ValueError("successful inference attempt must be schema-valid")
+        if self.status != "SUCCESS" and self.schema_valid:
+            raise ValueError("non-successful inference attempt cannot be schema-valid")
+        if self.status == "TIMEOUT" and not self.timeout:
+            raise ValueError("timeout inference attempt must set timeout=true")
+        if self.status == "PROVIDER_ERROR" and self.provider_error_type is None:
+            raise ValueError("provider error attempt requires provider_error_type")
+        if self.status == "INVALID" and self.validation_error_code is None:
+            raise ValueError("invalid inference attempt requires validation_error_code")
+        return self
+
+
+class InferenceRate(StrictModel):
+    numerator: int = Field(default=0, ge=0)
+    denominator: int = Field(default=0, ge=0)
+    rate: float | Literal["not_applicable"] = "not_applicable"
+
+
+class InferenceSummary(StrictModel):
+    provider: str = "not_measured"
+    model_identity: str = "not_measured"
+    agent_calls: int = Field(default=0, ge=0)
+    input_tokens: int | Literal["not_measured"] = "not_measured"
+    output_tokens: int | Literal["not_measured"] = "not_measured"
+    median_input_tokens: float | Literal["not_measured"] = "not_measured"
+    max_input_tokens: int | Literal["not_measured"] = "not_measured"
+    median_latency_ms: float | Literal["not_measured"] = "not_measured"
+    first_attempt_schema_valid: InferenceRate = Field(default_factory=InferenceRate)
+    repairs: InferenceRate = Field(default_factory=InferenceRate)
+    fallbacks: InferenceRate = Field(default_factory=InferenceRate)
+    provider_errors_timeouts: int = Field(default=0, ge=0)
+    raw_light_curve_samples_sent: Literal[0] = 0
+
+
 class InvestigationState(StrictModel):
     run_id: str = Field(min_length=1)
     opaque_target_id: str = Field(min_length=1)
@@ -206,6 +268,7 @@ class InvestigationState(StrictModel):
     critic_decisions: list[CriticDecision] = Field(default_factory=list)
     tool_executions: list[ToolExecutionRecord] = Field(default_factory=list)
     failures: list[HarnessFailureRecord] = Field(default_factory=list)
+    inference_summary: InferenceSummary = Field(default_factory=InferenceSummary)
     terminal_reason: str | None = None
     context_version: str = "1"
     created_at: datetime = Field(default_factory=utc_now)

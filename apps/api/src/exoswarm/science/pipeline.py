@@ -141,6 +141,7 @@ def _source_diagnostics(observation: CachedTessLightCurve) -> dict[str, Any]:
         "source_size_bytes": observation.source_size_bytes,
         "fits_checksum": observation.fits_checksum,
         "fits_datasum": observation.fits_datasum,
+        "crowdsap": observation.crowdsap,
     }
 
 

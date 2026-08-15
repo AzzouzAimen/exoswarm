@@ -89,8 +89,8 @@ cached TESS data
   -> period/depth/duration/SNR
   -> odd/even test
   -> secondary-eclipse test
-  -> P/2-P-2P harmonic test
   -> basic contamination context
+  -> Skeptic/Critic-selected P/2-P-2P harmonic test when useful
 ```
 
 A real pixel/centroid diagnostic remains a high-value P1 differentiator. Attempt it after the
@@ -149,10 +149,7 @@ runs/
       inference_summary.json
       reveal.json             # only after lock + reveal
       artifacts/
-        raw_lightcurve.png
-        bls_periodogram.png
-        folded_lightcurve.png
-        centroid.png
+        <action-id>.candidate-search.json
 ```
 
 `make reproduce` must become the submission-grade cached/no-network reproduction path and verify the
@@ -161,19 +158,20 @@ does not yet reproduce the complete locked investigation.
 
 ## Project status and scope
 
-The deterministic vertical slice can filter, detrend, search, phase-fold, and measure a local cached
-TESS light-curve FITS product with provenance and Evidence Ledger output. The bounded investigation
-harness is operational with scripted inference, durable state/trace/ledger recovery, validated tool
-requests, and result-lock/catalog-gate boundaries. The default API still lacks its backend target
-source mapping, and the live Featherless adapter, remaining diagnostics, full two-target path,
-run-level inference summary, and real reveal provider remain unfinished.
+The default API now composes a versioned backend-only target mapping, bounded/resumable run service,
+the live Featherless adapter, strict primary/repair/fallback validation, per-attempt trace records,
+and a derived run-level inference summary. The production mandatory path runs cached TESS BLS,
+odd/even, secondary-eclipse, and contamination screening; harmonic analysis is an adaptive action.
+One cached-real opaque target is currently configured. A second contrasting target, a real
+pixel/centroid acceptance path, the mission-control integration, a live canary result, and the real
+catalog reveal provider remain unfinished.
 
 ## Scaffold quick start
 
 Requirements: Python 3.12 with `uv`, Node.js 24, and `pnpm` 11.
 
 ```bash
-uv sync --project apps/api --extra science
+uv sync --project apps/api --extra science --extra agents
 pnpm install --frozen-lockfile
 make test
 make lint

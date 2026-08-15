@@ -1,6 +1,5 @@
 import pytest
 
-from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.errors import (
     ActionValidationError,
     ToolPermissionError,
@@ -20,17 +19,15 @@ def test_unknown_tool_is_rejected() -> None:
         )
 
 
-def test_registered_science_stub_fails_explicitly_without_measurements() -> None:
-    result = scaffold_tool_registry().execute(
-        "odd_even",
-        run_id="run_1",
-        action_id="action_1",
-        target_id="TARGET-X17",
-        granted_scopes={"science:execute"},
-    )
-    assert result.status == ToolStatus.NOT_IMPLEMENTED
-    assert result.measurements == {}
-    assert result.provenance.source_data_ref == "unavailable:not-implemented"
+def test_vetting_tool_requires_backend_owned_runtime_input() -> None:
+    with pytest.raises(ActionValidationError, match="backend runtime inputs"):
+        scaffold_tool_registry().execute(
+            "odd_even",
+            run_id="run_1",
+            action_id="action_1",
+            target_id="TARGET-X17",
+            granted_scopes={"science:execute"},
+        )
 
 
 def test_registered_tool_requires_declared_scope() -> None:

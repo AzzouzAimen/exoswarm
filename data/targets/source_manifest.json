@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "targets": [
+    {
+      "opaque_target_id": "TARGET-X17",
+      "cached_lightcurve_path": "cached/lightcurves/TARGET-X17-sector-2-lc.fits",
+      "cached_tpf_path": null
+    }
+  ]
+}
