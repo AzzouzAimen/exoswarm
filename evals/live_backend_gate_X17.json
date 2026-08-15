@@ -1,0 +1,348 @@
+{
+  "adaptive_actions": [
+    "harmonic_test"
+  ],
+  "artifact_count": 7,
+  "artifact_paths": [
+    "agent_decisions.jsonl",
+    "artifacts/action_830ebdb7eb741bec.candidate-search.json",
+    "evidence.jsonl",
+    "inference_summary.json",
+    "result.json",
+    "result.json.sha256",
+    "trace.jsonl"
+  ],
+  "attempt_counts_by_role": {
+    "critic": 1,
+    "director": 2,
+    "observer": 1,
+    "signal": 1,
+    "skeptic": 1,
+    "transit_hunter": 1
+  },
+  "branch_mode": "adaptive_multi_agent",
+  "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+  "checks": {
+    "first_attempt_schema_valid_at_least_90_percent": true,
+    "no_provider_errors_or_timeouts": true,
+    "no_role_skipped": true,
+    "raw_samples_zero": true,
+    "required_role_phases_complete": true,
+    "reveal_hash_verified": true
+  },
+  "completed_tests": [
+    "signal_quality",
+    "odd_even",
+    "secondary_eclipse",
+    "contamination"
+  ],
+  "critic_verdicts": [
+    "APPROVE"
+  ],
+  "disposition": "PLANETARY_INTERPRETATION_WEAK",
+  "elapsed_seconds": 39.245,
+  "event_count": 71,
+  "event_types": [
+    "agent.completed",
+    "agent.decision",
+    "agent.handoff",
+    "agent.queued",
+    "agent.started",
+    "budget.updated",
+    "critic.review",
+    "director.route",
+    "evidence.appended",
+    "inference.attempt",
+    "inference.summary",
+    "investigation.created",
+    "status.changed",
+    "tool.completed",
+    "tool.started"
+  ],
+  "inference": {
+    "agent_calls": 7,
+    "fallbacks": {
+      "denominator": 7,
+      "numerator": 0,
+      "rate": 0.0
+    },
+    "first_attempt_schema_valid": {
+      "denominator": 7,
+      "numerator": 7,
+      "rate": 1.0
+    },
+    "input_tokens": 22747,
+    "max_input_tokens": 4554,
+    "median_input_tokens": 3908.0,
+    "median_latency_ms": 2841.0,
+    "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "output_tokens": 1435,
+    "provider": "featherless",
+    "provider_errors_timeouts": 0,
+    "raw_light_curve_samples_sent": 0,
+    "repairs": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": "not_applicable"
+    }
+  },
+  "inference_attempts": [
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "d2bff7175017de31d64de0d653eef4b50f50a7ae762907d2fcd2e81a7b1a43cb",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 3908,
+      "latency_ms": 3410,
+      "output_tokens": 201,
+      "prompt_template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+      "prompt_version": "signal-assessment-v2",
+      "role": "signal",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "fb5bed1e9de43c4025762531defbe1ccb7e6fac0b3d9385c7ee36f85e91ad435",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1952,
+      "latency_ms": 4929,
+      "output_tokens": 147,
+      "prompt_template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+      "prompt_version": "observer-assessment-v2",
+      "role": "observer",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "3be29087b4f242aa3b658396ac18620e7bba9bea3e55acde9f2ea6d3de024970",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4025,
+      "latency_ms": 2841,
+      "output_tokens": 211,
+      "prompt_template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+      "prompt_version": "transit-hunter-brief-v2",
+      "role": "transit_hunter",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "b545c05ef8044e1505b0c70cc66e724d87d48c884ea589e86055b1ba2384e80a",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1932,
+      "latency_ms": 2523,
+      "output_tokens": 191,
+      "prompt_template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+      "prompt_version": "director-ratification-v2",
+      "role": "director",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "685a093510422ff6a79d0667298d54195bd0007302ace9e711d0491088a8a15c",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4414,
+      "latency_ms": 4473,
+      "output_tokens": 346,
+      "prompt_template_sha256": "679befa054a84ef3b9143fc3c43e4fb3fc0c41e9d7d574572eb294b707e4a5a7",
+      "prompt_version": "skeptic-decision-v4",
+      "role": "skeptic",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "dc1fcd957aa1469930bc6c84a07b5c8a317475ece94e3a50539cf453460e6fdf",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4554,
+      "latency_ms": 2021,
+      "output_tokens": 122,
+      "prompt_template_sha256": "6845a050a788fae864554bfcba77426403b360a5b181c48d420e9766c47011e0",
+      "prompt_version": "critic-review-v4",
+      "role": "critic",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "e94f8d49d98900a9e0f05aa8951a72b2b7aed760d0611384356a45e2903bfc99",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1962,
+      "latency_ms": 2829,
+      "output_tokens": 217,
+      "prompt_template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+      "prompt_version": "director-ratification-v2",
+      "role": "director",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    }
+  ],
+  "locked_sha256": "6ccfae3bf5df3268c20c5aeb16afdff9b55018f5429982169cbfc36a4a6a647e",
+  "model_calls": 7,
+  "opaque_target_id": "TARGET-X17",
+  "proposed_adaptive_actions": [
+    "harmonic_test"
+  ],
+  "provenance": {
+    "configuration": {
+      "configured_max_output_tokens": 16000,
+      "context_schema_version": "agent-context-v3",
+      "effective_role_max_output_tokens": {
+        "critic": 700,
+        "director": 600,
+        "observer": 500,
+        "signal": 500,
+        "skeptic": 1200,
+        "transit_hunter": 500
+      },
+      "inference_model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "target_id": "TARGET-X17",
+      "timeout_seconds": 300.0
+    },
+    "configuration_sha256": "98729910021ae128eadeabf79571f791b7b9419fd4b9de1c34905ba0e087714a",
+    "evaluation_id": "live-backend-gate-v1",
+    "generated_at_utc": "2026-08-15T21:13:57.802955+00:00",
+    "git_commit": "01406ebbc92d2d82b3bd9ab059e6956783b8660a",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v4",
+      "skeptic": "skeptic-decision-v4"
+    },
+    "prompts": {
+      "critic": {
+        "example_set_version": "critic-examples-v1",
+        "template_sha256": "6845a050a788fae864554bfcba77426403b360a5b181c48d420e9766c47011e0",
+        "version": "critic-review-v4"
+      },
+      "director": {
+        "example_set_version": "director-examples-v1",
+        "template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+        "version": "director-ratification-v2"
+      },
+      "observer": {
+        "example_set_version": "observer-examples-v1",
+        "template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+        "version": "observer-assessment-v2"
+      },
+      "signal": {
+        "example_set_version": "signal-examples-v1",
+        "template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+        "version": "signal-assessment-v2"
+      },
+      "skeptic": {
+        "example_set_version": "skeptic-examples-v1",
+        "template_sha256": "679befa054a84ef3b9143fc3c43e4fb3fc0c41e9d7d574572eb294b707e4a5a7",
+        "version": "skeptic-decision-v4"
+      },
+      "transit_hunter": {
+        "example_set_version": "transit-hunter-examples-v1",
+        "template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+        "version": "transit-hunter-brief-v2"
+      }
+    }
+  },
+  "required_role_phases": [
+    "critic:review",
+    "director:briefing",
+    "director:final",
+    "observer:briefing",
+    "signal:briefing",
+    "skeptic:decision",
+    "transit_hunter:briefing"
+  ],
+  "reveal_hash_verified": true,
+  "role_checkpoints": [
+    {
+      "context_version": "5",
+      "decision_id": "TARGET-X17",
+      "phase": "briefing",
+      "role": "observer",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "signal_assessment_run_8c67c668feb30f45_step_0005",
+      "phase": "briefing",
+      "role": "signal",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "decision_8c67c668feb30f45_step_0005",
+      "phase": "briefing",
+      "role": "transit_hunter",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "decision_8c67c668feb30f45_step_0005",
+      "phase": "briefing",
+      "role": "director",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "decision_5",
+      "phase": "decision",
+      "role": "skeptic",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "decision_5",
+      "phase": "review",
+      "role": "critic",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "6",
+      "decision_id": "decision_8c67c668feb30f45_step_0005",
+      "phase": "final",
+      "role": "director",
+      "status": "COMPLETE"
+    }
+  ],
+  "run_status_before_lock": "READY_TO_LOCK",
+  "schema_version": "1",
+  "skipped_roles": [],
+  "status": "PASS",
+  "terminal_reason": "NO_AVAILABLE_ADAPTIVE_ACTION",
+  "tool_calls": 5
+}

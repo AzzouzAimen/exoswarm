@@ -1,0 +1,90 @@
+{
+  "acquisition": {
+    "acquired_at_utc": "2026-08-15T18:16:21.170279+00:00",
+    "method": "MAST official direct product URL; no API key",
+    "redistribution_notes": "Unmodified public NASA/STScI TESS SPOC product. Retain MAST/TESS attribution and the official product URI.",
+    "reproduction_command": "uv run --project apps/api --extra science python scripts/acquire_cached_tess.py --source-url 'https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018234235059-s0002-0000000402026209-0121-s_lc.fits' --mast-product-uri mast:TESS/product/tess2018234235059-s0002-0000000402026209-0121-s_lc.fits --mast-observation-id tess2018234235059-s0002-0000000402026209-0121-s --official-product-filename tess2018234235059-s0002-0000000402026209-0121-s_lc.fits --output data/cached/lightcurves/TARGET-C11-sector-2-lc.fits --provenance-output data/ground_truth/TARGET-C11-acquisition.json --opaque-target-id TARGET-C11 --real-target-name 'WASP-4 b' --tic-id 402026209 --sector 2 --cadence-seconds 120 --expected-period-days 1.338230994 --expected-duration-hours 2.16648 --expected-depth-percent 2.312 --expected-values-source-url https://exoplanetarchive.ipac.caltech.edu/overview/WASP-4%20b --expected-values-source-description 'NASA Exoplanet Archive Planetary Systems Composite Parameters'"
+  },
+  "cache": {
+    "cadence_seconds": 120.0,
+    "fits_checksums": [
+      {
+        "checksum": "2aaA3SW42Ya92YW9",
+        "checksum_valid": true,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 0
+      },
+      {
+        "checksum": "5obF8nbC5nbC5nbC",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 1
+      },
+      {
+        "checksum": "kDAHmD49kDAGkD39",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 2
+      }
+    ],
+    "integrity_warnings": [
+      "HDU 1 preserves an embedded CHECKSUM that Astropy does not validate",
+      "HDU 2 preserves an embedded CHECKSUM that Astropy does not validate"
+    ],
+    "path": "data/cached/lightcurves/TARGET-C11-sector-2-lc.fits",
+    "release_metadata": {
+      "CREATOR": "26890 LightCurveExporterPipelineModule",
+      "DATA_REL": 42,
+      "DATE": "2020-09-18",
+      "FILEVER": "1.0",
+      "INSTRUME": "TESS Photometer",
+      "ORIGIN": "NASA/Ames",
+      "PROCVER": "spoc-5.0.11-20200915",
+      "TELESCOP": "TESS",
+      "TIMVERSN": "OGIP/93-003"
+    },
+    "required_columns": [
+      "PDCSAP_FLUX",
+      "PDCSAP_FLUX_ERR",
+      "QUALITY",
+      "TIME"
+    ],
+    "sector": 2,
+    "sha256": "5fa487ee43dba32c196901277234570f781e3d6ff82b8b1cab777617e3f6a783",
+    "size_bytes": 2004480,
+    "time_convention": "BTJD = BJD(TDB) - 2457000.0",
+    "time_system": "TDB"
+  },
+  "expected_values": {
+    "depth_percent": 2.312,
+    "duration_hours": 2.16648,
+    "period_days": 1.338230994,
+    "recorded_before_pipeline_evaluation": true,
+    "source_description": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+    "source_url": "https://exoplanetarchive.ipac.caltech.edu/overview/WASP-4%20b"
+  },
+  "forbidden_agent_visible_values": [
+    "WASP-4 b",
+    "TIC 402026209",
+    "402026209",
+    "tess2018234235059-s0002-0000000402026209-0121-s_lc.fits",
+    "confirmed planet"
+  ],
+  "mast": {
+    "observation_id": "tess2018234235059-s0002-0000000402026209-0121-s",
+    "official_product_filename": "tess2018234235059-s0002-0000000402026209-0121-s_lc.fits",
+    "product_type": "SPOC calibrated light curve (LC), science, level 3",
+    "product_uri": "mast:TESS/product/tess2018234235059-s0002-0000000402026209-0121-s_lc.fits",
+    "public_data": true,
+    "source_url": "https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018234235059-s0002-0000000402026209-0121-s_lc.fits"
+  },
+  "opaque_target_id": "TARGET-C11",
+  "real_target_identity": {
+    "target_name": "WASP-4 b",
+    "tic_id": "402026209"
+  },
+  "schema_version": "1"
+}

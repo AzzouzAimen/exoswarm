@@ -8,6 +8,7 @@ from pathlib import Path
 
 from exoswarm.domain.events import InvestigationEvent
 from exoswarm.domain.models import (
+    AgentDecisionRecord,
     ArtifactMetadata,
     EvidenceRecord,
     InferenceSummary,
@@ -19,6 +20,7 @@ SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_-]+$")
 _PUBLIC_ROOT_ARTIFACTS = frozenset(
     {
         "evidence.jsonl",
+        "agent_decisions.jsonl",
         "inference_summary.json",
         "result.json",
         "result.json.sha256",
@@ -114,6 +116,32 @@ class FileSystemRunArtifactStore:
             return []
         return [
             EvidenceRecord.model_validate_json(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+
+    def append_agent_decision(
+        self, state: InvestigationState, record: AgentDecisionRecord
+    ) -> None:
+        path = self.run_dir(state.opaque_target_id, state.run_id) / "agent_decisions.jsonl"
+        existing = self.read_agent_decisions(state)
+        if any(item.record_id == record.record_id for item in existing):
+            raise ValueError(f"agent decision record already exists: {record.record_id}")
+        if any(
+            (item.role, item.phase, item.context_version)
+            == (record.role, record.phase, record.context_version)
+            for item in existing
+        ):
+            raise ValueError("agent role checkpoint already has an append-only decision record")
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record.model_dump(mode="json"), sort_keys=True) + "\n")
+
+    def read_agent_decisions(self, state: InvestigationState) -> list[AgentDecisionRecord]:
+        path = self.run_dir(state.opaque_target_id, state.run_id) / "agent_decisions.jsonl"
+        if not path.exists():
+            return []
+        return [
+            AgentDecisionRecord.model_validate_json(line)
             for line in path.read_text(encoding="utf-8").splitlines()
             if line
         ]

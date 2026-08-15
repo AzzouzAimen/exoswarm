@@ -92,8 +92,9 @@ calling a reveal provider.
 ## Human approval points
 
 No current endpoint deploys, merges, deletes artifacts, or reveals catalog truth without a result
-lock. Supplying `FEATHERLESS_API_KEY` enables model-provider contact for Skeptic/Critic only. The
-real provider canary is credential-gated and never runs as part of ordinary offline tests.
+lock. Supplying `FEATHERLESS_API_KEY` enables model-provider contact for the six bounded roles. The
+real provider canary and exact-model thinking preflight are credential-gated and never run as part
+of ordinary offline tests.
 
 The file-backed run service is deployed as one API process per runs directory. Controller-local
 single-writer guards do not coordinate multiple Uvicorn workers; horizontal instances therefore
@@ -101,11 +102,13 @@ need isolated run directories until a shared coordination layer is deliberately 
 
 ## Final-stretch delta
 
-The submission backend path is implemented and verified by the credential-gated 20-decision
-canary, a live agent-involving FastAPI/SSE gate, the three-target cached regression, and the locked
-24-scenario harness suite. The deterministic controller remains the Scientific Director authority.
-The remaining product work is mission-control UI integration and the separately gated pixel/centroid
-P1 path.
+The submission backend path is implemented and verified by the credential-gated multi-state
+canary, live six-role FastAPI/SSE gates, the locked five-case cached-real TESS evaluator,
+and the locked 24-scenario harness suite. The retained live reports cover adaptive, weak, and
+decisive-baseline branches with exact-model thinking tested and Director-only thinking promoted.
+The deterministic controller remains
+the route and scientific-disposition authority while the model Director only ratifies its binding
+values.
 
 Adaptive limits enforce both an experiment-count ceiling and deterministic cost units. Registry
 specifications own action prices; durable state records configured, used, and remaining cost units;
@@ -118,9 +121,11 @@ non-decisive adaptive result can start another bounded decision cycle with rebui
 Adaptive `PRECONDITION_FAILED` evidence is retained and replanned with only sanitized registered
 alternatives. Unimplemented or target-unsupported actions are omitted before inference.
 
-Agent context schema `agent-context-v3` exposes only the action choices valid for the current
-durable state. The full registry, including unavailable and previously executed actions, remains a
-deterministic audit/enforcement concern and is not presented as a model affordance.
+Agent context schema `agent-context-v4` exposes only the action choices valid for the current
+durable state. It may reconstruct the current validated Transit Hunter and Director briefing for
+the Skeptic when advisory promotion is enabled; the independent Critic receives neither. The full
+registry, including unavailable and previously executed actions, remains a deterministic
+audit/enforcement concern and is not presented as a model affordance.
 
 Skeptic and Critic decisions are also bound to the packet context version as well as run and step
 identifiers. Controller-local advances are single-writer, provider calls have enforced deadlines,
@@ -129,10 +134,7 @@ to per-action staging and publish artifacts only after an on-time, validated res
 cancelled work is terminated and its staging is discarded. Stale responses cannot prepare or
 execute an action.
 
-Do not expand this milestone into more model roles. An Observer or Signal role is a valid P1
-addition only when a test shows that its bounded decision changes the scientific trajectory.
-Multi-model routing, fixed-policy ablation, and `pass^3` remain out of scope.
-
-The `observer.py`, `signal.py`, and `transit_hunter.py` modules are reserved role-name markers, not
-unfinished runtime nodes. They intentionally export no adapter until that evidence and test exist;
-the sole production topology remains Director routing plus Skeptic/Critic judgment.
+Observer, Signal, Transit Hunter, briefing/final Director, Skeptic, and Critic are now live bounded
+roles. Observer and Signal run concurrently; all accepted decisions are append-only and
+checkpointed by role/phase/context so resume does not duplicate calls. Multi-model routing,
+fixed-policy ablation, and `pass^3` remain out of scope.

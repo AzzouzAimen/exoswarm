@@ -298,6 +298,8 @@ def _skeptic(action: str, *, stale: bool = False):
             cost_of_selected_experiment=packet.adaptive_experiment_costs[action],
             why_cost_is_justified="The action targets the unresolved alternative.",
             concise_reason="The locked scenario selects one bounded experiment.",
+            supporting_evidence_refs=[packet.evidence_refs[-1]],
+            contradicting_evidence_refs=[],
         )
 
     return decide
@@ -326,6 +328,8 @@ def _critic(verdict: str, revised_action: str | None = None):
             concise_reason="The locked Critic fixture checks the bounded proposal.",
             revised_experiment=revised_action,
             revised_parameters=revised_parameters,
+            supporting_evidence_refs=[packet.evidence_refs[-1]],
+            contradicting_evidence_refs=[],
         )
 
     return decide

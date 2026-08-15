@@ -12,19 +12,51 @@
   "passed_count": 24,
   "provenance": {
     "configuration": {
-      "context_schema_version": "agent-context-v3",
+      "context_schema_version": "agent-context-v4",
       "inference_mode": "scripted",
       "scenario_count": 24,
       "scenario_schema_version": "1"
     },
-    "configuration_sha256": "7df950098a0bfab48da75f2138744f38f75e3e0258a0b8ca227dbe94058e835b",
+    "configuration_sha256": "f3a3ad6b6385dbd7d82cee970fc7bf8e56e5fc106ba131c36083d29ab07f8bfa",
     "evaluation_id": "exoswarm-harness-adversarial-v1",
-    "generated_at_utc": "2026-08-15T17:46:19.129357+00:00",
-    "git_commit": "28b4936bc3063ee524f2228ac572a90f9605d391",
+    "generated_at_utc": "2026-08-15T22:32:43.450236+00:00",
+    "git_commit": "01406ebbc92d2d82b3bd9ab059e6956783b8660a",
     "git_worktree_dirty": true,
     "prompt_versions": {
-      "critic": "critic-review-v3",
-      "skeptic": "skeptic-decision-v3"
+      "critic": "critic-review-v5",
+      "skeptic": "skeptic-decision-v6"
+    },
+    "prompts": {
+      "critic": {
+        "example_set_version": "critic-examples-v1",
+        "template_sha256": "0bf529152db51ded48d028053b509a089133e6f0702c90fe83496711398864ff",
+        "version": "critic-review-v5"
+      },
+      "director": {
+        "example_set_version": "director-examples-v1",
+        "template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+        "version": "director-ratification-v2"
+      },
+      "observer": {
+        "example_set_version": "observer-examples-v1",
+        "template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+        "version": "observer-assessment-v2"
+      },
+      "signal": {
+        "example_set_version": "signal-examples-v1",
+        "template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+        "version": "signal-assessment-v2"
+      },
+      "skeptic": {
+        "example_set_version": "skeptic-examples-v1",
+        "template_sha256": "612bf86aef04f7433d040cd532e433b4f4426528305aae7e16750039ed30787a",
+        "version": "skeptic-decision-v6"
+      },
+      "transit_hunter": {
+        "example_set_version": "transit-hunter-examples-v1",
+        "template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+        "version": "transit-hunter-brief-v2"
+      }
     }
   },
   "scenario_count": 24,
@@ -49,11 +81,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5558,
+        "context_bytes_max": 5682,
         "context_count": 2,
         "context_fingerprints": [
-          "3d72149ecaa8e121e16dd888883671cc231eb5f71ff97854d5e96ce240364d86",
-          "34b14ca9310131c0788bbec83483e83e09a56765b3214d3c5b9f1e048e744349"
+          "80d1caecef7f6d9b4532825390d95606f31156c5ae7d838d6d4c3669395db5f0",
+          "4af0e1b39e2e88543f4607bfd8d6962603b1fccc7e42b3bb6ee985de8ea5124a"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -86,7 +118,7 @@
         "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 20,
+        "trace_events": 40,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -116,11 +148,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5602,
+        "context_bytes_max": 5726,
         "context_count": 2,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "6c2f521f994cc65c9d2006252a2f624d3f2ce09d4ad6b458494c4b4073c70ea4"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -155,7 +187,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 23,
+        "trace_events": 44,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -185,11 +217,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5566,
+        "context_bytes_max": 5690,
         "context_count": 2,
         "context_fingerprints": [
-          "c2240b6a7eb4fe7ea58da215cb49b46a94d072e7a45a656aca6b6fc4d75fa129",
-          "4b679b32b8726296eb75307b5faea32c129d37a0ced44ac1f8f87a6003fc00b9"
+          "f39f5095be09113f8dd9388c02005287e4edc48631739e4c71e63444a4159992",
+          "1f6dc6b5d5150cd929310b4c45c72cda6fb25a75cf892ddea5a9dccf8656578a"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -226,7 +258,7 @@
         "tool_invocations": {
           "alternate_detrend": 1
         },
-        "trace_events": 23,
+        "trace_events": 44,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -256,11 +288,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5601,
+        "context_bytes_max": 5725,
         "context_count": 2,
         "context_fingerprints": [
-          "d516ee2f20176475f1ac0519885ec07a08698b50b1509d4a0a3b02a7301a744f",
-          "6b8b61d2409322c49ce35ec4c6134f909ffa82261678e32cef3c74be8a9cf72e"
+          "cdb8d93bd30721067d858631a43efc1e33219b9cca2bf3292e71d09c4dedc9e3",
+          "e620db9f3c8ea14163844dd448705b48097408c4712c545ba6a0078ffa48c2fe"
         ],
         "critic_revisions": 1,
         "critic_verdicts": [
@@ -295,7 +327,7 @@
         "tool_invocations": {
           "centroid_localization": 1
         },
-        "trace_events": 23,
+        "trace_events": 44,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -322,11 +354,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5563,
+        "context_bytes_max": 5687,
         "context_count": 2,
         "context_fingerprints": [
-          "3d72149ecaa8e121e16dd888883671cc231eb5f71ff97854d5e96ce240364d86",
-          "a2c01137b98995bfa304c752fa3e032d595325b8a38b79d1b7ec49ce6e9159a0"
+          "80d1caecef7f6d9b4532825390d95606f31156c5ae7d838d6d4c3669395db5f0",
+          "92bb1f5c3bd574448b814d67ca670ca78e1aac10bfee56120cc17102969dce2a"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -359,7 +391,7 @@
         "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 20,
+        "trace_events": 40,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -391,12 +423,12 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5602,
+        "context_bytes_max": 5726,
         "context_count": 3,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "e1f3b72983f5db7bd831c8ba63a81a8d223b6f1df85693462e0f96ac75af746a"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "c5ed8021c3828c28bb43edde833412524fc3fada83f2f01164cb53fe39012314"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -431,7 +463,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 25,
+        "trace_events": 46,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -458,11 +490,11 @@
           "INVALID",
           "INVALID"
         ],
-        "context_bytes_max": 4903,
+        "context_bytes_max": 4933,
         "context_count": 2,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -493,7 +525,7 @@
         "terminal_reason": "INVALID_MODEL_OUTPUT:skeptic returned invalid structured output",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 17,
+        "trace_events": 29,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -525,12 +557,12 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5602,
+        "context_bytes_max": 5726,
         "context_count": 3,
         "context_fingerprints": [
-          "b883f031bc8bf73a7da574037cc711e70d33600a688a2d04e2b3d4f4ed6d0eb2",
-          "d5b6022970978670ffa51b68147366855eb7c73519f2ac2a3e9dd688a19a6302",
-          "b883f031bc8bf73a7da574037cc711e70d33600a688a2d04e2b3d4f4ed6d0eb2"
+          "40d092f189e65efb507d783589c22424f62e6a5a2f2a86bfe17caa3fd4709e45",
+          "889680592a51f193ccc560a41dede98085a0623e17d4ce9f22f2c9668ace8c60",
+          "40d092f189e65efb507d783589c22424f62e6a5a2f2a86bfe17caa3fd4709e45"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -567,7 +599,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 26,
+        "trace_events": 47,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -594,11 +626,11 @@
           "INVALID",
           "INVALID"
         ],
-        "context_bytes_max": 4903,
+        "context_bytes_max": 4933,
         "context_count": 2,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -622,14 +654,14 @@
         "recent_evidence_max": 4,
         "recovery_events": 0,
         "repeated_tool_calls": 0,
-        "runner_stop_reason": "INVALID_MODEL_OUTPUT:Skeptic step identifier is stale or mismatched",
+        "runner_stop_reason": "INVALID_MODEL_OUTPUT:skeptic role, run, step, or context binding is stale or mismatched",
         "selected_tools": [],
         "status": "FAILED",
         "step_count": 1,
-        "terminal_reason": "INVALID_MODEL_OUTPUT:Skeptic step identifier is stale or mismatched",
+        "terminal_reason": "INVALID_MODEL_OUTPUT:skeptic role, run, step, or context binding is stale or mismatched",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 17,
+        "trace_events": 29,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -680,7 +712,7 @@
         "terminal_reason": "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 13,
+        "trace_events": 16,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -708,11 +740,11 @@
           "INVALID",
           "INVALID"
         ],
-        "context_bytes_max": 5234,
+        "context_bytes_max": 5264,
         "context_count": 2,
         "context_fingerprints": [
-          "7968c7d6ce4daddc927e5db62b6218cee912fd6755909852763bf31ce736e960",
-          "7968c7d6ce4daddc927e5db62b6218cee912fd6755909852763bf31ce736e960"
+          "79756717e697071d4a9f791ca4aab857022e83f57b4e430ac9c6e927517651b7",
+          "79756717e697071d4a9f791ca4aab857022e83f57b4e430ac9c6e927517651b7"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -743,7 +775,7 @@
         "terminal_reason": "REPEATED_ACTION:identical action has already been accepted: harmonic_test",
         "tool_calls": 5,
         "tool_invocations": {},
-        "trace_events": 19,
+        "trace_events": 31,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -773,11 +805,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5602,
+        "context_bytes_max": 5726,
         "context_count": 2,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "6c2f521f994cc65c9d2006252a2f624d3f2ce09d4ad6b458494c4b4073c70ea4"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -814,7 +846,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 22,
+        "trace_events": 39,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -844,11 +876,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 5602,
+        "context_bytes_max": 5726,
         "context_count": 2,
         "context_fingerprints": [
-          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
-          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
+          "2dc659f95533178fd1dd017298c47cb85e7e11e7ecfc9983abb6636f9fbafaff",
+          "6c2f521f994cc65c9d2006252a2f624d3f2ce09d4ad6b458494c4b4073c70ea4"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -885,7 +917,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 22,
+        "trace_events": 39,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -939,7 +971,7 @@
         "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
         "tool_calls": 5,
         "tool_invocations": {},
-        "trace_events": 13,
+        "trace_events": 17,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -977,11 +1009,11 @@
           "SUCCESS",
           "SUCCESS"
         ],
-        "context_bytes_max": 6302,
+        "context_bytes_max": 6426,
         "context_count": 2,
         "context_fingerprints": [
-          "51c5e6cd49c1e02597da0b362f04b7f8100bf5f2909762c9215e119e2118b8ae",
-          "583b02521ebf58e23125b8e9e924b9fe742eb44a722a409720492aada92d880b"
+          "9bf607636a2684a8235d6f8f0b5189f7e76f38ebcbc6ce5ad1fc37a18cf3b498",
+          "f0bfea8311f69b555fb15079e119b96ff1489feaf897ebfff2cffa123ea2dc26"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -1018,7 +1050,7 @@
         "tool_invocations": {
           "harmonic_test": 1
         },
-        "trace_events": 39,
+        "trace_events": 60,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1173,7 +1205,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:model-call budget reached before inference",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 13,
+        "trace_events": 25,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1198,10 +1230,10 @@
         "attempt_statuses": [
           "INVALID"
         ],
-        "context_bytes_max": 4903,
+        "context_bytes_max": 4933,
         "context_count": 1,
         "context_fingerprints": [
-          "8d7601da4ee15e53e7e0491c9c8a8bb5d41d122599f064aa1d4e4534a1e5658b"
+          "35a2eb4509a330d7a7d793a3cbbf342b9be7b665634b43e5e0b390866260620e"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -1232,7 +1264,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:tool-call budget reached before inferred action",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 15,
+        "trace_events": 27,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1283,7 +1315,7 @@
         "terminal_reason": "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 13,
+        "trace_events": 16,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1334,7 +1366,7 @@
         "terminal_reason": "ADAPTIVE_COST_BUDGET_EXHAUSTED",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 13,
+        "trace_events": 16,
         "unnecessary_tool_calls": 0
       },
       "failures": [],
@@ -1361,11 +1393,11 @@
           "SUCCESS",
           "INVALID"
         ],
-        "context_bytes_max": 5601,
+        "context_bytes_max": 5725,
         "context_count": 2,
         "context_fingerprints": [
-          "df11cd3ab0d2befd5f6e1216c4052daff29a3b4decef9e73c0828e1750644c3f",
-          "db6f25d010bfa9c6155b0ef78908da5ff38c1e4b5de67904579660aff4e8dd34"
+          "cc51fece96542c1e044e6ad3b0b0ad52de3feb58dde036019f19357f0a28eae1",
+          "c7a3d2fd87db677a80cf23bafd7775c45c40cfcb7d03add159a61fd9e8c0d1ab"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -1398,7 +1430,7 @@
         "terminal_reason": "BUDGET_EXHAUSTED:Critic revision budget reached",
         "tool_calls": 4,
         "tool_invocations": {},
-        "trace_events": 18,
+        "trace_events": 32,
         "unnecessary_tool_calls": 0
       },
       "failures": [],

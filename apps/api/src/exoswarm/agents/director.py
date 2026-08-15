@@ -1,23 +1,24 @@
-"""Deterministic routing adapter for the investigation LangGraph.
-
-The Scientific Director does not call a model and does not decide scientific
-policy.  The controller supplies a compact durable-state view plus the next
-guarded policy action; this module translates that information into a graph
-route.
-"""
+"""Deterministic route oracle plus a result-safe Director prompt adapter."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
 
+from pydantic import BaseModel
+
+from exoswarm.agents.role_context import DirectorContext
 from exoswarm.domain.enums import CriticVerdict, InvestigationStatus
+
+DIRECTOR_PROMPT_VERSION = "director-ratification-v1"
 
 
 class DirectorRoute(StrEnum):
     RECOVER_PREPARED = "RECOVER_PREPARED"
     RUN_MANDATORY = "RUN_MANDATORY"
     CALL_SKEPTIC = "CALL_SKEPTIC"
+    RUN_SPECIALIST_BRIEFING = "RUN_SPECIALIST_BRIEFING"
+    CALL_DIRECTOR_BRIEFING = "CALL_DIRECTOR_BRIEFING"
     RESUME_CRITIC = "RESUME_CRITIC"
     EXECUTE_APPROVED_ACTION = "EXECUTE_APPROVED_ACTION"
     EVALUATE_RESULT = "EVALUATE_RESULT"
@@ -75,9 +76,26 @@ def determine_director_route(view: DirectorStateView) -> DirectorRoute:
     return DirectorRoute(view.fresh_cycle_route)
 
 
+def build_director_messages(
+    *, context: DirectorContext, output_schema: type[BaseModel], repair_feedback=None
+) -> list[dict[str, str]]:
+    """Render a Director request; the deterministic route remains binding."""
+
+    from exoswarm.agents.prompt_registry import render_role_prompt
+
+    return render_role_prompt(
+        role="director",
+        context=context,
+        output_schema=output_schema,
+        repair_feedback=repair_feedback,
+    ).messages
+
+
 __all__ = [
     "DirectorRoute",
     "DirectorStateView",
+    "DIRECTOR_PROMPT_VERSION",
     "FreshCycleRoute",
+    "build_director_messages",
     "determine_director_route",
 ]

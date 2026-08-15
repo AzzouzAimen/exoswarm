@@ -56,6 +56,8 @@ def _stop_after_mandatory(
         cost_of_selected_experiment=0,
         why_cost_is_justified="Stopping consumes zero deterministic experiment units.",
         concise_reason="The reproduction policy stops after the mandatory evidence gate.",
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 
@@ -73,6 +75,8 @@ def _approve_stop(context: BaseModel, _schema: type[BaseModel]) -> CriticDecisio
         verdict=CriticVerdict.APPROVE,
         reason_code="REPRODUCTION_STOP_APPROVED",
         concise_reason="The zero-cost stop preserves the bounded reproduction contract.",
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 

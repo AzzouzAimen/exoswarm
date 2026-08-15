@@ -26,6 +26,7 @@ The runtime is a state machine around the model. Important truth lives in `Inves
 - experiment budget units remaining
 - per-experiment cost for available adaptive actions
 - inference/cost budget if tracked
+- minimal role checkpoints keyed by role, phase, and context version
 - lock state
 - terminal reason
 - provenance/context version
@@ -42,6 +43,7 @@ Recommended explicit states:
 - `WAITING_FOR_CRITIC`
 - `RUNNING_TOOL`
 - `UPDATING_EVIDENCE`
+- `FINALIZING`
 - `READY_TO_LOCK`
 - `RESULT_LOCKED`
 - `REVEALED`
@@ -56,31 +58,48 @@ The exact names are a scaffold convention, but every terminal state must include
 
 ### Scientific Director / investigation controller
 
-"Scientific Director" is the deterministic routing adapter used by the investigation LangGraph,
-not a distinct P0 inference role. LangGraph is the only investigation topology: it sequences
-mandatory actions, Skeptic selection, Critic review, adaptive execution, result evaluation, and
-terminal nodes. The controller remains the guarded public facade that authorizes actions, enforces
-mandatory diagnostics and budgets, persists decisions/results, and owns terminal mutations. The
-run service owns process lifecycle, leases, and wall-clock timeout.
+The deterministic Director route is the routing adapter used by the investigation LangGraph and
+remains authoritative. A bounded model Director now receives a narrower packet and must echo the
+authorized route during briefing and the deterministic disposition during finalization. Any
+mismatch is invalid output. The controller remains the guarded public facade that authorizes
+actions, enforces mandatory diagnostics and budgets, persists decisions/results, and owns terminal
+mutations. The run service owns process lifecycle, leases, and wall-clock timeout.
+
+`FINALIZING` durably records the pending deterministic stopping reason before an optional final
+Director call. The controller writes `READY_TO_LOCK` only after that call completes or is safely
+skipped, so API polling cannot mistake an in-flight finalization for a finished run. Reloading a
+`FINALIZING` state resumes the finalization route.
 
 LangGraph state is a disposable routing envelope keyed by `run_id`; it is never a second durable
 copy of `InvestigationState`. Nodes reload authoritative artifacts before acting and persist every
 decision or side effect before returning. ExoSwarm's `state.json`, JSONL trace/evidence records, and
 prepared executions remain the restart mechanism, so the graph is compiled without a checkpointer.
-Each effective nonterminal Director branch is persisted as a concise `director.route` trace event;
-the event records the typed route, its routing source, and the durable status used at that boundary.
+Each effective nonterminal deterministic route is persisted as `director.route`. Model role
+outputs are appended to `agent_decisions.jsonl`; durable state keeps only compact checkpoints.
+Reload reconstructs missing checkpoints from the append-only records before scheduling calls, so a
+completed or safely skipped role is not called twice for the same phase/context.
 
 ### Observer Agent
 
-Receives compact observation/data-quality diagnostics. It may classify issues or select from allowed preparation choices. It never receives raw FITS arrays in prompt context.
+Receives compact observation/data-quality diagnostics and returns bounded quality flags,
+limitations, citations, and questions for later roles. It is advisory and never receives raw FITS
+arrays or action authority.
 
 ### Signal Agent
 
-Chooses among a small allowed set of preprocessing strategies when the data state justifies a choice. Deterministic Python performs the transformation and records the parameters.
+Interprets deterministic candidate-pattern evidence using a fixed hypothesis and ambiguity
+vocabulary. It cannot choose preprocessing execution or calculate measurements.
 
 ### Transit Hunter
 
-Requests deterministic candidate-search and candidate-measurement tools. It consumes structured candidate results; it does not estimate measurements by visual inspection.
+Consumes the deterministic candidate plus mandatory evidence and returns a viability code, one
+vetting question, citations, and ranked names from the currently allowed action set. Ranking is
+advisory; it neither requests execution nor estimates measurements by visual inspection.
+
+When `specialist_advisory_enabled` is true, the Skeptic receives only the current, validated
+Transit Hunter brief plus the Director briefing focus. The Critic remains isolated from those
+briefs and sees deterministic evidence plus the exact Skeptic proposal only. This makes the
+handoff useful without turning specialist consensus into authority.
 
 ### Skeptic Agent
 
@@ -140,6 +159,18 @@ Bound at least:
 - retries by failure class,
 - wall-clock time where practical,
 - escalation count if escalation is later enabled.
+
+The normal six-role path is seven calls: Observer, Signal, Transit Hunter, Director briefing,
+Skeptic, Critic, and Director final. Observer and Signal may execute concurrently but their durable
+records are committed in stable role order. Each role has a versioned per-role call limit; optional
+role failures become explicit `SKIPPED` checkpoints and hand off to the safe baseline, while
+Skeptic/Critic failures retain the strict repair/fallback/termination policy.
+
+The promoted demo profile enables provider thinking only for the Director. Those calls
+have a bounded 20,000-token output allowance, 120-second role deadline, and at most three optional
+role attempts. The process still has a 32-call model budget and 600-second outer timeout. Chat-mode
+roles retain smaller output ceilings and 30-second role deadlines. These wider inference limits do
+not enlarge tool, experiment, cost, revision, or scientific authority budgets.
 
 The model does not decide whether its own budget exists.
 

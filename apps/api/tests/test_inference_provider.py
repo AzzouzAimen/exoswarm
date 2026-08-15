@@ -24,8 +24,13 @@ from exoswarm.agents.inference_telemetry import derive_inference_summary
 from exoswarm.agents.model_client import ScriptedInferenceClient
 from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
 from exoswarm.config import Settings
-from exoswarm.domain.enums import HarnessFailureKind, InvestigationStatus
-from exoswarm.domain.errors import ModelOutputTruncatedError
+from exoswarm.domain.enums import (
+    AgentRole,
+    HarnessFailureKind,
+    InvestigationStatus,
+    ThinkingMode,
+)
+from exoswarm.domain.errors import InvalidModelOutputError, ModelOutputTruncatedError
 from exoswarm.domain.models import InferenceTraceRecord, InvestigationState, SkepticDecision
 
 
@@ -122,6 +127,36 @@ def test_truncated_primary_is_counted_as_repair_eligible() -> None:
     assert summary.repairs.rate == 1.0
 
 
+def test_same_role_and_step_with_distinct_contexts_are_distinct_decisions() -> None:
+    first = InferenceTraceRecord(
+        call_id="call_director_briefing",
+        run_id="run_1",
+        step_id="step_0005",
+        role="director",
+        provider="featherless",
+        model_identity="deepseek-ai/DeepSeek-V4-Flash-0731",
+        output_schema="DirectorDecision",
+        attempt_kind="primary",
+        context_version="5",
+        context_fingerprint="1" * 64,
+        latency_ms=10,
+        status="SUCCESS",
+        schema_valid=True,
+    )
+    final = first.model_copy(
+        update={
+            "call_id": "call_director_final",
+            "context_fingerprint": "2" * 64,
+        }
+    )
+
+    summary = derive_inference_summary([first, final])
+
+    assert summary.first_attempt_schema_valid.numerator == 2
+    assert summary.first_attempt_schema_valid.denominator == 2
+    assert summary.fallbacks.denominator == 2
+
+
 def completion(
     content: str,
     *,
@@ -168,6 +203,8 @@ def valid_decision_response(request: dict[str, Any]) -> Any:
             ],
             "why_cost_is_justified": "The bounded harmonic test costs one unit.",
             "concise_reason": "The bounded harmonic check discriminates the alternatives.",
+            "supporting_evidence_refs": context["evidence_refs"][:1],
+            "contradicting_evidence_refs": [],
         }
     else:
         proposal = context["proposed_decision"]
@@ -181,6 +218,8 @@ def valid_decision_response(request: dict[str, Any]) -> Any:
             "verdict": "APPROVE",
             "reason_code": "FEATHERLESS_APPROVE",
             "concise_reason": "The proposed bounded experiment is valid and informative.",
+            "supporting_evidence_refs": context["evidence_refs"][:1],
+            "contradicting_evidence_refs": [],
         }
     return completion(json.dumps(decision))
 
@@ -230,6 +269,97 @@ async def test_featherless_adapter_uses_safe_openai_compatible_request_and_metad
     assert "secret-never-persist" not in serialized_request
     assert "raw_flux" not in serialized_request
     assert "local_path" not in serialized_request
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "expected_extra_body", "requested", "confirmed", "expected_max_tokens"),
+    [
+        (
+            ThinkingMode.OFF,
+            {"chat_template_kwargs": {"thinking": False}},
+            False,
+            False,
+            1_200,
+        ),
+        (
+            ThinkingMode.ON,
+            {"chat_template_kwargs": {"thinking": True}},
+            True,
+            True,
+            20_000,
+        ),
+        (ThinkingMode.AUTO, None, False, False, 1_200),
+    ],
+)
+async def test_featherless_thinking_modes_are_explicit_and_auditable(
+    mode: ThinkingMode,
+    expected_extra_body: dict[str, Any] | None,
+    requested: bool,
+    confirmed: bool,
+    expected_max_tokens: int,
+) -> None:
+    state = InvestigationState(
+        run_id=f"run_thinking_{mode.value}",
+        opaque_target_id="TARGET-X17",
+        step_count=1,
+    )
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
+    sdk, transport = fake_sdk([valid_decision_response])
+    client = FeatherlessInferenceClient(
+        api_key="secret-never-persist",
+        sdk=sdk,
+        role_thinking_modes={AgentRole.SKEPTIC: mode},
+        thinking_confirmed_roles={AgentRole.SKEPTIC},
+        max_output_tokens=20_000,
+    )
+
+    outcome = await client.decide_attempt(
+        role="skeptic",
+        context=context,
+        output_schema=SkepticDecision,
+        attempt_kind="primary",
+    )
+
+    assert outcome.error is None
+    assert transport.requests[0]["extra_body"] == expected_extra_body
+    assert transport.requests[0]["max_tokens"] == expected_max_tokens
+    assert outcome.call.thinking_mode == mode.value
+    assert outcome.call.thinking_requested is requested
+    assert outcome.call.thinking_confirmed is confirmed
+
+
+@pytest.mark.asyncio
+async def test_reasoning_only_completion_is_invalid_not_successful() -> None:
+    state = InvestigationState(
+        run_id="run_reasoning_only",
+        opaque_target_id="TARGET-X17",
+        step_count=1,
+    )
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
+    response = completion("")
+    response.choices[0].message.reasoning_content = "internal reasoning without JSON"
+    sdk, _ = fake_sdk([response])
+    client = FeatherlessInferenceClient(api_key="secret-never-persist", sdk=sdk)
+
+    outcome = await client.decide_attempt(
+        role="skeptic",
+        context=context,
+        output_schema=SkepticDecision,
+        attempt_kind="primary",
+    )
+
+    assert isinstance(outcome.error, InvalidModelOutputError)
+    assert outcome.call.status == "INVALID"
+    assert outcome.call.schema_valid is False
 
 
 @pytest.mark.asyncio

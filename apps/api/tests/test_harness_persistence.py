@@ -11,6 +11,7 @@ from harness_support import (
     seed_baseline,
 )
 
+from exoswarm.agents.director import DirectorRoute
 from exoswarm.domain.enums import (
     HarnessFailureKind,
     InvestigationStatus,
@@ -18,6 +19,30 @@ from exoswarm.domain.enums import (
 )
 from exoswarm.domain.errors import ActionValidationError
 from exoswarm.domain.models import EvidenceRecord, ToolExecutionRecord
+
+
+@pytest.mark.asyncio
+async def test_restart_resumes_durable_finalizing_phase(tmp_path) -> None:
+    registry = make_registry("clean")
+    first = make_controller(tmp_path, policy_client(), registry)
+    state = first.create("TARGET-X17")
+    seed_baseline(first, state.run_id, "clean")
+
+    update = first.evaluate_cycle_result(state.run_id)
+    prepared = first.get(state.run_id)
+
+    assert update == {"current_route": DirectorRoute.FINALIZE}
+    assert prepared.status == InvestigationStatus.FINALIZING
+    assert prepared.pending_final_reason
+
+    restarted = make_controller(tmp_path, policy_client(), registry)
+    assert restarted.determine_route(state.run_id) == DirectorRoute.FINALIZE
+
+    await restarted.finalize_cycle(state.run_id)
+    finalized = restarted.get(state.run_id)
+
+    assert finalized.status == InvestigationStatus.READY_TO_LOCK
+    assert finalized.pending_final_reason is None
 
 
 @pytest.mark.asyncio

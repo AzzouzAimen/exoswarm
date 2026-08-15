@@ -235,6 +235,7 @@ def make_controller(
     candidate_sources: CandidateSourceResolver | None = None,
     **settings_overrides: Any,
 ) -> InvestigationController:
+    settings_overrides.setdefault("multi_agent_enabled", False)
     settings = Settings(
         runs_dir=tmp_path / "runs",
         data_dir=tmp_path / "data",
@@ -313,6 +314,8 @@ def skeptic_policy(context: BaseModel, _schema: type[BaseModel]) -> SkepticDecis
         cost_of_selected_experiment=packet.adaptive_experiment_costs[experiment],
         why_cost_is_justified="The selected fixture action targets the strongest alternative.",
         concise_reason="The compact fixture evidence selects this bounded experiment.",
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 
@@ -344,6 +347,8 @@ def critic_policy(context: BaseModel, _schema: type[BaseModel]) -> CriticDecisio
         concise_reason="Deterministic fixture review of bounded information value.",
         revised_experiment=revised_experiment,
         revised_parameters=revised_parameters,
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 

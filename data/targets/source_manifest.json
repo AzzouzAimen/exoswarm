@@ -15,6 +15,16 @@
       "opaque_target_id": "TARGET-D31",
       "cached_lightcurve_path": "cached/lightcurves/TARGET-D31-sector-3-lc.fits",
       "cached_tpf_path": null
+    },
+    {
+      "opaque_target_id": "TARGET-B42",
+      "cached_lightcurve_path": "cached/lightcurves/TARGET-B42-sector-9-lc.fits",
+      "cached_tpf_path": null
+    },
+    {
+      "opaque_target_id": "TARGET-C11",
+      "cached_lightcurve_path": "cached/lightcurves/TARGET-C11-sector-2-lc.fits",
+      "cached_tpf_path": null
     }
   ]
 }

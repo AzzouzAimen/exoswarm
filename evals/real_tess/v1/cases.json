@@ -1,0 +1,56 @@
+{
+  "schema_version": "1",
+  "suite_id": "exoswarm-cached-real-tess-v1",
+  "cases": [
+    {
+      "id": "hot_jupiter_secondary",
+      "opaque_target_id": "TARGET-X17",
+      "expected_status": "READY_TO_LOCK",
+      "expected_disposition": "PLANETARY_INTERPRETATION_WEAK",
+      "expected_period_days": 0.94145223,
+      "accepted_period_factors": [1.0],
+      "period_tolerance_days": 0.002,
+      "expected_catalog_disposition": "CONFIRMED_PLANET"
+    },
+    {
+      "id": "agent_reviewed_hot_jupiter",
+      "opaque_target_id": "TARGET-P21",
+      "expected_status": "READY_TO_LOCK",
+      "expected_disposition": "PLANETARY_INTERPRETATION_WEAK",
+      "expected_period_days": 2.20474,
+      "accepted_period_factors": [1.0],
+      "period_tolerance_days": 0.02,
+      "expected_catalog_disposition": "CONFIRMED_PLANET"
+    },
+    {
+      "id": "shallow_inconclusive",
+      "opaque_target_id": "TARGET-D31",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "expected_disposition": null,
+      "expected_period_days": null,
+      "accepted_period_factors": [],
+      "period_tolerance_days": null,
+      "expected_catalog_disposition": "CONFIRMED_PLANET"
+    },
+    {
+      "id": "eclipsing_binary_half_period",
+      "opaque_target_id": "TARGET-B42",
+      "expected_status": "READY_TO_LOCK",
+      "expected_disposition": "PLANETARY_INTERPRETATION_REJECTED",
+      "expected_period_days": 1.389627454121257,
+      "accepted_period_factors": [0.5],
+      "period_tolerance_days": 0.002,
+      "expected_catalog_disposition": "ECLIPSING_BINARY"
+    },
+    {
+      "id": "clean_planet_like",
+      "opaque_target_id": "TARGET-C11",
+      "expected_status": "READY_TO_LOCK",
+      "expected_disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+      "expected_period_days": 1.338230994,
+      "accepted_period_factors": [1.0],
+      "period_tolerance_days": 0.002,
+      "expected_catalog_disposition": "CONFIRMED_PLANET"
+    }
+  ]
+}

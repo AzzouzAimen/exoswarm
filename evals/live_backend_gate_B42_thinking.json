@@ -1,0 +1,238 @@
+{
+  "adaptive_actions": [],
+  "agent_decisions": [
+    {
+      "context_version": "5",
+      "decision": {
+        "authorized_route": "FINALIZE",
+        "cited_evidence_refs": [
+          "evidence_c7d0a5535360e6b45ca0",
+          "evidence_e530eb17c287802e56dd",
+          "evidence_053b77c748301a4143d9",
+          "evidence_cbc13353b679ed982fae"
+        ],
+        "conflict_codes": [
+          "NONE"
+        ],
+        "context_version": "5",
+        "decision_id": "decision_finalize_step_0004",
+        "deterministic_disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "focus_hypothesis": "eclipsing_binary",
+        "mission_brief": "Finalize the authorized route with planetary interpretation rejected based on cited evidence.",
+        "phase": "final",
+        "requested_handoffs": [],
+        "role": "director",
+        "run_id": "run_a9e45399d3cb53ee",
+        "step_id": "step_0004"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "final",
+      "provider": "featherless",
+      "role": "director"
+    }
+  ],
+  "agent_starts": [
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "director",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true
+    }
+  ],
+  "artifact_count": 7,
+  "artifact_paths": [
+    "agent_decisions.jsonl",
+    "artifacts/action_fa3cbfbbff90fe4c.candidate-search.json",
+    "evidence.jsonl",
+    "inference_summary.json",
+    "result.json",
+    "result.json.sha256",
+    "trace.jsonl"
+  ],
+  "attempt_counts_by_role": {
+    "director": 1
+  },
+  "branch_mode": "decisive_baseline",
+  "catalog_source": "MAST TESS-EBs v1.0",
+  "checks": {
+    "first_attempt_schema_valid_at_least_90_percent": true,
+    "no_provider_errors_or_timeouts": true,
+    "no_role_skipped": true,
+    "promoted_advisory_handoff_visible": true,
+    "raw_samples_zero": true,
+    "required_role_phases_complete": true,
+    "required_role_phases_first_attempt_valid": true,
+    "reveal_hash_verified": true,
+    "role_outputs_auditable_and_grounded": true
+  },
+  "completed_tests": [
+    "signal_quality",
+    "odd_even",
+    "secondary_eclipse",
+    "contamination"
+  ],
+  "critic_verdicts": [],
+  "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+  "elapsed_seconds": 30.566,
+  "event_count": 30,
+  "event_types": [
+    "agent.completed",
+    "agent.decision",
+    "agent.handoff",
+    "agent.queued",
+    "agent.started",
+    "budget.updated",
+    "director.route",
+    "evidence.appended",
+    "inference.attempt",
+    "inference.summary",
+    "investigation.created",
+    "status.changed",
+    "tool.completed",
+    "tool.started"
+  ],
+  "inference": {
+    "agent_calls": 1,
+    "fallbacks": {
+      "denominator": 1,
+      "numerator": 0,
+      "rate": 0.0
+    },
+    "first_attempt_schema_valid": {
+      "denominator": 1,
+      "numerator": 1,
+      "rate": 1.0
+    },
+    "input_tokens": 1494,
+    "max_input_tokens": 1494,
+    "median_input_tokens": 1494.0,
+    "median_latency_ms": 16728.0,
+    "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "output_tokens": 1858,
+    "provider": "featherless",
+    "provider_errors_timeouts": 0,
+    "raw_light_curve_samples_sent": 0,
+    "repairs": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": "not_applicable"
+    }
+  },
+  "inference_attempts": [
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "d42c37f6f84a0d7eb38f53591ec65066e5f5ceb4cffb5ec5360fe19884bc26e7",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1494,
+      "latency_ms": 16728,
+      "output_tokens": 1858,
+      "prompt_template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+      "prompt_version": "director-ratification-v2",
+      "role": "director",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true,
+      "validation_error_code": null
+    }
+  ],
+  "locked_sha256": "11e7755479e207b904dd10a85f014fbb22855c4cc03db75b6de3bf27a5f349e6",
+  "model_calls": 1,
+  "opaque_target_id": "TARGET-B42",
+  "proposed_adaptive_actions": [],
+  "provenance": {
+    "configuration": {
+      "configured_max_input_tokens": 32000,
+      "configured_max_output_tokens": 20000,
+      "context_schema_version": "agent-context-v4",
+      "effective_role_max_output_tokens": {
+        "critic": 700,
+        "director": 20000,
+        "observer": 500,
+        "signal": 500,
+        "skeptic": 20000,
+        "transit_hunter": 500
+      },
+      "inference_model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "role_thinking_modes": {
+        "critic": "off",
+        "director": "on",
+        "observer": "off",
+        "signal": "off",
+        "skeptic": "on",
+        "transit_hunter": "off"
+      },
+      "specialist_advisory_enabled": true,
+      "target_id": "TARGET-B42",
+      "timeout_seconds": 300.0
+    },
+    "configuration_sha256": "f5ded35949e575cf387547b536a934a3793b4aa4a17496a68e85977562429951",
+    "evaluation_id": "live-backend-gate-v2",
+    "generated_at_utc": "2026-08-15T22:16:14.795522+00:00",
+    "git_commit": "01406ebbc92d2d82b3bd9ab059e6956783b8660a",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v5",
+      "skeptic": "skeptic-decision-v6"
+    },
+    "prompts": {
+      "critic": {
+        "example_set_version": "critic-examples-v1",
+        "template_sha256": "0bf529152db51ded48d028053b509a089133e6f0702c90fe83496711398864ff",
+        "version": "critic-review-v5"
+      },
+      "director": {
+        "example_set_version": "director-examples-v1",
+        "template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+        "version": "director-ratification-v2"
+      },
+      "observer": {
+        "example_set_version": "observer-examples-v1",
+        "template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+        "version": "observer-assessment-v2"
+      },
+      "signal": {
+        "example_set_version": "signal-examples-v1",
+        "template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+        "version": "signal-assessment-v2"
+      },
+      "skeptic": {
+        "example_set_version": "skeptic-examples-v1",
+        "template_sha256": "612bf86aef04f7433d040cd532e433b4f4426528305aae7e16750039ed30787a",
+        "version": "skeptic-decision-v6"
+      },
+      "transit_hunter": {
+        "example_set_version": "transit-hunter-examples-v1",
+        "template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+        "version": "transit-hunter-brief-v2"
+      }
+    }
+  },
+  "required_role_phases": [
+    "director:final"
+  ],
+  "reveal_hash_verified": true,
+  "role_checkpoints": [
+    {
+      "context_version": "5",
+      "decision_id": "decision_finalize_step_0004",
+      "phase": "final",
+      "role": "director",
+      "status": "COMPLETE"
+    }
+  ],
+  "run_status_before_lock": "READY_TO_LOCK",
+  "schema_version": "2",
+  "skipped_roles": [],
+  "status": "PASS",
+  "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+  "tool_calls": 4
+}

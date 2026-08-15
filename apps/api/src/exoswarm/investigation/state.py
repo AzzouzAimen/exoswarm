@@ -53,9 +53,13 @@ ALLOWED_STATUS_TRANSITIONS: dict[InvestigationStatus, frozenset[InvestigationSta
         {
             InvestigationStatus.VETTING_MANDATORY,
             InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
+            InvestigationStatus.FINALIZING,
             InvestigationStatus.READY_TO_LOCK,
             *_FAILURE_TRANSITIONS,
         }
+    ),
+    InvestigationStatus.FINALIZING: frozenset(
+        {InvestigationStatus.READY_TO_LOCK, *_FAILURE_TRANSITIONS}
     ),
     InvestigationStatus.READY_TO_LOCK: frozenset({InvestigationStatus.RESULT_LOCKED}),
     InvestigationStatus.RESULT_LOCKED: frozenset({InvestigationStatus.REVEALED}),

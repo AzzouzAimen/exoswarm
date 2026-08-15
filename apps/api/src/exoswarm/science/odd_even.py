@@ -14,7 +14,10 @@ from exoswarm.science.candidate_artifact import (
     phase_distance,
 )
 
-_METHOD = "inverse-variance weighted odd/even box-depth comparison; threshold=3 sigma"
+_METHOD = (
+    "per-transit inverse-variance weighted odd/even box-depth comparison; "
+    "uncertainty=max(propagated error, event-depth standard error); threshold=3 sigma"
+)
 
 
 def _failure(
@@ -84,19 +87,50 @@ def compare_odd_even(
             provenance=candidate.provenance,
         )
 
-    sample_parity = transit_numbers % 2
     flux = candidate.relative_flux[in_transit]
     errors = candidate.relative_flux_error[in_transit]
 
-    def depth_for(parity: int) -> tuple[float, float, int]:
-        selected = sample_parity == parity
-        weights = 1.0 / np.square(errors[selected])
-        mean_flux = float(np.average(flux[selected], weights=weights))
-        uncertainty = float(np.sqrt(1.0 / weights.sum()))
-        return 1.0 - mean_flux, uncertainty, int(selected.sum())
+    def depth_for(parity: int) -> tuple[float, float, float, float, int]:
+        event_depths: list[float] = []
+        event_uncertainties: list[float] = []
+        sample_count = 0
+        for transit_number in unique_events[unique_events % 2 == parity]:
+            selected = transit_numbers == transit_number
+            sample_count += int(selected.sum())
+            sample_weights = 1.0 / np.square(errors[selected])
+            event_flux = float(np.average(flux[selected], weights=sample_weights))
+            event_depths.append(1.0 - event_flux)
+            event_uncertainties.append(float(np.sqrt(1.0 / sample_weights.sum())))
 
-    odd_depth, odd_uncertainty, odd_samples = depth_for(1)
-    even_depth, even_uncertainty, even_samples = depth_for(0)
+        depths = np.asarray(event_depths, dtype=np.float64)
+        uncertainties = np.asarray(event_uncertainties, dtype=np.float64)
+        event_weights = 1.0 / np.square(uncertainties)
+        depth = float(np.average(depths, weights=event_weights))
+        formal_uncertainty = float(np.sqrt(1.0 / event_weights.sum()))
+        empirical_standard_error = float(np.std(depths, ddof=1) / np.sqrt(len(depths)))
+        uncertainty = max(formal_uncertainty, empirical_standard_error)
+        return (
+            depth,
+            uncertainty,
+            formal_uncertainty,
+            empirical_standard_error,
+            sample_count,
+        )
+
+    (
+        odd_depth,
+        odd_uncertainty,
+        odd_formal_uncertainty,
+        odd_empirical_standard_error,
+        odd_samples,
+    ) = depth_for(1)
+    (
+        even_depth,
+        even_uncertainty,
+        even_formal_uncertainty,
+        even_empirical_standard_error,
+        even_samples,
+    ) = depth_for(0)
     difference = odd_depth - even_depth
     difference_uncertainty = float(np.hypot(odd_uncertainty, even_uncertainty))
     significance = abs(difference) / difference_uncertainty
@@ -139,6 +173,26 @@ def compare_odd_even(
                 unit="sigma",
                 evidence_ref=evidence_ref,
             ),
+            "odd_depth_formal_uncertainty": Measurement(
+                value=odd_formal_uncertainty,
+                unit="relative_flux_fraction",
+                evidence_ref=evidence_ref,
+            ),
+            "odd_depth_empirical_standard_error": Measurement(
+                value=odd_empirical_standard_error,
+                unit="relative_flux_fraction",
+                evidence_ref=evidence_ref,
+            ),
+            "even_depth_formal_uncertainty": Measurement(
+                value=even_formal_uncertainty,
+                unit="relative_flux_fraction",
+                evidence_ref=evidence_ref,
+            ),
+            "even_depth_empirical_standard_error": Measurement(
+                value=even_empirical_standard_error,
+                unit="relative_flux_fraction",
+                evidence_ref=evidence_ref,
+            ),
             "usable_transits": Measurement(
                 value=int(len(unique_events)), unit="count", evidence_ref=evidence_ref
             ),
@@ -154,6 +208,10 @@ def compare_odd_even(
             "even_transit_count": int(len(even_events)),
             "odd_in_transit_sample_count": odd_samples,
             "even_in_transit_sample_count": even_samples,
+            "uncertainty_model": (
+                "maximum of propagated reported-flux error and empirical per-event "
+                "depth standard error for each parity"
+            ),
             "parity_convention": (
                 "transit number is round((time_btjd - recovered_epoch_btjd) / period_days); "
                 "zero is even"

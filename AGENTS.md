@@ -16,6 +16,29 @@ When instructions conflict, use this order:
 
 Do not invent scientific or product requirements to fill a gap. If a decision is not specified, choose the smallest reversible scaffold convention and document it.
 
+## Judged-delivery priority
+
+The judging panel is primarily enterprise software, cloud, data-platform, architecture, and
+DevSecOps practitioners—not professional astronomers. Optimize remaining hackathon work for the
+published scoring weight: Technical Execution & Architecture (20), Demo & Documentation (20),
+Utility & Impact (10), and Originality (10).
+
+Treat the six scored subcriteria as separate delivery gates: Code Structure & Quality (10), API &
+Compute Integration (10), Innovation & Approach (10), Functional Execution (10), 3-Minute Video
+Demo (10), and Documentation & Setup (10). A feature that cannot be demonstrated or explained does
+not automatically improve the score merely because it is technically difficult.
+
+Once the real backend/agent gates are green, prioritize clean boundaries, bounded model behavior,
+observable decisions, recovery, security, repeatability, README clarity, and a polished end-to-end
+demo. Do not spend judged-path time polishing specialist astronomy edge cases that require expert
+domain knowledge to notice and do not change the honest product claim. Scientific correctness,
+provenance, blinding, and deterministic numeric authority remain non-negotiable.
+
+Do not casually rewrite a stabilized scientific or context-safety implementation merely because a
+different formula or stricter keyword filter looks conventional. First read its narrow contract,
+regression tests, and upstream-reference note; require a failing controlled/real case or a concrete
+judged-path benefit before changing it.
+
 ## Non-negotiable architecture
 
 - Models choose or review **bounded scientific actions**; deterministic Python owns measurements.
@@ -54,10 +77,10 @@ Use one FastAPI backend, REST + SSE, local cached inputs, JSON/JSONL artifacts, 
 
 For the remaining hackathon work, also do **not** spend time on fixed-policy ablations, `pass^3`,
 large eval suites, new transit fitting, broad uncertainty propagation, or a separate LLM Scientific
-Director. Treat a real pixel/centroid diagnostic as a high-value P1 differentiator: attempt it after
-the core vertical path is stable, give it a time-boxed acceptance gate, and retain an honest
-alternate-aperture/neighbor-context fallback so it cannot block the shippable path. Follow
-`docs/15_FINAL_STRETCH_PRIORITIES.md` for the current tiers and go/no-go rules.
+Director. A real pixel/centroid diagnostic is optional, not a blocker: attempt it only after the
+software architecture, agent observability, primary demo, and documentation gates are strong, and
+only when it clearly improves the judged story. Retain an honest alternate-aperture/neighbor-context
+fallback. Follow `docs/15_FINAL_STRETCH_PRIORITIES.md` for the current tiers and go/no-go rules.
 
 ## Dependency boundaries
 

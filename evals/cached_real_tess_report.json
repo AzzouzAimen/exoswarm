@@ -1,0 +1,171 @@
+{
+  "case_count": 5,
+  "cases_sha256": "d40200912f1769b70f894740fa1760d2cebf4bbe6503b357480744c49c6ceec1",
+  "expected_non_detection_count": 1,
+  "generated_at_utc": "2026-08-15T22:33:31.247753+00:00",
+  "passed": true,
+  "passed_count": 5,
+  "period_recovery_expected_count": 4,
+  "period_recovery_passed_count": 4,
+  "results": [
+    {
+      "checks": {
+        "catalog_disposition": true,
+        "disposition": true,
+        "ground_truth_locked_before_result": true,
+        "lock_and_reveal_hash": true,
+        "mandatory_tests": true,
+        "period": true,
+        "raw_samples_in_agent_context": true,
+        "status": true
+      },
+      "id": "hot_jupiter_secondary",
+      "observed": {
+        "catalog_disposition_after_lock": "CONFIRMED_PLANET",
+        "completed_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_WEAK",
+        "hash_verified": true,
+        "model_calls": 2,
+        "period_days": 0.9414498083281322,
+        "runner_advances": 5,
+        "status": "READY_TO_LOCK",
+        "terminal_reason": "AGENT_STOP:REAL_TESS_BASELINE_COMPLETE",
+        "tool_calls": 4
+      },
+      "opaque_target_id": "TARGET-X17",
+      "passed": true
+    },
+    {
+      "checks": {
+        "catalog_disposition": true,
+        "disposition": true,
+        "ground_truth_locked_before_result": true,
+        "lock_and_reveal_hash": true,
+        "mandatory_tests": true,
+        "period": true,
+        "raw_samples_in_agent_context": true,
+        "status": true
+      },
+      "id": "agent_reviewed_hot_jupiter",
+      "observed": {
+        "catalog_disposition_after_lock": "CONFIRMED_PLANET",
+        "completed_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_WEAK",
+        "hash_verified": true,
+        "model_calls": 2,
+        "period_days": 2.2039859450810373,
+        "runner_advances": 5,
+        "status": "READY_TO_LOCK",
+        "terminal_reason": "AGENT_STOP:REAL_TESS_BASELINE_COMPLETE",
+        "tool_calls": 4
+      },
+      "opaque_target_id": "TARGET-P21",
+      "passed": true
+    },
+    {
+      "checks": {
+        "catalog_disposition": true,
+        "disposition": true,
+        "ground_truth_locked_before_result": true,
+        "lock_and_reveal_hash": true,
+        "mandatory_tests": true,
+        "period": true,
+        "raw_samples_in_agent_context": true,
+        "status": true
+      },
+      "id": "shallow_inconclusive",
+      "observed": {
+        "catalog_disposition_after_lock": null,
+        "completed_tests": [
+          "signal_quality"
+        ],
+        "disposition": null,
+        "hash_verified": false,
+        "model_calls": 0,
+        "period_days": null,
+        "runner_advances": 2,
+        "status": "INSUFFICIENT_EVIDENCE",
+        "terminal_reason": "PRECONDITION_FAILED:candidate-dependent vetting requires committed search_bls candidate evidence",
+        "tool_calls": 1
+      },
+      "opaque_target_id": "TARGET-D31",
+      "passed": true
+    },
+    {
+      "checks": {
+        "catalog_disposition": true,
+        "disposition": true,
+        "ground_truth_locked_before_result": true,
+        "lock_and_reveal_hash": true,
+        "mandatory_tests": true,
+        "period": true,
+        "raw_samples_in_agent_context": true,
+        "status": true
+      },
+      "id": "eclipsing_binary_half_period",
+      "observed": {
+        "catalog_disposition_after_lock": "ECLIPSING_BINARY",
+        "completed_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "hash_verified": true,
+        "model_calls": 0,
+        "period_days": 0.6948069694535886,
+        "runner_advances": 4,
+        "status": "READY_TO_LOCK",
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "tool_calls": 4
+      },
+      "opaque_target_id": "TARGET-B42",
+      "passed": true
+    },
+    {
+      "checks": {
+        "catalog_disposition": true,
+        "disposition": true,
+        "ground_truth_locked_before_result": true,
+        "lock_and_reveal_hash": true,
+        "mandatory_tests": true,
+        "period": true,
+        "raw_samples_in_agent_context": true,
+        "status": true
+      },
+      "id": "clean_planet_like",
+      "observed": {
+        "catalog_disposition_after_lock": "CONFIRMED_PLANET",
+        "completed_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "hash_verified": true,
+        "model_calls": 2,
+        "period_days": 1.3382493258135884,
+        "runner_advances": 5,
+        "status": "READY_TO_LOCK",
+        "terminal_reason": "AGENT_STOP:REAL_TESS_BASELINE_COMPLETE",
+        "tool_calls": 4
+      },
+      "opaque_target_id": "TARGET-C11",
+      "passed": true
+    }
+  ],
+  "schema_version": "1",
+  "suite_id": "exoswarm-cached-real-tess-v1"
+}

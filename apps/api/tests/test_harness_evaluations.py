@@ -50,8 +50,8 @@ def test_evaluation_report_records_reproducible_provenance(harness_report: dict)
     assert isinstance(provenance["git_worktree_dirty"], bool)
     assert provenance["generated_at_utc"].endswith("+00:00")
     assert provenance["prompt_versions"] == {
-        "critic": "critic-review-v3",
-        "skeptic": "skeptic-decision-v3",
+        "critic": "critic-review-v5",
+        "skeptic": "skeptic-decision-v6",
     }
     assert len(provenance["configuration_sha256"]) == 64
 

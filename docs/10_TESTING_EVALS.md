@@ -76,6 +76,17 @@ Useful PASS/FAIL checks include:
 
 Grade outcomes and constraints, not one hard-coded trajectory.
 
+For multi-agent parity, use `compare_scientific_outcomes`. It removes generated IDs, timestamps,
+model prose, and model-call counts, while comparing terminal status/disposition, completed tests,
+tool/action sequence, parameters, budgets, deterministic measurements with units/tolerances,
+provenance, failures, lock state, and the zero-raw-sample invariant. A specialist rollout is
+result-neutral only when this comparison passes against the two-role baseline.
+
+Backend role tests must also cover the normal seven-call path, Observer/Signal concurrency,
+role-context isolation, evidence citation validation, locked prompt hashes, explicit thinking
+modes, reasoning-only/empty output rejection, optional-role safe skipping, and checkpoint recovery
+without duplicate calls.
+
 ## Branch-diversity tests
 
 At minimum, test evidence states representing:
@@ -106,8 +117,11 @@ integration evidence; it must not mutate the locked three-case evaluator.
 
 The credential-independent three-target gate is
 `apps/api/tests/test_cached_backend_gate.py`. The live scientific boundary gate is
-`scripts/run_live_backend_gate.py`; it must reach both agent roles through FastAPI, expose SSE and
-safe artifact metadata, lock the result, and verify the reveal against the exact locked hash.
+`scripts/run_live_backend_gate.py`; an adaptive path must reach all seven role phases through
+FastAPI, expose SSE and sanitized accepted decisions, prove the promoted advisory handoff reaches
+the Skeptic but not the Critic, expose safe artifact metadata, lock the result, and verify the
+reveal against the exact locked hash. A decisive mandatory-evidence path requires only the final
+Director and proves that the multi-agent layer does not defeat deterministic short-circuiting.
 
 ### Evaluator-integrity regression note
 
@@ -121,11 +135,23 @@ expected discriminating result—not to weaken the Critic, its review prompt, or
 rubric.
 
 Likewise, when the live gate selected unavailable `centroid_localization`, retain the controller's
-strict rejection. The structural fix was `agent-context-v3`, which omits unavailable and previously
-executed actions from model affordances while leaving the full registry in deterministic audit and
+strict rejection. The structural fix was the bounded context projection (now `agent-context-v4`),
+which omits unavailable and previously executed actions from model affordances while leaving the full registry in deterministic audit and
 enforcement code. Before changing prompts or agent policy after an eval failure, inspect the exact
 fixture proposal, model-visible action set, and deterministic expected outcome. Preserve the tests
 that require relevant Critic proposals and omission of unavailable actions.
+
+### Thinking-mode promotion record
+
+The exact-model format preflight must pass before any role is marked confirmed. A low-cap
+Director/Skeptic/Critic experiment reproduced `finish_reason=length`; the measured fix is a
+thinking-only 20,000-token output allowance plus a 120-second deadline. Do not promote every role
+merely because the toggle works. The retained profile is Director on with every branch-changing
+role off. The five-state Skeptic-thinking candidate and its chat control both passed 10/10
+first-attempt schema/semantic and decision-quality checks across four branches; because thinking
+did not improve that action metric and increased latency, it remains an opt-in experiment. The
+Director-only C11, P21, and B42 live gates passed without a disposition change, fallback, repair,
+or provider error.
 
 ## Release/demo gate
 

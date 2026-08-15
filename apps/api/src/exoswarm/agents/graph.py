@@ -35,6 +35,10 @@ class InvestigationGraphRuntime(Protocol):
 
     async def run_mandatory_cycle(self, run_id: str) -> InvestigationGraphUpdate: ...
 
+    async def run_specialist_briefing(self, run_id: str) -> InvestigationGraphUpdate: ...
+
+    async def run_director_briefing(self, run_id: str) -> InvestigationGraphUpdate: ...
+
     async def run_skeptic_node(self, run_id: str) -> InvestigationGraphUpdate: ...
 
     async def run_critic_node(self, run_id: str) -> InvestigationGraphUpdate: ...
@@ -45,7 +49,7 @@ class InvestigationGraphRuntime(Protocol):
 
     def evaluate_cycle_result(self, run_id: str) -> InvestigationGraphUpdate: ...
 
-    def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate: ...
+    async def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate: ...
 
     def terminate_cycle(self, run_id: str) -> InvestigationGraphUpdate: ...
 
@@ -73,6 +77,16 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
     ) -> InvestigationGraphUpdate:
         return await runtime.run_mandatory_cycle(state["run_id"])
 
+    async def specialist_briefing(
+        state: InvestigationGraphState,
+    ) -> InvestigationGraphUpdate:
+        return await runtime.run_specialist_briefing(state["run_id"])
+
+    async def director_briefing(
+        state: InvestigationGraphState,
+    ) -> InvestigationGraphUpdate:
+        return await runtime.run_director_briefing(state["run_id"])
+
     async def skeptic_decision(
         state: InvestigationGraphState,
     ) -> InvestigationGraphUpdate:
@@ -94,8 +108,8 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
     def evaluate_result(state: InvestigationGraphState) -> InvestigationGraphUpdate:
         return runtime.evaluate_cycle_result(state["run_id"])
 
-    def finalize(state: InvestigationGraphState) -> InvestigationGraphUpdate:
-        return runtime.finalize_cycle(state["run_id"])
+    async def finalize(state: InvestigationGraphState) -> InvestigationGraphUpdate:
+        return await runtime.finalize_cycle(state["run_id"])
 
     def terminate(state: InvestigationGraphState) -> InvestigationGraphUpdate:
         return runtime.terminate_cycle(state["run_id"])
@@ -107,6 +121,8 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
     builder.add_node("recover_prepared_execution", recover_prepared_execution)
     builder.add_node("director_route", director_route)
     builder.add_node("run_mandatory_action", run_mandatory_action)
+    builder.add_node("specialist_briefing", specialist_briefing)
+    builder.add_node("director_briefing", director_briefing)
     builder.add_node("skeptic_decision", skeptic_decision)
     builder.add_node("critic_review", critic_review)
     builder.add_node("critic_route", critic_route)
@@ -123,6 +139,8 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
         {
             DirectorRoute.RECOVER_PREPARED: "recover_prepared_execution",
             DirectorRoute.RUN_MANDATORY: "run_mandatory_action",
+            DirectorRoute.RUN_SPECIALIST_BRIEFING: "specialist_briefing",
+            DirectorRoute.CALL_DIRECTOR_BRIEFING: "director_briefing",
             DirectorRoute.CALL_SKEPTIC: "skeptic_decision",
             DirectorRoute.RESUME_CRITIC: "critic_review",
             DirectorRoute.EXECUTE_APPROVED_ACTION: "execute_adaptive",
@@ -133,6 +151,8 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
         },
     )
     builder.add_edge("run_mandatory_action", "evaluate_result")
+    builder.add_edge("specialist_briefing", "director_briefing")
+    builder.add_edge("director_briefing", "skeptic_decision")
     builder.add_edge("skeptic_decision", "critic_review")
     builder.add_edge("critic_review", "critic_route")
     builder.add_conditional_edges(
@@ -144,7 +164,14 @@ def build_investigation_graph(runtime: InvestigationGraphRuntime):
         },
     )
     builder.add_edge("execute_adaptive", "evaluate_result")
-    builder.add_edge("evaluate_result", END)
+    builder.add_conditional_edges(
+        "evaluate_result",
+        selected_route,
+        {
+            DirectorRoute.FINALIZE: "finalize",
+            DirectorRoute.NOOP_TERMINAL: END,
+        },
+    )
     builder.add_edge("finalize", END)
     builder.add_edge("terminate", END)
 

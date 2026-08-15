@@ -83,6 +83,21 @@ secondary-eclipse search, fixed P/2-P-2P harmonic trials, and contamination scre
 returns measurements with units, method/provenance, warnings, typed negative/precondition outcomes,
 and an `interpretation_code`; application code—not the model—maps those codes to disposition.
 
+The odd/even diagnostic measures each transit event separately, combines event depths by parity,
+and uses the larger of propagated reported-flux error and empirical event-depth standard error.
+This prevents hundreds of correlated in-transit cadences from turning one anomalous event into a
+decisive mismatch. Reference: WATSON@`c8332b9a77fcae2b56942def18ca3a0573b0a772`
+`watson/watson.py::Watson.plot_transits_statistics` (MIT). Borrowed: the per-transit depth-series
+pattern. Adapted: pure typed evidence with explicit units and no plotting/report dependency.
+Verified: controlled mismatch, clean, single-event-outlier, and cached-real checks. Not adopted:
+allesfitter coupling, plotting, report generation, or catalog-aware interpretation.
+
+This is a stabilized regression fix, not unfinished statistical cleanup. Do not revert it to a
+cadence-level comparison or formal flux-error-only uncertainty: those forms produced a false
+odd/even rejection on the cached WASP-18 case because samples within one transit are correlated.
+Change it only with a replacement controlled regression, cached-real evidence, explicit units, and
+updated tolerances/provenance.
+
 The controller derives the artifact path from committed same-run `search_bls` evidence and never
 copies it into model parameters, decisions, state, or public events. Cached-neighbor contamination
 is preferred when available. The current cached-real case falls back to official SPOC `CROWDSAP`

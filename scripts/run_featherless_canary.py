@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
+import re
 import statistics
 import sys
 from collections import Counter
@@ -19,13 +19,17 @@ for import_root in (ROOT, API_SRC):
 
 from exoswarm.agents.context import CONTEXT_SCHEMA_VERSION, assemble_context
 from exoswarm.agents.inference_provider import FeatherlessInferenceClient
+from exoswarm.agents.prompt_registry import effective_output_token_limit
 from exoswarm.config import Settings
-from exoswarm.domain.enums import InformationValue, Priority
+from exoswarm.domain.enums import InformationValue, Priority, ToolStatus
 from exoswarm.domain.models import (
     CandidateSignal,
     CriticDecision,
+    EvidenceRecord,
     InvestigationState,
     Measurement,
+    Provenance,
+    ScientificToolResult,
     SkepticDecision,
 )
 
@@ -36,16 +40,33 @@ from evals.provenance import evaluation_provenance
 class CanaryCase:
     name: str
     state: InvestigationState
+    evidence: tuple[EvidenceRecord, ...]
     actions: tuple[str, ...]
     costs: dict[str, int]
     acceptable_actions: frozenset[str]
+
+
+_NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?")
 
 
 def _runtime_configuration(settings: Settings, repeats: int) -> dict[str, Any]:
     return {
         "inference_model": settings.model,
         "context_schema_version": CONTEXT_SCHEMA_VERSION,
-        "max_output_tokens": settings.inference_max_output_tokens,
+        "configured_max_input_tokens": settings.inference_max_input_tokens,
+        "configured_max_output_tokens": settings.inference_max_output_tokens,
+        "effective_role_max_output_tokens": {
+            role: effective_output_token_limit(
+                role,
+                configured_max_output_tokens=settings.inference_max_output_tokens,
+                thinking_mode=settings.thinking_mode_for(role),
+            )
+            for role in ("skeptic", "critic")
+        },
+        "role_thinking_modes": {
+            role: settings.thinking_mode_for(role).value
+            for role in ("skeptic", "critic")
+        },
         "requested_repeats": repeats,
     }
 
@@ -63,7 +84,7 @@ def _proposal(
             "Signal instability would support an instrumental or variable-noise explanation.",
         ),
         "harmonic_test": (
-            "Test the candidate at the P/2, P, and 2P aliases.",
+            "Test the candidate at the half, candidate, and double-period aliases.",
             "A preferred harmonic would discriminate an eclipsing-binary interpretation.",
         ),
         "secondary_deep_search": (
@@ -98,6 +119,8 @@ def _proposal(
             else "Stopping consumes no experiment budget because no material alternative remains."
         ),
         concise_reason=objective,
+        supporting_evidence_refs=list(state.candidate_signals[0].evidence_refs[-1:]),
+        contradicting_evidence_refs=[],
     )
 
 
@@ -150,6 +173,19 @@ def _canary_cases() -> tuple[CanaryCase, ...]:
     for index, (name, alternative, actions, snr, acceptable_actions) in enumerate(
         cases, 1
     ):
+        evidence_id = f"evidence_canary_{index}"
+        measurements = {
+            "period": Measurement(
+                value=3.2 + index / 10,
+                unit="day",
+                evidence_ref=evidence_id,
+            ),
+            "snr": Measurement(
+                value=snr,
+                unit="dimensionless",
+                evidence_ref=evidence_id,
+            ),
+        }
         state = InvestigationState(
             run_id=f"run_canary_{name}",
             opaque_target_id=f"TARGET-CANARY-{index}",
@@ -163,21 +199,44 @@ def _canary_cases() -> tuple[CanaryCase, ...]:
             ],
             active_hypotheses=["planetary", alternative],
             strongest_unresolved_alternative=alternative,
+            evidence_refs=[evidence_id],
             candidate_signals=[
                 CandidateSignal(
                     candidate_id=f"candidate_{index}",
-                    evidence_refs=[f"evidence_canary_{index}"],
-                    measurements={
-                        "period": Measurement(value=3.2 + index / 10, unit="day"),
-                        "snr": Measurement(value=snr, unit="dimensionless"),
-                    },
+                    evidence_refs=[evidence_id],
+                    measurements=measurements,
                 )
             ],
+        )
+        result = ScientificToolResult(
+            tool_name="search_bls",
+            status=ToolStatus.SUCCESS,
+            run_id=state.run_id,
+            action_id=f"action_canary_{index}",
+            target_id=state.opaque_target_id,
+            measurements=measurements,
+            diagnostics={"canary_case": name},
+            method="curated canary evidence fixture",
+            provenance=Provenance(
+                code_version="canary-fixture-v1",
+                source_data_ref=f"fixture:canary:{name}",
+            ),
+        )
+        evidence = EvidenceRecord(
+            evidence_id=evidence_id,
+            run_id=state.run_id,
+            step_id="step_0001",
+            action_id=result.action_id,
+            opaque_target_id=state.opaque_target_id,
+            tool_name=result.tool_name,
+            tool_status=result.status,
+            result=result,
         )
         built.append(
             CanaryCase(
                 name=name,
                 state=state,
+                evidence=(evidence,),
                 actions=actions,
                 costs={action: costs[action] for action in actions},
                 acceptable_actions=acceptable_actions,
@@ -261,6 +320,19 @@ def _semantic_error(
         return "STEP_ID_MISMATCH"
     if decision.context_version != context.context_version:
         return "CONTEXT_VERSION_MISMATCH"
+    cited = {
+        str(item)
+        for field in (
+            "supporting_evidence_refs",
+            "contradicting_evidence_refs",
+        )
+        for item in getattr(decision, field, ())
+    }
+    visible = set(context.evidence_refs)
+    if visible and not cited:
+        return "CITATION_REQUIRED"
+    if not cited.issubset(visible):
+        return "CITATION_OUT_OF_CONTEXT"
     options = {item.action_name: item for item in context.available_experiments}
 
     def validate_action(action: str, parameters: dict[str, Any]) -> str | None:
@@ -273,6 +345,16 @@ def _semantic_error(
 
     if role == "skeptic":
         assert isinstance(decision, SkepticDecision)
+        narratives = (
+            decision.hypothesis_under_test,
+            decision.expected_discriminating_result,
+            *decision.predicted_outcomes.values(),
+            *(value for value in (decision.stop_if,) if value is not None),
+            decision.why_cost_is_justified,
+            decision.concise_reason,
+        )
+        if any(_NUMERIC_CLAIM.search(value) for value in narratives):
+            return "NUMERIC_NARRATIVE_UNSUPPORTED"
         if decision.budget_units_remaining != context.remaining_budgets.adaptive_cost_units:
             return "BUDGET_DECLARATION_MISMATCH"
         option = options.get(decision.requested_experiment)
@@ -281,6 +363,8 @@ def _semantic_error(
         return validate_action(decision.requested_experiment, decision.parameters)
 
     assert isinstance(decision, CriticDecision)
+    if _NUMERIC_CLAIM.search(decision.concise_reason):
+        return "NUMERIC_NARRATIVE_UNSUPPORTED"
     proposal = context.proposed_decision
     if proposal is None or decision.skeptic_decision_id != proposal.decision_id:
         return "PROPOSAL_ID_MISMATCH"
@@ -291,19 +375,21 @@ def _semantic_error(
     return None
 
 
-async def run_canary(repeats: int) -> dict[str, Any]:
-    if not os.environ.get("FEATHERLESS_API_KEY", "").strip():
+async def run_canary(
+    repeats: int, *, settings: Settings | None = None
+) -> dict[str, Any]:
+    settings = settings or Settings()
+    if settings.featherless_api_key is None:
         return {
-            "schema_version": "1",
+            "schema_version": "2",
             "status": "SKIPPED",
             "reason": "FEATHERLESS_API_KEY is absent",
             "requested_repeats": repeats,
             "provenance": evaluation_provenance(
-                evaluation_id="featherless-canary-v1",
-                configuration={"requested_repeats": repeats},
+                evaluation_id="featherless-canary-v2",
+                configuration=_runtime_configuration(settings, repeats),
             ),
         }
-    settings = Settings(_env_file=None)
     client = FeatherlessInferenceClient.from_settings(settings)
     calls = []
     repairs = 0
@@ -328,6 +414,7 @@ async def run_canary(repeats: int) -> dict[str, Any]:
                 "skeptic",
                 assemble_context(
                     state,
+                    case.evidence,
                     available_experiments=actions,
                     adaptive_experiment_costs=costs,
                 ),
@@ -337,6 +424,7 @@ async def run_canary(repeats: int) -> dict[str, Any]:
                 "critic",
                 assemble_context(
                     state,
+                    case.evidence,
                     role="critic",
                     available_experiments=actions,
                     adaptive_experiment_costs=costs,
@@ -422,10 +510,10 @@ async def run_canary(repeats: int) -> dict[str, Any]:
         if item["selected_action"] is not None
     }
     return {
-        "schema_version": "1",
+        "schema_version": "2",
         "status": "COMPLETED",
         "provenance": evaluation_provenance(
-            evaluation_id="featherless-canary-v1",
+            evaluation_id="featherless-canary-v2",
             configuration=_runtime_configuration(settings, repeats),
         ),
         "model_identities": sorted({item.model_identity for item in calls}),

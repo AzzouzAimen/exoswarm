@@ -51,6 +51,8 @@ def _stop_policy(context: BaseModel, _schema: type[BaseModel]) -> SkepticDecisio
         cost_of_selected_experiment=0,
         why_cost_is_justified="Stopping consumes zero experiment cost units.",
         concise_reason="The cached gate stops after mandatory evidence.",
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 
@@ -67,6 +69,8 @@ def _approve_stop(context: BaseModel, _schema: type[BaseModel]) -> CriticDecisio
         verdict=CriticVerdict.APPROVE,
         reason_code="CACHED_GATE_STOP_APPROVED",
         concise_reason="The zero-cost stop is consistent with the cached gate policy.",
+        supporting_evidence_refs=[packet.evidence_refs[-1]],
+        contradicting_evidence_refs=[],
     )
 
 
@@ -115,18 +119,37 @@ async def _run_cached_target(tmp_path: Path, target_id: str):
 
 
 @pytest.mark.asyncio
-async def test_three_cached_targets_cover_distinct_backend_trajectories(tmp_path) -> None:
-    for target_id, relative_path in (
-        ("TARGET-X17", "cached/lightcurves/TARGET-X17-sector-2-lc.fits"),
-        ("TARGET-P21", "cached/lightcurves/TARGET-P21-sector-14-lc.fits"),
-        ("TARGET-D31", "cached/lightcurves/TARGET-D31-sector-3-lc.fits"),
+async def test_five_cached_targets_cover_real_planet_eb_and_inconclusive_paths(
+    tmp_path,
+) -> None:
+    for _target_id, relative_path, metadata_name in (
+        (
+            "TARGET-X17",
+            "cached/lightcurves/TARGET-X17-sector-2-lc.fits",
+            "cached_real_tess_acquisition.json",
+        ),
+        (
+            "TARGET-P21",
+            "cached/lightcurves/TARGET-P21-sector-14-lc.fits",
+            "TARGET-P21-acquisition.json",
+        ),
+        (
+            "TARGET-D31",
+            "cached/lightcurves/TARGET-D31-sector-3-lc.fits",
+            "TARGET-D31-acquisition.json",
+        ),
+        (
+            "TARGET-B42",
+            "cached/lightcurves/TARGET-B42-sector-9-lc.fits",
+            "TARGET-B42-acquisition.json",
+        ),
+        (
+            "TARGET-C11",
+            "cached/lightcurves/TARGET-C11-sector-2-lc.fits",
+            "TARGET-C11-acquisition.json",
+        ),
     ):
         source = DATA_DIR / relative_path
-        metadata_name = (
-            "cached_real_tess_acquisition.json"
-            if target_id == "TARGET-X17"
-            else f"{target_id}-acquisition.json"
-        )
         acquisition = json.loads(
             (DATA_DIR / "ground_truth" / metadata_name).read_text(encoding="utf-8")
         )
@@ -134,13 +157,18 @@ async def test_three_cached_targets_cover_distinct_backend_trajectories(tmp_path
             "sha256"
         ]
 
-    rejected = await _run_cached_target(tmp_path, "TARGET-X17")
+    hot_jupiter = await _run_cached_target(tmp_path, "TARGET-X17")
     agent_reviewed = await _run_cached_target(tmp_path, "TARGET-P21")
     insufficient = await _run_cached_target(tmp_path, "TARGET-D31")
+    rejected_eb = await _run_cached_target(tmp_path, "TARGET-B42")
+    clean_planet = await _run_cached_target(tmp_path, "TARGET-C11")
 
-    assert rejected.status == InvestigationStatus.READY_TO_LOCK
-    assert rejected.disposition == Disposition.PLANETARY_INTERPRETATION_REJECTED
-    assert rejected.model_call_count == 0
+    assert hot_jupiter.status == InvestigationStatus.READY_TO_LOCK
+    assert hot_jupiter.disposition == Disposition.PLANETARY_INTERPRETATION_WEAK
+    assert hot_jupiter.model_call_count == 2
+    assert hot_jupiter.candidate_signals[0].measurements["period"].value == pytest.approx(
+        0.94145223, abs=0.002
+    )
 
     assert agent_reviewed.status == InvestigationStatus.READY_TO_LOCK
     assert agent_reviewed.disposition == Disposition.PLANETARY_INTERPRETATION_WEAK
@@ -154,12 +182,28 @@ async def test_three_cached_targets_cover_distinct_backend_trajectories(tmp_path
     assert insufficient.disposition is None
     assert insufficient.model_call_count == 0
 
+    assert rejected_eb.status == InvestigationStatus.READY_TO_LOCK
+    assert rejected_eb.disposition == Disposition.PLANETARY_INTERPRETATION_REJECTED
+    assert rejected_eb.model_call_count == 0
+    assert rejected_eb.candidate_signals[0].measurements["period"].value == pytest.approx(
+        1.389627454121257 / 2.0, abs=0.002
+    )
+
+    assert clean_planet.status == InvestigationStatus.READY_TO_LOCK
+    assert clean_planet.disposition == (
+        Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING
+    )
+    assert clean_planet.model_call_count == 2
+    assert clean_planet.candidate_signals[0].measurements["period"].value == pytest.approx(
+        1.338230994, abs=0.002
+    )
+
     trajectories = {
         (
-            rejected.status,
-            rejected.disposition,
-            tuple(rejected.completed_tests),
-            rejected.model_call_count,
+            hot_jupiter.status,
+            hot_jupiter.disposition,
+            tuple(hot_jupiter.completed_tests),
+            hot_jupiter.model_call_count,
         ),
         (
             agent_reviewed.status,
@@ -173,5 +217,17 @@ async def test_three_cached_targets_cover_distinct_backend_trajectories(tmp_path
             tuple(insufficient.completed_tests),
             insufficient.model_call_count,
         ),
+        (
+            rejected_eb.status,
+            rejected_eb.disposition,
+            tuple(rejected_eb.completed_tests),
+            rejected_eb.model_call_count,
+        ),
+        (
+            clean_planet.status,
+            clean_planet.disposition,
+            tuple(clean_planet.completed_tests),
+            clean_planet.model_call_count,
+        ),
     }
-    assert len(trajectories) == 3
+    assert len(trajectories) >= 4

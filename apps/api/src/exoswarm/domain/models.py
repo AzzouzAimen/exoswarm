@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from exoswarm.domain.enums import (
     TERMINAL_STATUSES,
+    AgentCheckpointStatus,
+    AgentPhase,
+    AgentRole,
     CriticVerdict,
     Disposition,
     HarnessFailureKind,
@@ -93,6 +96,151 @@ class CandidateSignal(StrictModel):
     measurements: dict[str, Measurement] = Field(default_factory=dict)
 
 
+class BoundAgentDecision(StrictModel):
+    """Identifiers every model-authored role output must echo exactly."""
+
+    decision_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    step_id: str = Field(min_length=1)
+    context_version: str = Field(min_length=1)
+
+
+class ObserverAssessment(BoundAgentDecision):
+    role: Literal["observer"] = "observer"
+    quality_flags: list[
+        Literal[
+            "QUALITY_ACCEPTABLE",
+            "SPARSE_COVERAGE",
+            "EXCESS_SCATTER",
+            "PREPROCESSING_LIMITATION",
+            "MISSING_QUALITY_DETAIL",
+        ]
+    ] = Field(default_factory=list, max_length=5)
+    preparation_concerns: list[
+        Literal[
+            "NONE",
+            "DETRENDING_SENSITIVITY",
+            "DATA_GAPS",
+            "QUALITY_MASK_LIMITATION",
+            "INSUFFICIENT_METADATA",
+        ]
+    ] = Field(default_factory=list, max_length=5)
+    cited_evidence_refs: list[str] = Field(min_length=1, max_length=8)
+    observation_limitations: str = Field(min_length=1, max_length=300)
+    questions_for_later_roles: list[str] = Field(default_factory=list, max_length=3)
+
+
+class SignalAssessment(BoundAgentDecision):
+    role: Literal["signal"] = "signal"
+    leading_hypothesis: Literal[
+        "planetary_transit",
+        "eclipsing_binary",
+        "background_contamination",
+        "instrumental_or_variable_noise",
+        "unresolved",
+    ]
+    alternative_hypothesis: Literal[
+        "planetary_transit",
+        "eclipsing_binary",
+        "background_contamination",
+        "instrumental_or_variable_noise",
+        "unresolved",
+    ]
+    ambiguity_flags: list[
+        Literal[
+            "NONE",
+            "PERIOD_ALIAS",
+            "ODD_EVEN_TENSION",
+            "SECONDARY_EVENT",
+            "CONTAMINATION_CONTEXT",
+            "LOW_SIGNAL_QUALITY",
+        ]
+    ] = Field(default_factory=list, max_length=6)
+    cited_evidence_refs: list[str] = Field(min_length=1, max_length=8)
+    vetting_questions: list[str] = Field(min_length=1, max_length=3)
+    concise_reason: str = Field(min_length=1, max_length=300)
+
+
+class TransitHunterBrief(BoundAgentDecision):
+    role: Literal["transit_hunter"] = "transit_hunter"
+    focus_candidate_id: str = Field(min_length=1)
+    viability_code: Literal[
+        "VIABLE_FOR_VETTING",
+        "AMBIGUOUS",
+        "WEAK_SIGNAL",
+        "LIKELY_FALSE_POSITIVE",
+    ]
+    ambiguity_codes: list[
+        Literal[
+            "NONE",
+            "PERIOD_ALIAS",
+            "ODD_EVEN_TENSION",
+            "SECONDARY_EVENT",
+            "CONTAMINATION_CONTEXT",
+            "LOW_SIGNAL_QUALITY",
+        ]
+    ] = Field(default_factory=list, max_length=6)
+    strongest_vetting_question: str = Field(min_length=1, max_length=300)
+    cited_evidence_refs: list[str] = Field(min_length=1, max_length=8)
+    ranked_action_names: list[str] = Field(default_factory=list, max_length=6)
+
+
+class DirectorDecision(BoundAgentDecision):
+    role: Literal["director"] = "director"
+    phase: Literal["briefing", "final"]
+    authorized_route: str = Field(min_length=1, max_length=80)
+    deterministic_disposition: Disposition | None = None
+    focus_hypothesis: str = Field(min_length=1, max_length=100)
+    requested_handoffs: list[
+        Literal["observer", "signal", "transit_hunter", "skeptic", "critic"]
+    ] = Field(default_factory=list, max_length=5)
+    cited_evidence_refs: list[str] = Field(default_factory=list, max_length=8)
+    conflict_codes: list[
+        Literal[
+            "NONE",
+            "SPECIALIST_DISAGREEMENT",
+            "EVIDENCE_AMBIGUITY",
+            "LIMITED_OBSERVATION_QUALITY",
+        ]
+    ] = Field(default_factory=list, max_length=4)
+    mission_brief: str = Field(min_length=1, max_length=400)
+
+
+AgentDecision = (
+    ObserverAssessment | SignalAssessment | TransitHunterBrief | DirectorDecision
+)
+
+
+class AgentRoleCheckpoint(StrictModel):
+    role: AgentRole
+    phase: AgentPhase
+    context_version: str = Field(min_length=1)
+    decision_id: str = Field(min_length=1)
+    status: AgentCheckpointStatus
+
+
+class AgentDecisionRecord(StrictModel):
+    """Append-only, sanitized role output; state keeps only its checkpoint."""
+
+    record_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    step_id: str = Field(min_length=1)
+    role: AgentRole
+    phase: AgentPhase
+    context_version: str = Field(min_length=1)
+    context_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision_id: str = Field(min_length=1)
+    status: AgentCheckpointStatus
+    evidence_refs: list[str] = Field(default_factory=list)
+    prompt_version: str = Field(min_length=1, max_length=100)
+    prompt_template_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rendered_request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    model_identity: str = Field(min_length=1)
+    fallback_code: str | None = Field(default=None, min_length=1, max_length=100)
+    decision: dict[str, Any] | None = None
+    timestamp: datetime = Field(default_factory=utc_now)
+
+
 class SkepticDecision(StrictModel):
     role: Literal["skeptic"] = "skeptic"
     decision_id: str = Field(min_length=1)
@@ -112,6 +260,8 @@ class SkepticDecision(StrictModel):
     cost_of_selected_experiment: int = Field(ge=0)
     why_cost_is_justified: str = Field(min_length=1, max_length=300)
     concise_reason: str = Field(min_length=1, max_length=300)
+    supporting_evidence_refs: list[str] = Field(default_factory=list, max_length=8)
+    contradicting_evidence_refs: list[str] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="after")
     def stop_has_zero_cost_and_no_parameters(self) -> SkepticDecision:
@@ -135,6 +285,8 @@ class CriticDecision(StrictModel):
     concise_reason: str = Field(min_length=1, max_length=300)
     revised_experiment: str | None = None
     revised_parameters: dict[str, Any] | None = None
+    supporting_evidence_refs: list[str] = Field(default_factory=list, max_length=8)
+    contradicting_evidence_refs: list[str] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="after")
     def revision_matches_verdict(self) -> CriticDecision:
@@ -204,7 +356,7 @@ class InferenceTraceRecord(StrictModel):
     call_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str = Field(min_length=1)
-    role: Literal["skeptic", "critic"]
+    role: AgentRole
     provider: str = Field(min_length=1)
     model_identity: str = Field(min_length=1)
     output_schema: str = Field(min_length=1)
@@ -212,6 +364,12 @@ class InferenceTraceRecord(StrictModel):
     context_version: str = Field(min_length=1)
     context_fingerprint: str = Field(default="0" * 64, pattern=r"^[0-9a-f]{64}$")
     prompt_version: str = Field(default="legacy-v1", min_length=1, max_length=100)
+    prompt_template_sha256: str = Field(default="0" * 64, pattern=r"^[0-9a-f]{64}$")
+    rendered_request_sha256: str = Field(default="0" * 64, pattern=r"^[0-9a-f]{64}$")
+    example_set_version: str = Field(default="none", min_length=1, max_length=100)
+    thinking_mode: Literal["off", "on", "auto"] = "off"
+    thinking_requested: bool = False
+    thinking_confirmed: bool = False
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     latency_ms: int | None = Field(default=None, ge=0)
@@ -294,15 +452,17 @@ class InvestigationState(StrictModel):
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
     max_adaptive_cost_units: int = Field(default=4, ge=0)
-    max_model_calls: int = Field(default=16, ge=0)
+    max_model_calls: int = Field(default=24, ge=0)
     max_tool_calls: int = Field(default=8, ge=0)
     max_model_retries: int = Field(default=1, ge=0)
     max_critic_revisions: int = Field(default=1, ge=0)
     accepted_decisions: list[SkepticDecision] = Field(default_factory=list)
     critic_decisions: list[CriticDecision] = Field(default_factory=list)
+    role_checkpoints: list[AgentRoleCheckpoint] = Field(default_factory=list)
     tool_executions: list[ToolExecutionRecord] = Field(default_factory=list)
     failures: list[HarnessFailureRecord] = Field(default_factory=list)
     inference_summary: InferenceSummary = Field(default_factory=InferenceSummary)
+    pending_final_reason: str | None = None
     terminal_reason: str | None = None
     context_version: str = "1"
     created_at: datetime = Field(default_factory=utc_now)
@@ -321,6 +481,8 @@ class InvestigationState(StrictModel):
 
     @model_validator(mode="after")
     def terminal_state_has_reason(self) -> InvestigationState:
+        if self.status == InvestigationStatus.FINALIZING and not self.pending_final_reason:
+            raise ValueError("FINALIZING investigation status requires pending_final_reason")
         if self.status in TERMINAL_STATUSES and not self.terminal_reason:
             raise ValueError("terminal investigation status requires terminal_reason")
         if self.adaptive_cost_units_used > self.max_adaptive_cost_units:

@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import multiprocessing
+import re
 import shutil
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -17,7 +18,6 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import assemble_context
-from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
 from exoswarm.agents.director import (
     DirectorRoute,
     DirectorStateView,
@@ -35,9 +35,20 @@ from exoswarm.agents.model_client import (
     InferenceClient,
     UnconfiguredInferenceClient,
 )
-from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
+from exoswarm.agents.prompt_registry import (
+    effective_per_role_call_limit,
+    effective_timeout_seconds,
+    prompt_template_sha256,
+    registration_for,
+    render_role_prompt,
+)
+from exoswarm.agents.role_context import assemble_role_context, visible_evidence_refs
+from exoswarm.agents.skeptic import safe_repair_feedback
 from exoswarm.config import Settings
 from exoswarm.domain.enums import (
+    AgentCheckpointStatus,
+    AgentPhase,
+    AgentRole,
     CriticVerdict,
     Disposition,
     HarnessFailureKind,
@@ -59,18 +70,24 @@ from exoswarm.domain.errors import (
 )
 from exoswarm.domain.events import InvestigationEvent
 from exoswarm.domain.models import (
+    AgentDecisionRecord,
+    AgentRoleCheckpoint,
     CandidateSignal,
     CriticDecision,
+    DirectorDecision,
     EvidenceRecord,
     HarnessFailureRecord,
     InferenceTraceRecord,
     InvestigationState,
     LockReceipt,
     Measurement,
+    ObserverAssessment,
     RevealResult,
     ScientificToolResult,
+    SignalAssessment,
     SkepticDecision,
     ToolExecutionRecord,
+    TransitHunterBrief,
 )
 from exoswarm.investigation.hypotheses import (
     decisive_interpretation,
@@ -98,6 +115,7 @@ _SUCCESSFUL_TEST_STATUSES = frozenset(
     {ToolStatus.SUCCESS, ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
 )
 _LOGGER = logging.getLogger(__name__)
+_NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?")
 
 
 def _subprocess_tool_entry(
@@ -131,6 +149,7 @@ class _HarnessAbort(Exception):
         status: InvestigationStatus = InvestigationStatus.FAILED,
         recoverable: bool = True,
         action_id: str | None = None,
+        validation_code: str | None = None,
     ) -> None:
         super().__init__(reason)
         self.kind = kind
@@ -138,6 +157,7 @@ class _HarnessAbort(Exception):
         self.status = status
         self.recoverable = recoverable
         self.action_id = action_id
+        self.validation_code = validation_code or str(kind)
 
 
 class InvestigationController:
@@ -371,7 +391,9 @@ class InvestigationController:
     def determine_route(self, run_id: str) -> DirectorRoute:
         """Reload durable state and ask the deterministic Director for the next node."""
 
-        state = self.get(run_id)
+        state = self._recover_role_checkpoints(self.get(run_id))
+        if state.status == InvestigationStatus.FINALIZING:
+            return DirectorRoute.FINALIZE
         prepared = any(
             item.status == ToolExecutionStatus.PREPARED for item in state.tool_executions
         )
@@ -424,6 +446,21 @@ class InvestigationController:
             )
         state = self.begin_cycle(run_id)
         fresh_route = self._fresh_cycle_route(state)
+        if fresh_route == FreshCycleRoute.CALL_SKEPTIC and self.settings.multi_agent_enabled:
+            specialist_roles = (
+                AgentRole.OBSERVER,
+                AgentRole.SIGNAL,
+                AgentRole.TRANSIT_HUNTER,
+            )
+            if not all(
+                self._role_checkpoint_done(state, role, AgentPhase.BRIEFING)
+                for role in specialist_roles
+            ):
+                return DirectorRoute.RUN_SPECIALIST_BRIEFING
+            if not self._role_checkpoint_done(
+                state, AgentRole.DIRECTOR, AgentPhase.BRIEFING
+            ):
+                return DirectorRoute.CALL_DIRECTOR_BRIEFING
         return determine_director_route(
             DirectorStateView(
                 status=state.status,
@@ -481,6 +518,123 @@ class InvestigationController:
         await self._execute_action(state, spec.name, {}, adaptive=False)
         return {}
 
+    async def run_specialist_briefing(self, run_id: str) -> InvestigationGraphUpdate:
+        """Run shadow specialists with isolated contexts and stable durable commit order."""
+
+        state = self._recover_role_checkpoints(self.get(run_id))
+        evidence = self.artifacts.read_evidence(state)
+        available = self._available_adaptive_actions(state)
+        costs = {name: self._adaptive_action_cost(name) for name in available}
+        parallel_roles: tuple[tuple[AgentRole, type[BaseModel]], ...] = (
+            (AgentRole.OBSERVER, ObserverAssessment),
+            (AgentRole.SIGNAL, SignalAssessment),
+        )
+        tasks: list[tuple[AgentRole, Any]] = []
+        for role, schema in parallel_roles:
+            if self._role_checkpoint_done(state, role, AgentPhase.BRIEFING):
+                continue
+            context = assemble_role_context(
+                state,
+                evidence,
+                role=role.value,  # type: ignore[arg-type]
+                available_experiments=available,
+                adaptive_experiment_costs=costs,
+                experiment_specs=self.registry.specs,
+            )
+            self._emit_agent_queued(state, role, AgentPhase.BRIEFING, context)
+            tasks.append(
+                (
+                    role,
+                    self._run_optional_role(
+                        state,
+                        role=role,
+                        phase=AgentPhase.BRIEFING,
+                        context=context,
+                        schema=schema,
+                        available=available,
+                    ),
+                )
+            )
+        if tasks:
+            results = await asyncio.gather(*(task for _, task in tasks))
+            for (role, _), result in zip(tasks, results, strict=True):
+                self._persist_optional_role_result(
+                    self.get(run_id),
+                    role=role,
+                    phase=AgentPhase.BRIEFING,
+                    result=result,
+                )
+
+        state = self._recover_role_checkpoints(self.get(run_id))
+        if not self._role_checkpoint_done(
+            state, AgentRole.TRANSIT_HUNTER, AgentPhase.BRIEFING
+        ):
+            context = assemble_role_context(
+                state,
+                self.artifacts.read_evidence(state),
+                role="transit_hunter",
+                available_experiments=available,
+                adaptive_experiment_costs=costs,
+                experiment_specs=self.registry.specs,
+                accepted_role_records=self.artifacts.read_agent_decisions(state),
+                promoted_specialist_briefs=self.settings.specialist_advisory_enabled,
+            )
+            self._emit_agent_queued(
+                state, AgentRole.TRANSIT_HUNTER, AgentPhase.BRIEFING, context
+            )
+            result = await self._run_optional_role(
+                state,
+                role=AgentRole.TRANSIT_HUNTER,
+                phase=AgentPhase.BRIEFING,
+                context=context,
+                schema=TransitHunterBrief,
+                available=available,
+            )
+            self._persist_optional_role_result(
+                self.get(run_id),
+                role=AgentRole.TRANSIT_HUNTER,
+                phase=AgentPhase.BRIEFING,
+                result=result,
+            )
+        return {}
+
+    async def run_director_briefing(self, run_id: str) -> InvestigationGraphUpdate:
+        """Ask the model Director to echo the binding deterministic route."""
+
+        state = self._recover_role_checkpoints(self.get(run_id))
+        if self._role_checkpoint_done(state, AgentRole.DIRECTOR, AgentPhase.BRIEFING):
+            return {}
+        available = self._available_adaptive_actions(state)
+        context = assemble_role_context(
+            state,
+            self.artifacts.read_evidence(state),
+            role="director",
+            available_experiments=available,
+            adaptive_experiment_costs={
+                name: self._adaptive_action_cost(name) for name in available
+            },
+            experiment_specs=self.registry.specs,
+            accepted_role_records=self.artifacts.read_agent_decisions(state),
+            authorized_route=DirectorRoute.CALL_SKEPTIC.value,
+            director_phase="briefing",
+        )
+        self._emit_agent_queued(state, AgentRole.DIRECTOR, AgentPhase.BRIEFING, context)
+        result = await self._run_optional_role(
+            state,
+            role=AgentRole.DIRECTOR,
+            phase=AgentPhase.BRIEFING,
+            context=context,
+            schema=DirectorDecision,
+            available=available,
+        )
+        self._persist_optional_role_result(
+            self.get(run_id),
+            role=AgentRole.DIRECTOR,
+            phase=AgentPhase.BRIEFING,
+            result=result,
+        )
+        return {}
+
     async def run_skeptic_node(self, run_id: str) -> InvestigationGraphUpdate:
         """Persist exactly one validated Skeptic decision for the current step."""
 
@@ -496,13 +650,38 @@ class InvestigationController:
             status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
             available_tests=list(available),
         )
+        context = assemble_context(
+            state,
+            self.artifacts.read_evidence(state),
+            role="skeptic",
+            available_experiments=available,
+            adaptive_experiment_costs={
+                name: self._adaptive_action_cost(name) for name in available
+            },
+            experiment_specs=self.registry.specs,
+            accepted_role_records=self.artifacts.read_agent_decisions(state),
+            promoted_specialist_briefs=self.settings.specialist_advisory_enabled,
+        )
         skeptic, skeptic_call = await self._infer(
-            state, role="skeptic", schema=SkepticDecision, available=available
+            state,
+            role="skeptic",
+            schema=SkepticDecision,
+            available=available,
+            context=context,
         )
         state = self.get(run_id)
         assert isinstance(skeptic, SkepticDecision)
         self._validate_skeptic_identity(state, skeptic)
         state = self._replace(state, accepted_decisions=[*state.accepted_decisions, skeptic])
+        state = self._persist_required_role_record(
+            state,
+            role=AgentRole.SKEPTIC,
+            phase=AgentPhase.DECISION,
+            decision=skeptic,
+            call=skeptic_call,
+            context=context,
+            emit_generic_decision=False,
+        )
         self._emit(
             state,
             "agent.decision",
@@ -534,17 +713,38 @@ class InvestigationController:
         if existing is not None:
             return {}
         available = tuple(state.available_tests)
+        context = assemble_context(
+            state,
+            self.artifacts.read_evidence(state),
+            role="critic",
+            available_experiments=available,
+            adaptive_experiment_costs={
+                name: self._adaptive_action_cost(name) for name in available
+            },
+            experiment_specs=self.registry.specs,
+            proposed_decision=skeptic,
+        )
         critic, critic_call = await self._infer(
             state,
             role="critic",
             schema=CriticDecision,
             available=available,
             proposed_decision=skeptic,
+            context=context,
         )
         state = self.get(run_id)
         assert isinstance(critic, CriticDecision)
         self._validate_critic_identity(state, skeptic, critic)
         state = self._replace(state, critic_decisions=[*state.critic_decisions, critic])
+        state = self._persist_required_role_record(
+            state,
+            role=AgentRole.CRITIC,
+            phase=AgentPhase.REVIEW,
+            decision=critic,
+            call=critic_call,
+            context=context,
+            emit_generic_decision=True,
+        )
         self._emit(
             state,
             "critic.review",
@@ -648,16 +848,26 @@ class InvestigationController:
                 recoverable=False,
             )
         result = self._latest_cycle_result(state)
-        self._after_result(state, result)
-        return {}
+        state = self._after_result(state, result)
+        if state.status == InvestigationStatus.FINALIZING:
+            return {"current_route": DirectorRoute.FINALIZE}
+        return {"current_route": DirectorRoute.NOOP_TERMINAL}
 
-    def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate:
+    async def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate:
         """Finalize from durable evidence using the existing deterministic rules."""
 
         state = self.get(run_id)
         skeptic = self._current_skeptic(state)
         critic = self._current_critic(state, skeptic)
-        if critic is not None and critic.verdict == CriticVerdict.VETO:
+        if state.status == InvestigationStatus.FINALIZING:
+            if state.pending_final_reason is None:
+                raise _HarnessAbort(
+                    HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                    "FINALIZING state is missing its pending final reason",
+                    recoverable=False,
+                )
+            reason = state.pending_final_reason
+        elif critic is not None and critic.verdict == CriticVerdict.VETO:
             reason = f"CRITIC_VETO:{critic.reason_code}"
         elif skeptic is not None and critic is not None and (
             skeptic.requested_experiment == STOP_ACTION
@@ -675,6 +885,45 @@ class InvestigationController:
                     "finalize route has no durable stopping reason",
                     recoverable=False,
                 )
+        if self.settings.multi_agent_enabled and not self._role_checkpoint_done(
+            state, AgentRole.DIRECTOR, AgentPhase.FINAL
+        ):
+            available = self._available_adaptive_actions(state)
+            deterministic_disposition = self._deterministic_final_disposition(state)
+            context = assemble_role_context(
+                state,
+                self.artifacts.read_evidence(state),
+                role="director",
+                available_experiments=available,
+                adaptive_experiment_costs={
+                    name: self._adaptive_action_cost(name) for name in available
+                },
+                experiment_specs=self.registry.specs,
+                accepted_role_records=self.artifacts.read_agent_decisions(state),
+                authorized_route=DirectorRoute.FINALIZE.value,
+                director_phase="final",
+                deterministic_disposition=(
+                    deterministic_disposition.value
+                    if deterministic_disposition is not None
+                    else None
+                ),
+            )
+            self._emit_agent_queued(state, AgentRole.DIRECTOR, AgentPhase.FINAL, context)
+            result = await self._run_optional_role(
+                state,
+                role=AgentRole.DIRECTOR,
+                phase=AgentPhase.FINAL,
+                context=context,
+                schema=DirectorDecision,
+                available=available,
+            )
+            self._persist_optional_role_result(
+                self.get(run_id),
+                role=AgentRole.DIRECTOR,
+                phase=AgentPhase.FINAL,
+                result=result,
+            )
+            state = self.get(run_id)
         self._finalize(state, reason)
         return {}
 
@@ -715,6 +964,7 @@ class InvestigationController:
         if state.status in {
             InvestigationStatus.WAITING_FOR_CRITIC,
             InvestigationStatus.RUNNING_TOOL,
+            InvestigationStatus.FINALIZING,
         }:
             return False
         if self._has_pending_evaluation(state):
@@ -801,6 +1051,325 @@ class InvestigationController:
             )
         return record.result
 
+    def _supports_role(self, role: AgentRole) -> bool:
+        supported = getattr(self.inference, "supported_roles", None)
+        if supported is None:
+            return role in {AgentRole.SKEPTIC, AgentRole.CRITIC}
+        return role in {AgentRole(item) for item in supported}
+
+    @staticmethod
+    def _role_checkpoint_done(
+        state: InvestigationState, role: AgentRole, phase: AgentPhase
+    ) -> bool:
+        return any(
+            checkpoint.role == role
+            and checkpoint.phase == phase
+            and checkpoint.context_version == state.context_version
+            for checkpoint in state.role_checkpoints
+        )
+
+    def _recover_role_checkpoints(self, state: InvestigationState) -> InvestigationState:
+        checkpoints = list(state.role_checkpoints)
+        known = {
+            (checkpoint.role, checkpoint.phase, checkpoint.context_version)
+            for checkpoint in checkpoints
+        }
+        for record in self.artifacts.read_agent_decisions(state):
+            key = (record.role, record.phase, record.context_version)
+            if key in known:
+                continue
+            checkpoints.append(
+                AgentRoleCheckpoint(
+                    role=record.role,
+                    phase=record.phase,
+                    context_version=record.context_version,
+                    decision_id=record.decision_id,
+                    status=record.status,
+                )
+            )
+            known.add(key)
+        if checkpoints != state.role_checkpoints:
+            state = self._replace(state, role_checkpoints=checkpoints)
+        return state
+
+    def _emit_agent_queued(
+        self,
+        state: InvestigationState,
+        role: AgentRole,
+        phase: AgentPhase,
+        context: BaseModel,
+    ) -> None:
+        registration = registration_for(role)
+        self._emit(
+            state,
+            "agent.queued",
+            {
+                "role": role.value,
+                "phase": phase.value,
+                "objective": registration.objective,
+                "evidence_count": len(visible_evidence_refs(context)),
+                "context_version": str(context.context_version),
+                "context_fingerprint": str(context.context_fingerprint),
+            },
+        )
+
+    async def _run_optional_role(
+        self,
+        state: InvestigationState,
+        *,
+        role: AgentRole,
+        phase: AgentPhase,
+        context: BaseModel,
+        schema: type[BaseModel],
+        available: tuple[str, ...],
+    ) -> tuple[BaseModel | None, InferenceTraceRecord | None, str | None, BaseModel]:
+        del phase
+        current = self.get(state.run_id)
+        if not self._supports_role(role):
+            return None, None, "ROLE_UNAVAILABLE", context
+        # Preserve two strict calls for the action-bearing Skeptic/Critic path.
+        if current.max_model_calls - current.model_call_count <= 2:
+            return None, None, "MODEL_CALL_RESERVE", context
+        try:
+            decision, call = await self._infer(
+                current,
+                role=role.value,
+                schema=schema,
+                available=available,
+                context=context,
+                attempt_limit=effective_per_role_call_limit(
+                    role,
+                    thinking_mode=self.settings.thinking_mode_for(role),
+                ),
+                allow_fallback=False,
+                advisory=True,
+            )
+        except _HarnessAbort as exc:
+            return None, None, f"ROLE_SKIPPED_TO_SAFE_BASELINE:{exc.kind}", context
+        return decision, call, None, context
+
+    def _persist_optional_role_result(
+        self,
+        state: InvestigationState,
+        *,
+        role: AgentRole,
+        phase: AgentPhase,
+        result: tuple[BaseModel | None, InferenceTraceRecord | None, str | None, BaseModel],
+    ) -> InvestigationState:
+        state = self._recover_role_checkpoints(state)
+        if self._role_checkpoint_done(state, role, phase):
+            return state
+        decision, call, fallback_code, context = result
+        registration = registration_for(role)
+        context_version = str(context.context_version)
+        context_fingerprint = str(context.context_fingerprint)
+        if decision is None:
+            decision_id = f"skip_{role.value}_{phase.value}_{context_version}"
+            status = AgentCheckpointStatus.SKIPPED
+            evidence_refs: list[str] = []
+            decision_payload = None
+            prompt_hash = prompt_template_sha256(role)
+            rendered_hash = "0" * 64
+            model_identity = self._model_identity
+        else:
+            decision_id = str(decision.decision_id)
+            status = AgentCheckpointStatus.COMPLETE
+            evidence_refs = sorted(self._decision_evidence_refs(decision))
+            decision_payload = decision.model_dump(mode="json")
+            assert call is not None
+            prompt_hash = call.prompt_template_sha256
+            rendered_hash = call.rendered_request_sha256
+            model_identity = call.model_identity
+        record_key = hashlib.sha256(
+            f"{state.run_id}:{role.value}:{phase.value}:{context_version}".encode()
+        ).hexdigest()[:24]
+        record = AgentDecisionRecord(
+            record_id=f"agent_record_{record_key}",
+            run_id=state.run_id,
+            step_id=str(context.step_id),
+            role=role,
+            phase=phase,
+            context_version=context_version,
+            context_fingerprint=context_fingerprint,
+            decision_id=decision_id,
+            status=status,
+            evidence_refs=evidence_refs,
+            prompt_version=registration.prompt_version,
+            prompt_template_sha256=prompt_hash,
+            rendered_request_sha256=rendered_hash,
+            model_identity=model_identity,
+            fallback_code=fallback_code,
+            decision=decision_payload,
+        )
+        self.artifacts.append_agent_decision(state, record)
+        checkpoint = AgentRoleCheckpoint(
+            role=role,
+            phase=phase,
+            context_version=context_version,
+            decision_id=decision_id,
+            status=status,
+        )
+        state = self._replace(
+            state, role_checkpoints=[*state.role_checkpoints, checkpoint]
+        )
+        if status == AgentCheckpointStatus.SKIPPED:
+            self._emit(
+                state,
+                "agent.skipped",
+                {
+                    "role": role.value,
+                    "phase": phase.value,
+                    "fallback_code": fallback_code or "ROLE_SKIPPED_TO_SAFE_BASELINE",
+                    "label": "ROLE_SKIPPED_TO_SAFE_BASELINE",
+                },
+            )
+        else:
+            assert call is not None and decision_payload is not None
+            self._emit(
+                state,
+                "agent.decision",
+                {
+                    "role": role.value,
+                    "phase": phase.value,
+                    "provider": call.provider,
+                    "model_identity": call.model_identity,
+                    "fallback_used": call.fallback_used,
+                    "inference_call_id": call.call_id,
+                    "decision": decision_payload,
+                    "context_version": context_version,
+                },
+            )
+            self._emit(
+                state,
+                "agent.completed",
+                {
+                    "role": role.value,
+                    "phase": phase.value,
+                    "decision_id": decision_id,
+                    "evidence_refs": evidence_refs,
+                    "schema_valid": True,
+                },
+            )
+        handoff_to = {
+            AgentRole.OBSERVER: "transit_hunter",
+            AgentRole.SIGNAL: "transit_hunter",
+            AgentRole.TRANSIT_HUNTER: "director",
+            AgentRole.DIRECTOR: "skeptic" if phase == AgentPhase.BRIEFING else "result_lock",
+        }[role]
+        self._emit(
+            state,
+            "agent.handoff",
+            {
+                "from_role": role.value,
+                "to_role": handoff_to,
+                "phase": phase.value,
+                "status": status.value,
+            },
+        )
+        return state
+
+    def _persist_required_role_record(
+        self,
+        state: InvestigationState,
+        *,
+        role: AgentRole,
+        phase: AgentPhase,
+        decision: BaseModel,
+        call: InferenceTraceRecord,
+        context: BaseModel,
+        emit_generic_decision: bool,
+    ) -> InvestigationState:
+        if self._role_checkpoint_done(state, role, phase):
+            return state
+        context_version = str(context.context_version)
+        record_key = hashlib.sha256(
+            f"{state.run_id}:{role.value}:{phase.value}:{context_version}".encode()
+        ).hexdigest()[:24]
+        decision_id = str(decision.decision_id)
+        decision_payload = decision.model_dump(mode="json")
+        evidence_refs = sorted(self._decision_evidence_refs(decision))
+        self.artifacts.append_agent_decision(
+            state,
+            AgentDecisionRecord(
+                record_id=f"agent_record_{record_key}",
+                run_id=state.run_id,
+                step_id=str(context.step_id),
+                role=role,
+                phase=phase,
+                context_version=context_version,
+                context_fingerprint=str(context.context_fingerprint),
+                decision_id=decision_id,
+                status=AgentCheckpointStatus.COMPLETE,
+                evidence_refs=evidence_refs,
+                prompt_version=call.prompt_version,
+                prompt_template_sha256=call.prompt_template_sha256,
+                rendered_request_sha256=call.rendered_request_sha256,
+                model_identity=call.model_identity,
+                decision=decision_payload,
+            ),
+        )
+        state = self._replace(
+            state,
+            role_checkpoints=[
+                *state.role_checkpoints,
+                AgentRoleCheckpoint(
+                    role=role,
+                    phase=phase,
+                    context_version=context_version,
+                    decision_id=decision_id,
+                    status=AgentCheckpointStatus.COMPLETE,
+                ),
+            ],
+        )
+        if emit_generic_decision:
+            self._emit(
+                state,
+                "agent.decision",
+                {
+                    "role": role.value,
+                    "phase": phase.value,
+                    "provider": call.provider,
+                    "model_identity": call.model_identity,
+                    "fallback_used": call.fallback_used,
+                    "inference_call_id": call.call_id,
+                    "decision": decision_payload,
+                    "context_version": context_version,
+                },
+            )
+        self._emit(
+            state,
+            "agent.completed",
+            {
+                "role": role.value,
+                "phase": phase.value,
+                "decision_id": decision_id,
+                "evidence_refs": evidence_refs,
+                "schema_valid": True,
+            },
+        )
+        self._emit(
+            state,
+            "agent.handoff",
+            {
+                "from_role": role.value,
+                "to_role": "critic" if role == AgentRole.SKEPTIC else "deterministic_controller",
+                "phase": phase.value,
+                "status": AgentCheckpointStatus.COMPLETE.value,
+            },
+        )
+        return state
+
+    @staticmethod
+    def _decision_evidence_refs(decision: BaseModel) -> frozenset[str]:
+        refs: set[str] = set()
+        for field in (
+            "cited_evidence_refs",
+            "supporting_evidence_refs",
+            "contradicting_evidence_refs",
+        ):
+            refs.update(str(item) for item in getattr(decision, field, ()))
+        return frozenset(refs)
+
     @property
     def _model_identity(self) -> str:
         return str(getattr(self.inference, "model_identity", type(self.inference).__name__))
@@ -813,22 +1382,34 @@ class InvestigationController:
         schema: type[BaseModel],
         available: tuple[str, ...],
         proposed_decision: SkepticDecision | None = None,
+        context: BaseModel | None = None,
+        attempt_limit: int | None = None,
+        allow_fallback: bool = True,
+        advisory: bool = False,
     ) -> tuple[BaseModel, InferenceTraceRecord]:
-        context = assemble_context(
-            state,
-            self.artifacts.read_evidence(state),
-            role=role,  # type: ignore[arg-type]
-            available_experiments=available,
-            adaptive_experiment_costs={
-                name: self._adaptive_action_cost(name) for name in available
-            },
-            experiment_specs=self.registry.specs,
-            proposed_decision=proposed_decision,
-        )
+        if context is None:
+            context = assemble_context(
+                state,
+                self.artifacts.read_evidence(state),
+                role=role,  # type: ignore[arg-type]
+                available_experiments=available,
+                adaptive_experiment_costs={
+                    name: self._adaptive_action_cost(name) for name in available
+                },
+                experiment_specs=self.registry.specs,
+                proposed_decision=proposed_decision,
+            )
         attempt_kind: AttemptKind = "primary"
         first_validation_failure: _HarnessAbort | None = None
+        attempt_count = 0
+        advisory_retry_count = 0
 
         while True:
+            if attempt_limit is not None and attempt_count >= attempt_limit:
+                raise _HarnessAbort(
+                    HarnessFailureKind.ROLE_CALL_LIMIT,
+                    f"{role} reached its per-role inference-call limit",
+                )
             outcome = await self._run_inference_attempt(
                 state.run_id,
                 client=self.inference,
@@ -837,9 +1418,12 @@ class InvestigationController:
                 schema=schema,
                 attempt_kind=attempt_kind,
                 validation_error_code=(
-                    first_validation_failure.kind if first_validation_failure else None
+                    first_validation_failure.validation_code
+                    if first_validation_failure
+                    else None
                 ),
             )
+            attempt_count += 1
             state = self.get(state.run_id)
 
             if outcome.error is None and outcome.decision is not None:
@@ -855,6 +1439,7 @@ class InvestigationController:
                         current,
                         role=role,
                         decision=decision,
+                        context=context,
                         available=available,
                         proposed_decision=proposed_decision,
                     )
@@ -863,7 +1448,7 @@ class InvestigationController:
                         update={
                             "status": "INVALID",
                             "schema_valid": False,
-                            "validation_error_code": str(exc.kind),
+                            "validation_error_code": exc.validation_code,
                         }
                     )
                     self._record_inference_attempt(state, invalid_call)
@@ -882,6 +1467,7 @@ class InvestigationController:
                         available=available,
                         proposed_decision=proposed_decision,
                         failure=first_validation_failure,
+                        allow_fallback=allow_fallback,
                     )
                 except (ValidationError, TypeError) as exc:
                     invalid = _HarnessAbort(
@@ -909,6 +1495,7 @@ class InvestigationController:
                         available=available,
                         proposed_decision=proposed_decision,
                         failure=first_validation_failure,
+                        allow_fallback=allow_fallback,
                     )
                 self._record_inference_attempt(state, outcome.call)
                 return decision, outcome.call
@@ -933,6 +1520,7 @@ class InvestigationController:
                     available=available,
                     proposed_decision=proposed_decision,
                     failure=first_validation_failure,
+                    allow_fallback=allow_fallback,
                 )
             if isinstance(error, (ModelProviderTimeoutError, TimeoutError)):
                 kind = HarnessFailureKind.MODEL_TIMEOUT
@@ -961,9 +1549,26 @@ class InvestigationController:
                     available=available,
                     proposed_decision=proposed_decision,
                     failure=first_validation_failure,
+                    allow_fallback=allow_fallback,
                 )
 
             state = self.get(state.run_id)
+            if advisory:
+                if advisory_retry_count >= self.settings.max_model_retries:
+                    raise _HarnessAbort(kind, reason)
+                advisory_retry_count += 1
+                self._emit(
+                    state,
+                    "model.retry",
+                    {
+                        "role": role,
+                        "kind": kind,
+                        "attempt_kind": attempt_kind,
+                        "retry_count": advisory_retry_count,
+                        "advisory": True,
+                    },
+                )
+                continue
             if state.model_retry_count >= state.max_model_retries:
                 return await self._fallback_or_abort(
                     state,
@@ -973,6 +1578,7 @@ class InvestigationController:
                     available=available,
                     proposed_decision=proposed_decision,
                     failure=_HarnessAbort(kind, reason),
+                    allow_fallback=allow_fallback,
                 )
             failure = HarnessFailureRecord(
                 step_id=f"step_{state.step_count:04d}",
@@ -1018,6 +1624,7 @@ class InvestigationController:
                 recoverable=False,
             )
         state = self._replace(state, model_call_count=state.model_call_count + 1)
+        thinking_mode = self.settings.thinking_mode_for(role)
         self._emit(
             state,
             "agent.started",
@@ -1028,9 +1635,34 @@ class InvestigationController:
                 "attempt_kind": attempt_kind,
                 "context_version": str(getattr(context, "context_version", "unknown")),
                 "fallback": fallback_used,
+                "thinking_mode": thinking_mode.value,
+                "thinking_requested": thinking_mode.value == "on",
+                "thinking_confirmed": (
+                    AgentRole(role) in self.settings.thinking_confirmed_roles
+                    and thinking_mode.value == "on"
+                ),
+                "evidence_count": len(visible_evidence_refs(context)),
+                "advisory_roles": sorted(
+                    getattr(context, "promoted_advisory_briefs", {})
+                ),
             },
         )
         started = perf_counter()
+        role_timeout = effective_timeout_seconds(
+            role,
+            configured_timeout_seconds=self.settings.inference_timeout_seconds,
+            thinking_mode=thinking_mode,
+        )
+        rendered = render_role_prompt(
+            role=role,
+            context=context,
+            output_schema=schema,
+            repair_feedback=(
+                safe_repair_feedback(validation_error_code)
+                if attempt_kind == "repair"
+                else None
+            ),
+        )
         common = {
             "call_id": f"call_{token_hex(12)}",
             "run_id": run_id,
@@ -1044,8 +1676,15 @@ class InvestigationController:
             "context_fingerprint": str(
                 getattr(context, "context_fingerprint", "0" * 64)
             ),
-            "prompt_version": (
-                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            "prompt_version": rendered.prompt_version,
+            "prompt_template_sha256": rendered.prompt_template_sha256,
+            "rendered_request_sha256": rendered.rendered_request_sha256,
+            "example_set_version": rendered.example_set_version,
+            "thinking_mode": thinking_mode.value,
+            "thinking_requested": thinking_mode.value == "on",
+            "thinking_confirmed": (
+                AgentRole(role) in self.settings.thinking_confirmed_roles
+                and thinking_mode.value == "on"
             ),
             "fallback_used": fallback_used,
         }
@@ -1065,7 +1704,7 @@ class InvestigationController:
                         ),
                         fallback_used=fallback_used,
                     ),
-                    timeout=self.settings.inference_timeout_seconds,
+                    timeout=role_timeout,
                 )
             except TimeoutError as exc:
                 call = InferenceTraceRecord(
@@ -1079,7 +1718,7 @@ class InvestigationController:
         try:
             decision = await asyncio.wait_for(
                 client.decide(role=role, context=context, output_schema=schema),
-                timeout=self.settings.inference_timeout_seconds,
+                timeout=role_timeout,
             )
         except (ModelProviderTimeoutError, TimeoutError) as exc:
             call = InferenceTraceRecord(
@@ -1126,8 +1765,13 @@ class InvestigationController:
         available: tuple[str, ...],
         proposed_decision: SkepticDecision | None,
         failure: _HarnessAbort,
+        allow_fallback: bool = True,
     ) -> tuple[BaseModel, InferenceTraceRecord]:
-        if not self.settings.agent_fallback_enabled or self.fallback_inference is None:
+        if (
+            not allow_fallback
+            or not self.settings.agent_fallback_enabled
+            or self.fallback_inference is None
+        ):
             raise failure from None
         self._emit(
             state,
@@ -1153,7 +1797,7 @@ class InvestigationController:
             context=context,
             schema=schema,
             attempt_kind="primary",
-            validation_error_code=failure.kind,
+            validation_error_code=failure.validation_code,
             fallback_used=True,
         )
         state = self.get(state.run_id)
@@ -1172,6 +1816,7 @@ class InvestigationController:
                 current,
                 role=role,
                 decision=decision,
+                context=context,
                 available=available,
                 proposed_decision=proposed_decision,
             )
@@ -1194,9 +1839,23 @@ class InvestigationController:
         *,
         role: str,
         decision: BaseModel,
+        context: BaseModel,
         available: tuple[str, ...],
         proposed_decision: SkepticDecision | None,
     ) -> None:
+        agent_role = AgentRole(role)
+        expected_step = f"step_{state.step_count:04d}"
+        if (
+            str(getattr(decision, "role", "")) != role
+            or str(getattr(decision, "run_id", "")) != state.run_id
+            or str(getattr(decision, "step_id", "")) != expected_step
+            or str(getattr(decision, "context_version", "")) != state.context_version
+        ):
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                f"{role} role, run, step, or context binding is stale or mismatched",
+                validation_code="IDENTITY_BINDING_MISMATCH",
+            )
         if role == "skeptic":
             skeptic = SkepticDecision.model_validate(decision, strict=True)
             self._validate_skeptic_identity(state, skeptic)
@@ -1204,27 +1863,129 @@ class InvestigationController:
             self._validate_inferred_action(
                 state, skeptic.requested_experiment, skeptic.parameters, available
             )
+            self._validate_decision_citations(role, skeptic, context)
+            self._reject_numeric_narratives(
+                skeptic.hypothesis_under_test,
+                skeptic.expected_discriminating_result,
+                *skeptic.predicted_outcomes.values(),
+                *(value for value in (skeptic.stop_if,) if value is not None),
+                skeptic.why_cost_is_justified,
+                skeptic.concise_reason,
+            )
             return
-        critic = CriticDecision.model_validate(decision, strict=True)
-        if proposed_decision is None:
+        if role == "critic":
+            critic = CriticDecision.model_validate(decision, strict=True)
+            if proposed_decision is None:
+                raise _HarnessAbort(
+                    HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                    "Critic inference is missing its bounded proposal",
+                )
+            self._validate_critic_identity(state, proposed_decision, critic)
+            if critic.verdict == CriticVerdict.REVISE:
+                if state.critic_revision_count >= state.max_critic_revisions:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.BUDGET_EXHAUSTED,
+                        "Critic revision budget reached",
+                        status=InvestigationStatus.BUDGET_EXHAUSTED,
+                        recoverable=False,
+                    )
+                self._validate_inferred_action(
+                    state,
+                    critic.revised_experiment or "",
+                    critic.revised_parameters or {},
+                    available,
+                )
+            self._validate_decision_citations(role, critic, context)
+            self._reject_numeric_narratives(critic.concise_reason)
+            return
+        if agent_role == AgentRole.OBSERVER:
+            observer = ObserverAssessment.model_validate(decision, strict=True)
+            self._validate_decision_citations(role, observer, context)
+            self._reject_numeric_narratives(
+                observer.observation_limitations,
+                *observer.questions_for_later_roles,
+            )
+            return
+        if agent_role == AgentRole.SIGNAL:
+            signal = SignalAssessment.model_validate(decision, strict=True)
+            self._validate_decision_citations(role, signal, context)
+            self._reject_numeric_narratives(signal.concise_reason, *signal.vetting_questions)
+            return
+        if agent_role == AgentRole.TRANSIT_HUNTER:
+            hunter = TransitHunterBrief.model_validate(decision, strict=True)
+            allowed_candidates = {item.candidate_id for item in state.candidate_signals}
+            if hunter.focus_candidate_id not in allowed_candidates:
+                raise _HarnessAbort(
+                    HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                    "Transit Hunter selected a candidate absent from its allowlist",
+                    validation_code="TRANSIT_CANDIDATE_OUT_OF_SCOPE",
+                )
+            if not set(hunter.ranked_action_names).issubset(available):
+                raise _HarnessAbort(
+                    HarnessFailureKind.UNAVAILABLE_ACTION,
+                    "Transit Hunter ranked an unavailable action",
+                    validation_code="TRANSIT_ACTION_OUT_OF_SCOPE",
+                )
+            self._validate_decision_citations(role, hunter, context)
+            self._reject_numeric_narratives(hunter.strongest_vetting_question)
+            return
+        director = DirectorDecision.model_validate(decision, strict=True)
+        authorized_route = str(getattr(context, "authorized_route", ""))
+        deterministic_disposition = getattr(context, "deterministic_disposition", None)
+        if director.authorized_route != authorized_route:
             raise _HarnessAbort(
                 HarnessFailureKind.INVALID_MODEL_OUTPUT,
-                "Critic inference is missing its bounded proposal",
+                "Director did not echo the deterministic authorized route",
+                validation_code="DIRECTOR_ROUTE_MISMATCH",
             )
-        self._validate_critic_identity(state, proposed_decision, critic)
-        if critic.verdict == CriticVerdict.REVISE:
-            if state.critic_revision_count >= state.max_critic_revisions:
-                raise _HarnessAbort(
-                    HarnessFailureKind.BUDGET_EXHAUSTED,
-                    "Critic revision budget reached",
-                    status=InvestigationStatus.BUDGET_EXHAUSTED,
-                    recoverable=False,
-                )
-            self._validate_inferred_action(
-                state,
-                critic.revised_experiment or "",
-                critic.revised_parameters or {},
-                available,
+        if director.deterministic_disposition != deterministic_disposition:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Director did not echo the deterministic disposition binding",
+                validation_code="DIRECTOR_DISPOSITION_MISMATCH",
+            )
+        if director.phase != str(getattr(context, "phase", "")):
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Director phase binding is stale or mismatched",
+                validation_code="DIRECTOR_PHASE_MISMATCH",
+            )
+        active_focus = set(getattr(context, "active_hypotheses", ()))
+        allowed_focus = active_focus or {"unresolved"}
+        if director.focus_hypothesis not in allowed_focus:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Director selected a focus hypothesis outside the current state",
+                validation_code="DIRECTOR_FOCUS_OUT_OF_SCOPE",
+            )
+        self._validate_decision_citations(role, director, context)
+        self._reject_numeric_narratives(director.mission_brief)
+
+    def _validate_decision_citations(
+        self, role: str, decision: BaseModel, context: BaseModel
+    ) -> None:
+        cited = self._decision_evidence_refs(decision)
+        visible = visible_evidence_refs(context)
+        if visible and not cited:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                f"{role} output must cite model-visible evidence",
+                validation_code="CITATION_REQUIRED",
+            )
+        if not cited.issubset(visible):
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                f"{role} output cites evidence absent from its context",
+                validation_code="CITATION_OUT_OF_CONTEXT",
+            )
+
+    @staticmethod
+    def _reject_numeric_narratives(*values: str) -> None:
+        if any(_NUMERIC_CLAIM.search(value) for value in values):
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "model-authored narrative contains an unsupported numeric claim",
+                validation_code="NUMERIC_NARRATIVE_UNSUPPORTED",
             )
 
     def _validate_inferred_action(
@@ -2082,7 +2843,7 @@ class InvestigationController:
                         },
                     )
                     return state
-                return self._finalize(
+                return self._prepare_finalization(
                     self._replace(state, failures=[*state.failures, failure]),
                     f"PRECONDITION_REPLAN_EXHAUSTED:{result.tool_name}",
                 )
@@ -2110,13 +2871,17 @@ class InvestigationController:
         }
         decisive = decisive_interpretation(codes)
         if decisive is not None:
-            return self._finalize(state, f"DETERMINISTIC_EVIDENCE:{decisive}")
+            return self._prepare_finalization(
+                state, f"DETERMINISTIC_EVIDENCE:{decisive}"
+            )
         if execution is not None and execution.adaptive:
             budget_reason = adaptive_budget_terminal_reason(state)
             if budget_reason is not None:
-                return self._finalize(state, budget_reason)
+                return self._prepare_finalization(state, budget_reason)
             if not self._available_adaptive_actions(state):
-                return self._finalize(state, "NO_AVAILABLE_ADAPTIVE_ACTION")
+                return self._prepare_finalization(
+                    state, "NO_AVAILABLE_ADAPTIVE_ACTION"
+                )
             return self._replace(
                 state, status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT
             )
@@ -2124,8 +2889,25 @@ class InvestigationController:
             result.status in {ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
             and state.adaptive_experiments_used >= state.max_adaptive_experiments
         ):
-            return self._finalize(state, f"SCIENTIFIC_{result.status}")
+            return self._prepare_finalization(state, f"SCIENTIFIC_{result.status}")
         return self._replace(state, status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT)
+
+    def _prepare_finalization(
+        self, state: InvestigationState, reason: str
+    ) -> InvestigationState:
+        """Persist finalization intent before the optional final model call."""
+
+        state = self._replace(
+            state,
+            status=InvestigationStatus.FINALIZING,
+            pending_final_reason=reason,
+        )
+        self._emit(
+            state,
+            "status.changed",
+            {"status": state.status, "pending_final_reason": reason},
+        )
+        return state
 
     def _finalize(self, state: InvestigationState, reason: str) -> InvestigationState:
         if missing_mandatory_tests(set(state.completed_tests)):
@@ -2136,14 +2918,9 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=False,
             )
-        codes = {
-            record.interpretation_code
-            for record in self.artifacts.read_evidence(state)
-            if record.interpretation_code
-        }
-        if "ODD_EVEN_MISMATCH" in codes or "CONTAMINATION_LIKELY" in codes:
-            disposition = Disposition.PLANETARY_INTERPRETATION_REJECTED
-        elif "WEAK_NOISY" in codes:
+        codes = self._interpretation_codes(state)
+        disposition = self._deterministic_final_disposition(state)
+        if disposition is None and "WEAK_NOISY" in codes:
             return self._terminate(
                 state,
                 HarnessFailureKind.INSUFFICIENT_EVIDENCE,
@@ -2151,11 +2928,7 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=False,
             )
-        elif has_weak_planetary_interpretation(codes):
-            disposition = Disposition.PLANETARY_INTERPRETATION_WEAK
-        elif "CLEAN_PLANET_LIKE" in codes or state.candidate_signals:
-            disposition = Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING
-        else:
+        if disposition is None:
             return self._terminate(
                 state,
                 HarnessFailureKind.INSUFFICIENT_EVIDENCE,
@@ -2167,6 +2940,7 @@ class InvestigationController:
             state,
             status=InvestigationStatus.READY_TO_LOCK,
             disposition=disposition,
+            pending_final_reason=None,
             terminal_reason=reason,
         )
         state = self._persist_terminal_inference_summary(state)
@@ -2176,6 +2950,29 @@ class InvestigationController:
             {"status": state.status, "terminal_reason": reason, "disposition": disposition},
         )
         return state
+
+    def _interpretation_codes(self, state: InvestigationState) -> set[str]:
+        return {
+            record.interpretation_code
+            for record in self.artifacts.read_evidence(state)
+            if record.interpretation_code
+        }
+
+    def _deterministic_final_disposition(
+        self, state: InvestigationState
+    ) -> Disposition | None:
+        """Preview the exact disposition rule without mutating investigation state."""
+
+        codes = self._interpretation_codes(state)
+        if "ODD_EVEN_MISMATCH" in codes or "CONTAMINATION_LIKELY" in codes:
+            return Disposition.PLANETARY_INTERPRETATION_REJECTED
+        if "WEAK_NOISY" in codes:
+            return None
+        if has_weak_planetary_interpretation(codes):
+            return Disposition.PLANETARY_INTERPRETATION_WEAK
+        if "CLEAN_PLANET_LIKE" in codes or state.candidate_signals:
+            return Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING
+        return None
 
     def _terminate(
         self,
@@ -2209,6 +3006,7 @@ class InvestigationController:
         state = self._replace(
             state,
             status=status,
+            pending_final_reason=None,
             terminal_reason=f"{kind}:{reason}",
             failures=[*state.failures, failure],
             tool_executions=executions,

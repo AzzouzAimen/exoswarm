@@ -8,8 +8,9 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
-from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION, safe_repair_feedback
+from exoswarm.agents.prompt_registry import render_role_prompt
+from exoswarm.agents.skeptic import safe_repair_feedback
+from exoswarm.domain.enums import AgentRole
 from exoswarm.domain.errors import (
     InvalidModelOutputError,
     ModelNotConfiguredError,
@@ -61,6 +62,7 @@ class AttemptInferenceClient(InferenceClient, Protocol):
 class UnconfiguredInferenceClient:
     provider = "unconfigured"
     model_identity = "unconfigured"
+    supported_roles: frozenset[AgentRole] = frozenset()
 
     async def decide(
         self, *, role: str, context: BaseModel, output_schema: type[BaseModel]
@@ -84,6 +86,7 @@ class ScriptedInferenceClient:
         self._responses = {
             role: deque(role_responses) for role, role_responses in responses.items()
         }
+        self.supported_roles = frozenset(AgentRole(role) for role in self._responses)
         self.calls: list[InferenceCall] = []
         self._role_counts: defaultdict[str, int] = defaultdict(int)
 
@@ -128,8 +131,12 @@ class ScriptedInferenceClient:
             "context_fingerprint": str(
                 getattr(context, "context_fingerprint", "0" * 64)
             ),
-            "prompt_version": (
-                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            **self._prompt_metadata(
+                role=role,
+                context=context,
+                output_schema=output_schema,
+                attempt_kind=attempt_kind,
+                validation_error_code=validation_error_code,
             ),
             "validation_error_code": (
                 safe_repair_feedback(validation_error_code).code
@@ -207,6 +214,35 @@ class ScriptedInferenceClient:
             schema_valid=True,
             decision=validated,
         )
+
+    @staticmethod
+    def _prompt_metadata(
+        *,
+        role: str,
+        context: BaseModel,
+        output_schema: type[BaseModel],
+        attempt_kind: AttemptKind,
+        validation_error_code: str | None,
+    ) -> dict[str, object]:
+        rendered = render_role_prompt(
+            role=role,
+            context=context,
+            output_schema=output_schema,
+            repair_feedback=(
+                safe_repair_feedback(validation_error_code)
+                if attempt_kind == "repair"
+                else None
+            ),
+        )
+        return {
+            "prompt_version": rendered.prompt_version,
+            "prompt_template_sha256": rendered.prompt_template_sha256,
+            "rendered_request_sha256": rendered.rendered_request_sha256,
+            "example_set_version": rendered.example_set_version,
+            "thinking_mode": "off",
+            "thinking_requested": False,
+            "thinking_confirmed": False,
+        }
 
     def _record(
         self,

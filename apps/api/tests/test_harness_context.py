@@ -168,7 +168,9 @@ def test_context_allows_scientific_notation_units_and_ordinary_prose() -> None:
         hypothesis_under_test="eclipsing_binary",
         requested_experiment="harmonic_test",
         reason_code="COMPARE_ODD_EVEN",
-        expected_discriminating_result="Compare a 1e-5 fractional signal in m/s units.",
+        expected_discriminating_result=(
+            "Compare a 1e-5 fractional signal in m/s units; the test may reveal a dip."
+        ),
         expected_information_value=InformationValue.MEDIUM,
         priority=Priority.MEDIUM,
         budget_units_remaining=state.adaptive_cost_units_remaining,

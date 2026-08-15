@@ -1,4 +1,4 @@
-.PHONY: dev dev-api dev-web test lint build reproduce
+.PHONY: dev dev-api dev-web test lint build reproduce eval-real-tess
 
 dev:
 	@echo "Run 'make dev-api' and 'make dev-web' in separate terminals."
@@ -10,7 +10,7 @@ dev-web:
 	pnpm --dir apps/web dev
 
 test:
-	uv run --project apps/api --extra science --extra agents pytest apps/api/tests
+	uv run --project apps/api --extra science --extra agents pytest -c apps/api/pyproject.toml
 
 lint:
 	uv run --project apps/api ruff check apps/api/src apps/api/tests scripts
@@ -23,3 +23,6 @@ build:
 
 reproduce:
 	uv run --project apps/api --extra science python scripts/reproduce.py
+
+eval-real-tess:
+	uv run --project apps/api --extra science --extra agents python scripts/run_cached_real_tess_evals.py

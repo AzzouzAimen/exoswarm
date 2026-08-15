@@ -44,6 +44,8 @@ def request_policy(tool_name: str, parameters: dict | None = None):
             cost_of_selected_experiment=packet.adaptive_experiment_costs.get(tool_name, 1),
             why_cost_is_justified="The fixture requests a bounded discriminating action.",
             concise_reason="A concise fixture reason.",
+            supporting_evidence_refs=list(packet.evidence_refs[-1:]),
+            contradicting_evidence_refs=[],
         )
 
     return decide
@@ -77,6 +79,8 @@ def approve_policy(context, _schema):
         verdict=CriticVerdict.APPROVE,
         reason_code="FIXTURE_APPROVE",
         concise_reason="The bounded request is informative in this fixture.",
+        supporting_evidence_refs=list(packet.evidence_refs[-1:]),
+        contradicting_evidence_refs=[],
     )
 
 

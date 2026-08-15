@@ -31,27 +31,33 @@ def derive_inference_summary(records: list[InferenceTraceRecord]) -> InferenceSu
         record.output_tokens for record in records if record.output_tokens is not None
     ]
     measured_latency = [record.latency_ms for record in records if record.latency_ms is not None]
-    decisions = {(record.step_id, record.role) for record in records}
-    first_attempt_by_decision: dict[tuple[str, str], InferenceTraceRecord] = {}
+    decisions = {
+        (record.step_id, record.role, record.context_fingerprint) for record in records
+    }
+    first_attempt_by_decision: dict[tuple[str, str, str], InferenceTraceRecord] = {}
     for record in records:
         if record.fallback_used:
             continue
-        first_attempt_by_decision.setdefault((record.step_id, record.role), record)
+        first_attempt_by_decision.setdefault(
+            (record.step_id, record.role, record.context_fingerprint), record
+        )
     first_attempts = list(first_attempt_by_decision.values())
     repair_eligible = {
-        (record.step_id, record.role)
+        (record.step_id, record.role, record.context_fingerprint)
         for record in records
         if not record.fallback_used
         and record.attempt_kind == "primary"
         and record.status in {"INVALID", "OUTPUT_TRUNCATED"}
     }
     repairs = {
-        (record.step_id, record.role)
+        (record.step_id, record.role, record.context_fingerprint)
         for record in records
         if not record.fallback_used and record.attempt_kind == "repair"
     }
     fallback_decisions = {
-        (record.step_id, record.role) for record in records if record.fallback_used
+        (record.step_id, record.role, record.context_fingerprint)
+        for record in records
+        if record.fallback_used
     }
 
     return InferenceSummary(

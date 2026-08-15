@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from exoswarm.agents.context import AgentContextPacket
 
-SKEPTIC_PROMPT_VERSION = "skeptic-decision-v3"
+SKEPTIC_PROMPT_VERSION = "skeptic-decision-v6"
 
 RepairCategory = Literal[
     "structure",
@@ -17,6 +16,7 @@ RepairCategory = Literal[
     "precondition",
     "duplication",
     "budget",
+    "grounding",
 ]
 
 _SAFE_REPAIR_CODES: dict[str, RepairCategory] = {
@@ -29,6 +29,16 @@ _SAFE_REPAIR_CODES: dict[str, RepairCategory] = {
     "PRECONDITION_FAILED": "precondition",
     "REPEATED_ACTION": "duplication",
     "BUDGET_EXHAUSTED": "budget",
+    "IDENTITY_BINDING_MISMATCH": "identity",
+    "CITATION_REQUIRED": "grounding",
+    "CITATION_OUT_OF_CONTEXT": "grounding",
+    "NUMERIC_NARRATIVE_UNSUPPORTED": "grounding",
+    "DIRECTOR_ROUTE_MISMATCH": "identity",
+    "DIRECTOR_DISPOSITION_MISMATCH": "identity",
+    "DIRECTOR_PHASE_MISMATCH": "identity",
+    "DIRECTOR_FOCUS_OUT_OF_SCOPE": "grounding",
+    "TRANSIT_CANDIDATE_OUT_OF_SCOPE": "grounding",
+    "TRANSIT_ACTION_OUT_OF_SCOPE": "action",
 }
 
 
@@ -45,6 +55,16 @@ class SafeRepairFeedback(BaseModel):
         "PRECONDITION_FAILED",
         "REPEATED_ACTION",
         "BUDGET_EXHAUSTED",
+        "IDENTITY_BINDING_MISMATCH",
+        "CITATION_REQUIRED",
+        "CITATION_OUT_OF_CONTEXT",
+        "NUMERIC_NARRATIVE_UNSUPPORTED",
+        "DIRECTOR_ROUTE_MISMATCH",
+        "DIRECTOR_DISPOSITION_MISMATCH",
+        "DIRECTOR_PHASE_MISMATCH",
+        "DIRECTOR_FOCUS_OUT_OF_SCOPE",
+        "TRANSIT_CANDIDATE_OUT_OF_SCOPE",
+        "TRANSIT_ACTION_OUT_OF_SCOPE",
     ]
     category: RepairCategory
 
@@ -69,40 +89,11 @@ def build_skeptic_messages(
 ) -> list[dict[str, str]]:
     """Build the versioned Skeptic request without conversational history."""
 
-    system = (
-        "You are ExoSwarm's Skeptic. Identify the strongest unresolved non-planetary "
-        "alternative, then choose the available, affordable, unexecuted action that most "
-        "directly discriminates it from the planetary hypothesis. Use only supplied evidence "
-        "and experiment metadata. Deterministic Python owns measurements, costs, permissions, "
-        "and execution. Never calculate or invent measurements. Return one JSON object exactly "
-        "matching the schema: no markdown, extra keys, hidden reasoning, or confidence percent. "
-        "Keep why_cost_is_justified and concise_reason at or below 300 characters each. "
-        "Copy every exact_output_binding into the same-named output field byte-for-byte. Do not "
-        "substitute context_schema_version, provenance_version, or prompt_version for any binding."
-    )
-    if repair_feedback is not None:
-        system += " This is the single repair attempt; use only the bounded repair feedback."
-    payload: dict[str, object] = {
-        "prompt_version": SKEPTIC_PROMPT_VERSION,
-        "decision_protocol": {
-            "select_only_when": "availability_reason is null and already_executed is false",
-            "rank_by": "discrimination of strongest_unresolved_alternative per deterministic cost",
-            "reasoning_output": "concise_reason and bounded reason fields only",
-        },
-        "exact_output_bindings": {
-            "run_id": context.run_id,
-            "step_id": context.step_id,
-            "context_version": context.context_version,
-        },
-        "context": context.model_dump(mode="json"),
-        "output_schema": output_schema.model_json_schema(),
-    }
-    if repair_feedback is not None:
-        payload["repair_feedback"] = repair_feedback.model_dump(mode="json")
-    return [
-        {"role": "system", "content": system},
-        {
-            "role": "user",
-            "content": json.dumps(payload, separators=(",", ":"), sort_keys=True),
-        },
-    ]
+    from exoswarm.agents.prompt_registry import render_role_prompt
+
+    return render_role_prompt(
+        role="skeptic",
+        context=context,
+        output_schema=output_schema,
+        repair_feedback=repair_feedback,
+    ).messages

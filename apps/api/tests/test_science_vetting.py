@@ -30,12 +30,15 @@ def _write_candidate_artifact(
     noise: float = 0.0005,
     crowdsap: float | None = 0.99,
     units: dict[str, str] | None = None,
+    event_depth_overrides: dict[int, float] | None = None,
 ) -> Path:
     time = np.arange(1000.0, 1000.0 + baseline_days, CADENCE_DAYS)
     centered_days = (time - EPOCH_BTJD + 0.5 * PERIOD_DAYS) % PERIOD_DAYS - 0.5 * PERIOD_DAYS
     primary = np.abs(centered_days) <= DURATION_HOURS / 48.0
     transit_numbers = np.rint((time - EPOCH_BTJD) / PERIOD_DAYS).astype(np.int64)
     depths = np.where(transit_numbers % 2 == 0, even_depth, odd_depth)
+    for transit_number, event_depth in (event_depth_overrides or {}).items():
+        depths[transit_numbers == transit_number] = event_depth
     secondary_centered = (
         time - (EPOCH_BTJD + 0.5 * PERIOD_DAYS) + 0.5 * PERIOD_DAYS
     ) % PERIOD_DAYS - 0.5 * PERIOD_DAYS
@@ -172,6 +175,28 @@ def test_odd_even_clean_control_preserves_no_evidence(tmp_path: Path) -> None:
     assert result.reason == "no odd/even depth mismatch reached 3 sigma"
     assert result.measurements
     assert result.diagnostics["interpretation_code"] == "ODD_EVEN_CONSISTENT"
+
+
+def test_odd_even_single_event_outlier_uses_event_scatter_not_cadence_count(
+    tmp_path: Path,
+) -> None:
+    artifact = _write_candidate_artifact(
+        tmp_path / "event-outlier.json",
+        noise=0.0001,
+        event_depth_overrides={1: 0.004},
+    )
+
+    result = _invoke(compare_odd_even, artifact)
+
+    assert result.status == ToolStatus.NO_EVIDENCE
+    assert result.measurements["absolute_difference_significance"].value < 3.0
+    assert (
+        result.measurements["odd_depth_empirical_standard_error"].value
+        > result.measurements["odd_depth_formal_uncertainty"].value
+    )
+    assert result.diagnostics["uncertainty_model"].startswith(
+        "maximum of propagated reported-flux error"
+    )
 
 
 def test_odd_even_insufficient_transits_is_typed_precondition(tmp_path: Path) -> None:

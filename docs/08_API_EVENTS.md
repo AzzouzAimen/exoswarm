@@ -93,7 +93,11 @@ Implemented event types:
 
 - `investigation.created`
 - `status.changed`
+- `agent.queued`
 - `agent.started`
+- `agent.completed`
+- `agent.handoff`
+- `agent.skipped`
 - `agent.decision`
 - `inference.attempt`
 - `inference.fallback`
@@ -116,9 +120,19 @@ An `inference.attempt` payload is the sanitized typed trace record described in
 name.
 
 Inference events expose model identity, role, attempt kind, latency, usage when supplied, validation
-status, and fallback status. They must not expose prompt bodies, secrets, hidden reasoning, raw
-samples, recognizable target identity, or catalog truth. The terminal `inference.summary` is
-computed from the trace contract in `docs/inference.md`.
+status, fallback status, prompt/example versions and hashes, context fingerprint, and separately
+recorded thinking requested/confirmed fields. They must not expose prompt bodies, secrets, hidden
+reasoning, raw samples, recognizable target identity, or catalog truth. The terminal
+`inference.summary` is computed from the trace contract in `docs/inference.md`.
+
+`agent.started` also exposes the sanitized `evidence_count` and `advisory_roles` visible to that
+call. These fields make the promoted Director/Transit-Hunter-to-Skeptic handoff auditable while
+confirming that the Critic receives no advisory-role context.
+
+Validated and skipped role results are append-only records in `agent_decisions.jsonl`, which is
+included in safe artifact metadata. A skipped record contains a stable fallback code and no model
+decision. State exposes only role/phase/context checkpoints, preventing full role prose from
+inflating every subsequent inference context.
 
 ## Ordering and idempotency
 

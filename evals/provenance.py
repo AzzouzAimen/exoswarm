@@ -7,8 +7,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
-from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
+from exoswarm.agents.prompt_registry import PROMPT_REGISTRY, prompt_template_sha256
+from exoswarm.evaluation.outcomes import (
+    ScientificOutcomeComparison,
+    compare_scientific_outcomes,
+    scientific_outcome_projection,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,12 +56,26 @@ def evaluation_provenance(
         "git_commit": _git_commit(),
         "git_worktree_dirty": _git_worktree_dirty(),
         "prompt_versions": {
-            "critic": CRITIC_PROMPT_VERSION,
-            "skeptic": SKEPTIC_PROMPT_VERSION,
+            role.value: registration.prompt_version
+            for role, registration in PROMPT_REGISTRY.items()
+            if role.value in {"skeptic", "critic"}
+        },
+        "prompts": {
+            role.value: {
+                "version": registration.prompt_version,
+                "template_sha256": prompt_template_sha256(role),
+                "example_set_version": registration.example_set_version,
+            }
+            for role, registration in PROMPT_REGISTRY.items()
         },
         "configuration": configuration,
         "configuration_sha256": hashlib.sha256(canonical_configuration).hexdigest(),
     }
 
 
-__all__ = ["evaluation_provenance"]
+__all__ = [
+    "ScientificOutcomeComparison",
+    "compare_scientific_outcomes",
+    "evaluation_provenance",
+    "scientific_outcome_projection",
+]

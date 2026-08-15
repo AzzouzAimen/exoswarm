@@ -1,0 +1,90 @@
+{
+  "acquisition": {
+    "acquired_at_utc": "2026-08-15T18:12:53.208664+00:00",
+    "method": "MAST official direct product URL; no API key",
+    "redistribution_notes": "Unmodified public NASA/STScI TESS SPOC product. Retain MAST/TESS attribution and the official product URI.",
+    "reproduction_command": "uv run --project apps/api --extra science python scripts/acquire_cached_tess.py --source-url 'https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2019058134432-s0009-0000000289801742-0139-s_lc.fits' --mast-product-uri mast:TESS/product/tess2019058134432-s0009-0000000289801742-0139-s_lc.fits --mast-observation-id tess2019058134432-s0009-0000000289801742-0139-s --official-product-filename tess2019058134432-s0009-0000000289801742-0139-s_lc.fits --output data/cached/lightcurves/TARGET-B42-sector-9-lc.fits --provenance-output data/ground_truth/TARGET-B42-acquisition.json --opaque-target-id TARGET-B42 --real-target-name 'TESS-EB TIC 289801742' --tic-id 289801742 --sector 9 --cadence-seconds 120 --expected-period-days 1.38962745412126 --expected-duration-hours 3.91681502187573 --expected-depth-percent 15.0131347644488 --expected-values-source-url https://archive.stsci.edu/hlsp/tess-ebs --expected-values-source-description 'MAST TESS-EBs v1.0 catalog, signal 1'"
+  },
+  "cache": {
+    "cadence_seconds": 120.0,
+    "fits_checksums": [
+      {
+        "checksum": "3jm9Ajk85jk8Ajk8",
+        "checksum_valid": true,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 0
+      },
+      {
+        "checksum": "NTTPNQSPNQSPNQSP",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 1
+      },
+      {
+        "checksum": "VCpCW9m9VCmCV9m9",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 2
+      }
+    ],
+    "integrity_warnings": [
+      "HDU 1 preserves an embedded CHECKSUM that Astropy does not validate",
+      "HDU 2 preserves an embedded CHECKSUM that Astropy does not validate"
+    ],
+    "path": "data/cached/lightcurves/TARGET-B42-sector-9-lc.fits",
+    "release_metadata": {
+      "CREATOR": "31380 LightCurveExporterPipelineModule",
+      "DATA_REL": 46,
+      "DATE": "2020-11-23",
+      "FILEVER": "1.0",
+      "INSTRUME": "TESS Photometer",
+      "ORIGIN": "NASA/Ames",
+      "PROCVER": "spoc-5.0.20-20201120",
+      "TELESCOP": "TESS",
+      "TIMVERSN": "OGIP/93-003"
+    },
+    "required_columns": [
+      "PDCSAP_FLUX",
+      "PDCSAP_FLUX_ERR",
+      "QUALITY",
+      "TIME"
+    ],
+    "sector": 9,
+    "sha256": "91fdaa097e5126370172b17071e6a16ed07517b4be56a1d496da2a4bfa606844",
+    "size_bytes": 1848960,
+    "time_convention": "BTJD = BJD(TDB) - 2457000.0",
+    "time_system": "TDB"
+  },
+  "expected_values": {
+    "depth_percent": 15.0131347644488,
+    "duration_hours": 3.91681502187573,
+    "period_days": 1.38962745412126,
+    "recorded_before_pipeline_evaluation": true,
+    "source_description": "MAST TESS-EBs v1.0 catalog, signal 1",
+    "source_url": "https://archive.stsci.edu/hlsp/tess-ebs"
+  },
+  "forbidden_agent_visible_values": [
+    "TESS-EB TIC 289801742",
+    "TIC 289801742",
+    "289801742",
+    "tess2019058134432-s0009-0000000289801742-0139-s_lc.fits",
+    "confirmed planet"
+  ],
+  "mast": {
+    "observation_id": "tess2019058134432-s0009-0000000289801742-0139-s",
+    "official_product_filename": "tess2019058134432-s0009-0000000289801742-0139-s_lc.fits",
+    "product_type": "SPOC calibrated light curve (LC), science, level 3",
+    "product_uri": "mast:TESS/product/tess2019058134432-s0009-0000000289801742-0139-s_lc.fits",
+    "public_data": true,
+    "source_url": "https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2019058134432-s0009-0000000289801742-0139-s_lc.fits"
+  },
+  "opaque_target_id": "TARGET-B42",
+  "real_target_identity": {
+    "target_name": "TESS-EB TIC 289801742",
+    "tic_id": "289801742"
+  },
+  "schema_version": "1"
+}

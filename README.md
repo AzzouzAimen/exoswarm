@@ -20,16 +20,41 @@ the answer before committing its result.
 The project deliberately combines a deterministic workflow with bounded agentic control:
 
 - **Deterministic scientific layer:** TESS loading, preprocessing, BLS, phase folding, measurements, odd/even checks, secondary-eclipse checks, harmonic tests, contamination diagnostics, hypothesis-update rules, result locking, and catalog gating.
-- **Control layer:** deterministic orchestration owns phases, budgets, permissions, retries, and stopping. Featherless-backed Skeptic and Critic calls provide bounded judgment where experiment selection benefits from it; role labels do not require separate LLM calls.
+- **Control layer:** deterministic orchestration owns phases, routes, budgets, permissions, retries, stopping, and dispositions. Six bounded Featherless roles provide specialist briefs and action review without gaining mutation authority.
 - **Mandatory baseline:** safety-critical vetting is code-enforced and cannot be skipped by the model.
 - **Adaptive layer:** the Skeptic selects a discriminating follow-up experiment from a bounded registry; the Critic returns APPROVE, REVISE, or VETO.
 - **Blind protocol:** agents see opaque target IDs; recognizable identity and NASA ground truth are unavailable until the result is locked.
 - **Evidence Ledger:** append-only structured scientific evidence powers agent context, auditability, UI storytelling, evaluation, and reproducibility.
 
+```mermaid
+flowchart LR
+    UI[Mission-control UI] -->|REST + SSE| API[FastAPI boundary]
+    API --> RUNNER[Bounded resumable runner]
+    RUNNER --> CONTROL[Deterministic investigation controller]
+    CONTROL --> CONTEXT[Compact agent-safe context]
+    CONTEXT --> SPECIALISTS[Observer + Signal]
+    SPECIALISTS --> TRANSIT[Transit Hunter]
+    TRANSIT --> DIRECTOR[Director briefing]
+    DIRECTOR --> SKEPTIC[Featherless Skeptic]
+    SKEPTIC --> CRITIC[Featherless Critic]
+    CRITIC -->|APPROVE / REVISE / VETO| CONTROL
+    CONTROL -->|validated allowlisted action| TOOLS[Deterministic tools]
+    TOOLS --> LEDGER[Append-only Evidence Ledger]
+    LEDGER --> CONTROL
+    CONTROL --> LOCK[Canonical result + SHA-256 lock]
+    LOCK -->|only after lock| CATALOG[Backend catalog reveal]
+    LEDGER --> API
+```
+
+The important boundary is proposal versus authority: models select or review bounded actions, the
+controller validates and authorizes them, deterministic tools produce measurements, and durable
+state plus traces explain every branch without storing hidden chain-of-thought.
+
 ## Inference layer
 
 Featherless.ai is the intended live inference provider, with `DeepSeek-V4-Flash-0731` as the single
-primary model. The API uses it for bounded Skeptic and Critic decisions when
+primary model. The API supports Observer, Signal, Transit Hunter, Director, Skeptic, and Critic
+through isolated structured contexts when
 `FEATHERLESS_API_KEY` is configured; offline tests inject a scripted client. Every run exposes
 measured call count, input/output tokens, schema-valid rate, repair rate, fallback rate, latency,
 and model identity. Raw light-curve samples sent to the model remain **zero**; models receive
@@ -93,10 +118,11 @@ cached TESS data
   -> Skeptic/Critic-selected P/2-P-2P harmonic test when useful
 ```
 
-A real pixel/centroid diagnostic remains a high-value P1 differentiator. Attempt it after the
-end-to-end core is stable and keep it when a real cached TPF case passes a short acceptance check.
-If it misses that checkpoint, ship an honestly labeled alternate-aperture test plus cached
-neighbor/contamination context and do not imply pixel-level localization.
+A real pixel/centroid diagnostic is an optional P1 differentiator after architecture clarity,
+agent observability, documentation, and demo reliability are strong. Keep it only when a real
+cached TPF case passes a short acceptance check and it materially improves the visible demo. If it
+misses that checkpoint, ship honestly labeled neighbor/contamination context and do not imply
+pixel-level localization.
 
 All measurements must have explicit units, method/provenance, and explicit failure states. Where uncertainty is not available, report a declared tolerance rather than fake precision.
 
@@ -144,6 +170,7 @@ runs/
     <run-id>/
       state.json
       trace.jsonl
+      agent_decisions.jsonl
       result.json
       result.json.sha256
       inference_summary.json
@@ -160,17 +187,29 @@ to the same hash.
 ## Project status and scope
 
 The default API now composes a versioned backend-only target mapping, bounded/resumable run service,
-the live Featherless adapter, strict primary/repair/fallback validation, per-attempt trace records,
-and a derived run-level inference summary. The production mandatory path runs cached TESS BLS,
+the live six-role Featherless adapter, strict primary/repair/fallback validation, role checkpoints,
+append-only agent decisions, per-attempt prompt/thinking provenance, and a derived run-level
+inference summary. Validated Transit Hunter and Director briefings are promoted into the Skeptic's
+bounded context while the Critic stays isolated. The exact configured DeepSeek model uses verified
+provider thinking for the non-authoritative Director only. The production mandatory path runs cached TESS BLS,
 odd/even, secondary-eclipse, and contamination screening; bounded harmonic analysis and explicit
-zero-cost STOP are adaptive choices. Three cached-real opaque targets cover deterministic rejection,
-agent-reviewed planet-like evidence, and insufficient evidence. Safe artifact metadata and a
-backend-only, post-lock cached NASA comparison provider are implemented. Pixel/centroid science and
-the mission-control integration remain deferred.
+zero-cost STOP are adaptive choices. Five cached-real opaque targets now cover a clean confirmed
+planet that survives vetting, two hot-Jupiter evidence profiles, a cataloged eclipsing binary that
+is rejected, and an intentionally inconclusive shallow planet signal. A locked five-case evaluator
+checks period/harmonic recovery, dispositions, complete mandatory diagnostics, result/reveal hashes,
+and the zero-raw-sample agent-context invariant. Safe artifact metadata and backend-only post-lock
+catalog comparisons are implemented. Pixel/centroid science and the mission-control integration
+remain deferred.
 
 ## Scaffold quick start
 
 Requirements: Python 3.12 with `uv`, Node.js 24, and `pnpm` 11.
+
+Copy `.env.example` to `.env`. Set `FEATHERLESS_API_KEY` for live six-role inference; leave it
+blank for deterministic offline tests and cached reproduction. The example already contains the
+supported model, provider URL, promoted Director thinking profile, bounded inference
+limits, run budgets, and local API URL. Rerun the exact-model preflight and reset the confirmed-role
+list before changing model identity. Do not put secrets in committed files.
 
 ```bash
 uv sync --project apps/api --extra science --extra agents
@@ -178,6 +217,7 @@ pnpm install --frozen-lockfile
 make test
 make lint
 make build
+make eval-real-tess
 ```
 
 For local development, run `make dev-api` and `make dev-web` in separate terminals. `make reproduce`
@@ -205,6 +245,20 @@ Do not invent capabilities or fake demo values while completing the ranked final
 - [`docs/13_HARNESS_SCAFFOLD.md`](docs/13_HARNESS_SCAFFOLD.md) - implemented harness boundary and authority classes.
 - [`docs/15_FINAL_STRETCH_PRIORITIES.md`](docs/15_FINAL_STRETCH_PRIORITIES.md) - current cut list, sequencing, and submission gates.
 - [`docs/inference.md`](docs/inference.md) - Featherless integration and measured inference-statistics contract.
+
+## References and data attribution
+
+- [Featherless.ai documentation](https://featherless.ai/docs) — hosted inference provider used by
+  the bounded six-role pipeline.
+- [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) — post-lock catalog
+  comparison source; never an agent input during investigation.
+- [MAST TESS data archive](https://archive.stsci.edu/missions-and-data/tess) — source of the public
+  cached SPOC light-curve products used by the reproducible backend cases.
+- [TESS mission](https://tess.mit.edu/) — mission and instrument context.
+- [SHERLOCK](https://github.com/franpoz/SHERLOCK) and
+  [WATSON](https://github.com/planetHunters/watson) — MIT-licensed upstream implementation
+  references; adopted and rejected patterns are recorded precisely in
+  [`docs/14_SCIENCE_VERTICAL_SLICE.md`](docs/14_SCIENCE_VERTICAL_SLICE.md).
 
 ## Scientific claim language
 

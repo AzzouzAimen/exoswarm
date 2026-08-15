@@ -7,25 +7,35 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import AgentContextPacket, assert_agent_safe_context
-from exoswarm.agents.critic import CRITIC_PROMPT_VERSION, build_critic_messages
 from exoswarm.agents.model_client import AttemptKind, InferenceAttemptOutcome
-from exoswarm.agents.skeptic import (
-    SKEPTIC_PROMPT_VERSION,
-    build_skeptic_messages,
-    safe_repair_feedback,
-)
+from exoswarm.agents.prompt_registry import effective_output_token_limit, render_role_prompt
+from exoswarm.agents.role_context import SafeRoleEnvelope
+from exoswarm.agents.skeptic import safe_repair_feedback
+from exoswarm.domain.enums import AgentRole, ThinkingMode
 from exoswarm.domain.errors import (
     InvalidModelOutputError,
     ModelOutputTruncatedError,
     ModelProviderError,
     ModelProviderTimeoutError,
 )
-from exoswarm.domain.models import CriticDecision, InferenceTraceRecord, SkepticDecision
+from exoswarm.domain.models import (
+    CriticDecision,
+    DirectorDecision,
+    InferenceTraceRecord,
+    ObserverAssessment,
+    SignalAssessment,
+    SkepticDecision,
+    TransitHunterBrief,
+)
 
 FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1"
 FEATHERLESS_PROVIDER = "featherless"
-ALLOWED_ROLES = frozenset({"skeptic", "critic"})
+ALLOWED_ROLES = frozenset(role.value for role in AgentRole)
 ROLE_OUTPUT_SCHEMAS: dict[str, type[BaseModel]] = {
+    "director": DirectorDecision,
+    "observer": ObserverAssessment,
+    "signal": SignalAssessment,
+    "transit_hunter": TransitHunterBrief,
     "skeptic": SkepticDecision,
     "critic": CriticDecision,
 }
@@ -50,6 +60,8 @@ class FeatherlessInferenceClient:
         base_url: str = FEATHERLESS_BASE_URL,
         timeout_seconds: float = 30.0,
         max_output_tokens: int = 900,
+        role_thinking_modes: dict[AgentRole, ThinkingMode] | None = None,
+        thinking_confirmed_roles: set[AgentRole] | frozenset[AgentRole] = frozenset(),
         sdk: Any | None = None,
     ) -> None:
         if not api_key:
@@ -58,6 +70,9 @@ class FeatherlessInferenceClient:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_output_tokens = max_output_tokens
+        self.role_thinking_modes = dict(role_thinking_modes or {})
+        self.thinking_confirmed_roles = frozenset(thinking_confirmed_roles)
+        self.supported_roles = frozenset(AgentRole)
         if sdk is None:
             from openai import AsyncOpenAI
 
@@ -84,6 +99,8 @@ class FeatherlessInferenceClient:
             base_url=settings.featherless_base_url,
             timeout_seconds=settings.inference_timeout_seconds,
             max_output_tokens=settings.inference_max_output_tokens,
+            role_thinking_modes=settings.role_thinking_modes,
+            thinking_confirmed_roles=settings.thinking_confirmed_roles,
             sdk=sdk,
         )
 
@@ -113,13 +130,33 @@ class FeatherlessInferenceClient:
     ) -> InferenceAttemptOutcome:
         if role not in ALLOWED_ROLES:
             raise ValueError(f"Featherless inference role is not allowed: {role}")
-        packet = AgentContextPacket.model_validate(context, strict=True)
-        if packet.role != role:
+        packet: BaseModel
+        if role in {"skeptic", "critic"}:
+            packet = AgentContextPacket.model_validate(context, strict=True)
+        else:
+            if not isinstance(context, SafeRoleEnvelope):
+                raise ValueError("specialist inference requires a sanitized role context")
+            packet = context
+        if str(packet.role) != role:
             raise ValueError("inference role does not match the sanitized context role")
         if output_schema is not ROLE_OUTPUT_SCHEMAS[role]:
             raise ValueError("requested output schema is not allowed for the inference role")
         assert_agent_safe_context(packet)
         call_id = f"call_{token_hex(12)}"
+        feedback = safe_repair_feedback(validation_error_code) if attempt_kind == "repair" else None
+        rendered = render_role_prompt(
+            role=role,
+            context=packet,
+            output_schema=output_schema,
+            repair_feedback=feedback,
+        )
+        agent_role = AgentRole(role)
+        thinking_mode = self.role_thinking_modes.get(agent_role, ThinkingMode.OFF)
+        output_token_limit = effective_output_token_limit(
+            agent_role,
+            configured_max_output_tokens=self.max_output_tokens,
+            thinking_mode=thinking_mode,
+        )
         common = {
             "call_id": call_id,
             "run_id": packet.run_id,
@@ -130,28 +167,34 @@ class FeatherlessInferenceClient:
             "attempt_kind": attempt_kind,
             "context_version": packet.context_version,
             "context_fingerprint": packet.context_fingerprint,
-            "prompt_version": (
-                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            "prompt_version": rendered.prompt_version,
+            "prompt_template_sha256": rendered.prompt_template_sha256,
+            "rendered_request_sha256": rendered.rendered_request_sha256,
+            "example_set_version": rendered.example_set_version,
+            "thinking_mode": thinking_mode,
+            "thinking_requested": thinking_mode == ThinkingMode.ON,
+            "thinking_confirmed": (
+                thinking_mode == ThinkingMode.ON
+                and agent_role in self.thinking_confirmed_roles
             ),
             "output_schema": output_schema.__name__,
             "fallback_used": fallback_used,
         }
-        messages = self._messages(
-            role=role,
-            context=packet,
-            output_schema=output_schema,
-            attempt_kind=attempt_kind,
-            validation_error_code=validation_error_code,
-        )
+        messages = rendered.messages
+        template_kwargs: dict[str, bool] = {}
+        if thinking_mode != ThinkingMode.AUTO:
+            template_kwargs["thinking"] = thinking_mode == ThinkingMode.ON
         started = perf_counter()
         try:
             response = await self._sdk.chat.completions.create(
                 model=self.model_identity,
                 messages=messages,
                 temperature=0,
-                max_tokens=self.max_output_tokens,
+                max_tokens=output_token_limit,
                 response_format={"type": "json_object"},
-                extra_body={"chat_template_kwargs": {"thinking": False}},
+                extra_body=(
+                    {"chat_template_kwargs": template_kwargs} if template_kwargs else None
+                ),
             )
         except Exception as exc:  # SDK types vary across injected and installed transports.
             latency_ms = max(0, round((perf_counter() - started) * 1000))
@@ -264,22 +307,20 @@ class FeatherlessInferenceClient:
     def _messages(
         *,
         role: str,
-        context: AgentContextPacket,
+        context: BaseModel,
         output_schema: type[BaseModel],
         attempt_kind: AttemptKind,
         validation_error_code: str | None,
     ) -> list[dict[str, str]]:
-        feedback = (
-            safe_repair_feedback(validation_error_code) if attempt_kind == "repair" else None
-        )
-        if role == "skeptic":
-            return build_skeptic_messages(
-                context=context,
-                output_schema=output_schema,
-                repair_feedback=feedback,
-            )
-        return build_critic_messages(
+        """Compatibility adapter for tests and diagnostics that inspect safe requests."""
+
+        return render_role_prompt(
+            role=role,
             context=context,
             output_schema=output_schema,
-            repair_feedback=feedback,
-        )
+            repair_feedback=(
+                safe_repair_feedback(validation_error_code)
+                if attempt_kind == "repair"
+                else None
+            ),
+        ).messages

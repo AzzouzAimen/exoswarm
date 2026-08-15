@@ -521,6 +521,16 @@ async def test_cached_real_candidate_can_cross_the_controller_runtime_boundary(
 async def test_cached_real_candidate_completes_the_production_mandatory_vetting_path(
     tmp_path,
 ) -> None:
+    def stop_after_mandatory_evidence(context: BaseModel, schema: type[BaseModel]):
+        return skeptic_policy(context, schema).model_copy(
+            update={
+                "requested_experiment": "stop",
+                "parameters": {},
+                "cost_of_selected_experiment": 0,
+                "reason_code": "CACHED_REAL_BASELINE_SUFFICIENT",
+            }
+        )
+
     repository_root = Path(__file__).parents[3]
     case_path = repository_root / "evals/fixtures/cached_real_tess_case.json"
     case = json.loads(case_path.read_text(encoding="utf-8"))
@@ -536,7 +546,9 @@ async def test_cached_real_candidate_completes_the_production_mandatory_vetting_
     )
     controller = make_controller(
         tmp_path,
-        ScriptedInferenceClient({}),
+        ScriptedInferenceClient(
+            {"skeptic": [stop_after_mandatory_evidence], "critic": [critic_policy]}
+        ),
         scaffold_tool_registry(),
         candidate_sources=resolver,
     )
@@ -565,7 +577,8 @@ async def test_cached_real_candidate_completes_the_production_mandatory_vetting_
         "secondary_eclipse",
         "contamination_screening",
     ]
-    assert state.disposition == Disposition.PLANETARY_INTERPRETATION_REJECTED
+    assert state.disposition == Disposition.PLANETARY_INTERPRETATION_WEAK
+    assert state.model_call_count == 2
     persisted = json.dumps(state.model_dump(mode="json")) + "\n" + "\n".join(
         event.model_dump_json() for event in controller.events(state.run_id)
     )

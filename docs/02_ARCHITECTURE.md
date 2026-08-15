@@ -11,7 +11,13 @@ flowchart LR
     RUNNER --> GRAPH[LangGraph - sole investigation topology]
     GRAPH --> CTRL[Guarded Investigation Controller]
     CTRL --> BASE[Mandatory Baseline Controller]
-    CTRL --> SK[Skeptic - Featherless]
+    CTRL --> CTX[Role-specific safe contexts]
+    CTX --> OBS[Observer]
+    CTX --> SIG[Signal]
+    OBS --> TH[Transit Hunter]
+    SIG --> TH
+    TH --> DIR[Model Director briefing]
+    DIR --> SK[Skeptic]
     SK --> CR[Critic]
     CTRL --> REG[Validated Experiment Registry]
     REG --> SCI[Deterministic Science Tools]
@@ -33,7 +39,7 @@ flowchart LR
 | LangGraph | node sequencing and conditional investigation routing |
 | Investigation Controller | public facade, deterministic policy, validation, and guarded durable mutations |
 | InvestigationState + artifacts | sole durable source of truth and restart authority |
-| Skeptic/Critic adapters | bounded model inference |
+| Six role adapters | bounded, structured, result-neutral model inference |
 | Tool registry/science | validated deterministic execution and measurements |
 | Result lock/catalog gate | backend security authority |
 
@@ -71,19 +77,23 @@ contents, budgets, or disposition logic.
 ## LangGraph + bounded specialists
 
 LangGraph owns investigation sequencing, while deterministic controller operations authorize and
-persist every mutation. "Scientific Director" names the typed deterministic graph-routing adapter;
-it is not a separate P0 LLM agent. Do not add a model call merely to preserve the role name.
-Specialist contexts are isolated and narrow. The P0 live inference surface is Skeptic selection plus
-Critic review; after that path is stable, Observer or Signal calls are worthwhile P1 additions only
-when their bounded decisions visibly change a trajectory.
+persist every mutation. The deterministic Director route remains the routing oracle. A separate
+model Director now ratifies that route at briefing and finalization boundaries; it cannot change
+the route, disposition, budgets, tools, evidence, or lock state. Observer and Signal run in
+parallel from isolated contexts, Transit Hunter receives only promoted validated briefs, and the
+Director hands off to the action-bearing Skeptic. The independent Critic remains the final model
+review before deterministic action execution. Specialist promotion is enabled after context,
+outcome-parity, live-handoff, and Critic-isolation checks; it is still advisory and cannot bypass
+deterministic validation or execution authority.
 
 | Role | Primary objective | Typical output |
 |---|---|---|
-| LangGraph / Director | deterministic node sequencing from controller-classified durable state | next guarded node / terminal node |
+| LangGraph / deterministic Director route | node sequencing from controller-classified durable state | next guarded node / terminal node |
 | Investigation controller | mandatory policy, budgets, validation, failures, persistence, and terminal mutations | authorized operation / durable state change |
-| Observer | optional bounded review only if it changes a real decision | quality/preparation decision |
-| Signal Agent | optional bounded choice among allowed preprocessing strategies | preprocessing decision |
-| Transit Hunter | optional bounded request over candidate actions | candidate/tool decision |
+| Observer | advisory observation-quality review | `ObserverAssessment` |
+| Signal Agent | advisory bounded interpretation of deterministic candidate evidence | `SignalAssessment` |
+| Transit Hunter | advisory candidate viability and ranked allowlisted actions | `TransitHunterBrief` |
+| Model Director | echo the binding route/disposition and publish a concise mission brief | `DirectorDecision` |
 | Skeptic | identify strongest non-planetary alternative and best discriminating experiment | `SkepticDecision` |
 | Critic | test the proposed adaptive experiment for redundancy/information value | APPROVE / REVISE / VETO |
 
@@ -108,11 +118,14 @@ implementation passes the final-stretch go/no-go check.
 ```text
 run service invokes one graph cycle
 graph recovers any prepared execution
-Director maps durable lifecycle + controller policy to the next typed node
-graph sequences mandatory action OR Skeptic -> Critic -> adaptive action
+deterministic Director route maps durable lifecycle + policy to the next typed node
+after baseline, graph sequences Observer + Signal -> Transit Hunter -> model Director
+graph then sequences Skeptic -> independent Critic -> adaptive action
 controller validates schema + action + parameters + permissions + preconditions
 controller executes deterministic science and persists Evidence Ledger + trace + state
 graph evaluates the durable result and ends the cycle
+controller persists FINALIZING plus the deterministic stopping reason
+model Director copies the deterministic final disposition before result locking
 run service invokes another cycle until READY_TO_LOCK or terminal
 ```
 

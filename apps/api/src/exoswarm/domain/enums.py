@@ -10,6 +10,7 @@ class InvestigationStatus(StrEnum):
     WAITING_FOR_CRITIC = "WAITING_FOR_CRITIC"
     RUNNING_TOOL = "RUNNING_TOOL"
     UPDATING_EVIDENCE = "UPDATING_EVIDENCE"
+    FINALIZING = "FINALIZING"
     READY_TO_LOCK = "READY_TO_LOCK"
     RESULT_LOCKED = "RESULT_LOCKED"
     REVEALED = "REVEALED"
@@ -87,6 +88,7 @@ class HarnessFailureKind(StrEnum):
     OUTPUT_TRUNCATED = "OUTPUT_TRUNCATED"
     MODEL_TIMEOUT = "MODEL_TIMEOUT"
     MODEL_PROVIDER_FAILURE = "MODEL_PROVIDER_FAILURE"
+    ROLE_CALL_LIMIT = "ROLE_CALL_LIMIT"
     UNKNOWN_ACTION = "UNKNOWN_ACTION"
     UNAVAILABLE_ACTION = "UNAVAILABLE_ACTION"
     MALFORMED_PARAMETERS = "MALFORMED_PARAMETERS"
@@ -97,3 +99,30 @@ class HarnessFailureKind(StrEnum):
     TOOL_INFRASTRUCTURE_FAILURE = "TOOL_INFRASTRUCTURE_FAILURE"
     BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+
+
+class AgentRole(StrEnum):
+    DIRECTOR = "director"
+    OBSERVER = "observer"
+    SIGNAL = "signal"
+    TRANSIT_HUNTER = "transit_hunter"
+    SKEPTIC = "skeptic"
+    CRITIC = "critic"
+
+
+class AgentPhase(StrEnum):
+    BRIEFING = "briefing"
+    DECISION = "decision"
+    REVIEW = "review"
+    FINAL = "final"
+
+
+class AgentCheckpointStatus(StrEnum):
+    COMPLETE = "COMPLETE"
+    SKIPPED = "SKIPPED"
+
+
+class ThinkingMode(StrEnum):
+    OFF = "off"
+    ON = "on"
+    AUTO = "auto"

@@ -9,13 +9,14 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from exoswarm.domain.models import (
+    AgentDecisionRecord,
     EvidenceRecord,
     InvestigationState,
     Measurement,
     SkepticDecision,
 )
 
-CONTEXT_SCHEMA_VERSION = "agent-context-v3"
+CONTEXT_SCHEMA_VERSION = "agent-context-v4"
 CONTEXT_PROVENANCE_VERSION = "evidence-ledger-v2"
 MAX_SERIALIZED_CONTEXT_BYTES = 16_384
 
@@ -55,7 +56,8 @@ _LOCAL_FILE_SUFFIX = re.compile(
     r"(?i)\.(?:fits?|fts|csv|tsv|npy|npz|parquet)(?:\b|$)"
 )
 _HIDDEN_AUTHORITY = re.compile(
-    r"(?i)\b(?:ground[-_\s]?truth|catalog(?:ue)?|reveal(?:ed)?)\b"
+    r"(?i)\b(?:ground[-_\s]?truth|catalog(?:ue)?|"
+    r"reveal(?:ed)?\s+(?:authority|payload|result|data))\b"
 )
 _RECOGNIZABLE_TARGET = re.compile(
     r"(?i)\b(?:tic|toi)\s*[-:#]?\s*\d+[a-z]?\b|"
@@ -204,10 +206,11 @@ class AgentContextPacket(_FrozenPacket):
     strongest_unresolved_alternative: str | None
     available_experiments: tuple[ExperimentOption, ...]
     adaptive_experiment_costs: dict[str, int]
+    promoted_advisory_briefs: dict[str, dict[str, Any]] = Field(default_factory=dict)
     proposed_decision: SkepticDecision | None = None
     remaining_budgets: RemainingBudgets
     context_version: str
-    context_schema_version: Literal["agent-context-v3"] = CONTEXT_SCHEMA_VERSION
+    context_schema_version: Literal["agent-context-v4"] = CONTEXT_SCHEMA_VERSION
     provenance_version: str
     context_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     serialized_size_bytes: int = Field(ge=0, le=MAX_SERIALIZED_CONTEXT_BYTES)
@@ -470,6 +473,8 @@ def assemble_context(
     experiment_specs: Iterable[_NamedExperimentSpec] = (),
     recent_limit: int = 6,
     proposed_decision: SkepticDecision | None = None,
+    accepted_role_records: Iterable[AgentDecisionRecord] = (),
+    promoted_specialist_briefs: bool = False,
     max_serialized_bytes: int = MAX_SERIALIZED_CONTEXT_BYTES,
 ) -> AgentContextPacket:
     """Rebuild a bounded, role-specific packet only from durable state and ledger records."""
@@ -517,6 +522,39 @@ def assemble_context(
     costs = {option.action_name: option.deterministic_cost for option in options}
     active_hypotheses = tuple(dict.fromkeys(state.active_hypotheses))
     source_digest = _source_digest(state, ordered)
+    promoted_briefs: dict[str, dict[str, Any]] = {}
+    if role == "skeptic" and promoted_specialist_briefs:
+        for record in accepted_role_records:
+            if (
+                record.context_version != state.context_version
+                or record.status.value != "COMPLETE"
+                or record.decision is None
+            ):
+                continue
+            decision = record.decision
+            if record.role.value == "transit_hunter" and record.phase.value == "briefing":
+                promoted_briefs[record.role.value] = {
+                    key: decision[key]
+                    for key in (
+                        "decision_id",
+                        "viability_code",
+                        "ambiguity_codes",
+                        "strongest_vetting_question",
+                        "cited_evidence_refs",
+                        "ranked_action_names",
+                    )
+                }
+            elif record.role.value == "director" and record.phase.value == "briefing":
+                promoted_briefs[record.role.value] = {
+                    key: decision[key]
+                    for key in (
+                        "decision_id",
+                        "focus_hypothesis",
+                        "conflict_codes",
+                        "mission_brief",
+                        "cited_evidence_refs",
+                    )
+                }
 
     def payload_for(
         selected: Sequence[EvidenceRecord], hypotheses: Sequence[str]
@@ -541,6 +579,7 @@ def assemble_context(
             # Kept as a compact compatibility index for existing scripted policies. The
             # typed options above remain the complete model-visible action contract.
             "adaptive_experiment_costs": costs,
+            "promoted_advisory_briefs": promoted_briefs,
             "proposed_decision": proposed_decision,
             "remaining_budgets": RemainingBudgets(
                 steps=max(0, state.max_steps - state.step_count),
@@ -595,7 +634,7 @@ def assemble_context(
     return packet
 
 
-def assert_agent_safe_context(packet: AgentContextPacket) -> None:
+def assert_agent_safe_context(packet: BaseModel) -> None:
     """Fail closed when non-allowlisted authority data enters a compact packet."""
 
     def reject_unsafe_string(value: str) -> None:

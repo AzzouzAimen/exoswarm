@@ -1,5 +1,10 @@
 # Final-Stretch Hackathon Priorities
 
+> Current task override (2026-08-15): the backend-only six-role implementation authorized in
+> `TEMP_MULTI_AGENT_FLASHINESS_PLAN.md` supersedes the older two-role/no-model-Director cut below.
+> Deterministic numerical authority, blinding, bounded actions, and result-neutral rollout remain
+> mandatory. Frontend work is still deferred for this task.
+
 This document is the delivery override for the remaining hackathon work. Roughly 70% of the event
 time remains, so it ranks work by scoring value and dependency order rather than assuming an
 emergency cut-down. Preserve high-value differentiators once the reliable core gates are green.
@@ -9,8 +14,8 @@ Coding agents should consult it before selecting their next task.
 
 Optimize for a working and legible software system: bounded inference, deterministic tools,
 structured failures, durable traces, blind result locking, cached reproducibility, clear setup, and
-a concise demonstration. Do not optimize for scientific breadth that is invisible in the judged
-path.
+a concise demonstration. Do not optimize for specialist scientific breadth or edge-case precision
+that is invisible in the judged path.
 
 The target audience is software, cloud, data, and security engineers. Explain the transferable
 pattern: an LLM allocates a limited budget among bounded deterministic analyses; machine-enforced
@@ -19,20 +24,20 @@ prevents hidden answers from influencing the committed result.
 
 ## Scoring lens
 
-The supplied review describes six equally weighted 10-point areas. Use them as a work-allocation
-check, not as permission to fake or weaken the science:
+Use the published rubric as the work-allocation check. It is not permission to fake or weaken the
+science; it is a reason to invest where this software-focused panel can directly evaluate the work:
 
-| Area | Final-stretch response |
-|---|---|
-| Code structure and quality | preserve typed boundaries, explicit state, failures, tests, and recovery |
-| Featherless API/compute integration | make live calls, validation, repair/fallback, and measured usage visible |
-| Innovation and approach | lead with evidence-dependent actions, cost allocation, Critic review, and blind lock |
-| Functional execution | complete two visibly different target paths and one inconclusive eval case |
-| Three-minute video | show the real path, architecture, inference summary, blind proof, lock/reveal, and reproduction |
-| Documentation and setup | exercise clean setup and document architecture, errors, inference, claims, limitations, and citations |
+| Category | Scored criterion | Evidence the project must make judgeable |
+|---|---|---|
+| Technical Execution & Code Architecture (20) | Code Structure & Quality (10) | modular domain/science/investigation/agent/API/security boundaries; typed state and outputs; original control logic; explicit errors, budgets, recovery, persistence, and tests |
+| Technical Execution & Code Architecture (20) | API & Compute Integration (10) | real Featherless calls; structured-output validation; bounded repair/fallback; Skeptic-to-Critic pipeline; deterministic tool execution; measured model, token, latency, and error telemetry |
+| Originality & Problem Solving (10) | Innovation & Approach (10) | budgeted evidence selection, independent Critic review, append-only evidence, opaque targets, and cryptographic blind lock as one coherent trustworthy-agent pattern |
+| Utility, Functionality & Real-World Impact (10) | Functional Execution (10) | a working end-to-end prototype for researchers and engineers, with distinct real-data paths, explicit inconclusive outcomes, recovery, and reproducible cached operation |
+| Pitch, Demo & Documentation (20) | 3-Minute Video Demo (10) | concise live execution plus a legible architecture explanation; show evidence changing the path, agent/tool boundaries, Critic verdict, telemetry, and lock/reveal payoff |
+| Pitch, Demo & Documentation (20) | Documentation & Setup (10) | complete README quick start, architecture diagram, environment/provider setup, reproduction and eval commands, limitations, data attribution, upstream references, and citations |
 
-Do not let optional scientific breadth consume the work needed to make any entire scoring area
-unjudgeable. Conversely, once all areas have credible evidence, use remaining time on the ranked P1
+Do not let optional scientific breadth consume the work needed to make an architecture or demo
+claim unjudgeable. Once all four areas have credible evidence, use remaining time on the ranked P1
 differentiators below.
 
 ## Keep without weakening
@@ -72,20 +77,22 @@ differentiators below.
 
 Do not stop at a bare minimum while time remains. In this order, pursue:
 
-1. a real cached-TPF pixel/centroid diagnostic with a deterministic acceptance case and a strong UI
-   visualization,
-2. polished mission-control storytelling for evidence-driven branch differences, Critic review,
+1. polished mission-control storytelling for evidence-driven branch differences, Critic review,
    cost allocation, failures, inference statistics, and blind lock/reveal,
-3. one additional Observer or Signal model role only when its isolated context and bounded output
+2. judge-legible architecture and documentation: concise diagrams, setup/reproduction, failure
+   behavior, security boundaries, live inference telemetry, and honest limitations,
+3. harden the exact online demo path, cached fallback, reset behavior, and provider-failure story,
+4. one additional Observer or Signal model role only when its isolated context and bounded output
    cause a real, testable decision difference,
-4. a fourth contamination/spatial end-to-end case when it validates the accepted centroid path,
-5. deterministic forward-transit prediction if the underlying period/epoch contract is already
+5. a time-boxed cached-TPF pixel/centroid diagnostic only if it materially improves the visible
+   software/agent story and passes a deterministic acceptance case,
+6. a fourth contamination/spatial end-to-end case when it validates an accepted centroid path,
+7. deterministic forward-transit prediction if the underlying period/epoch contract is already
    stable and the result is clearly labeled.
 
-These are gated, not discarded. A team member may start one in parallel as soon as its local
-dependency is stable—for example, the science owner may pursue centroid after the cached vertical
-slice passes—provided it does not block the primary planet-like/EB paths, live Featherless handling,
-blinding, or reproducibility.
+These are gated, not discarded. Optional science work must not block the primary planet-like/EB
+paths, live Featherless handling, agent observability, blinding, reproducibility, documentation, or
+the judged demo.
 
 ## Explicit low-return cuts
 
@@ -106,9 +113,11 @@ need to be removed merely because further work in that area is cut.
 
 ## Centroid go/no-go
 
-Centroid localization is not a P0 blocker, but it is one of the best remaining P1 opportunities.
-Once the end-to-end core is stable, give it a focused, time-boxed implementation/acceptance window
-using a real cached TPF. Keep it if the deterministic acceptance test passes. Otherwise:
+Centroid localization is not a P0 blocker and is lower priority than architecture clarity, agent
+observability, documentation, and demo reliability. Attempt it only when those gates are already
+strong and the feature adds something a software-focused judge can understand in the demo. Give it
+a focused, time-boxed implementation/acceptance window using a real cached TPF. Keep it only if the
+deterministic acceptance test passes. Otherwise:
 
 - leave the unfinished capability out of the judged path,
 - use an alternate-aperture comparison plus cached neighbor/contamination context if those can be
@@ -128,8 +137,10 @@ The project is ready to freeze only when:
 - ground truth is inaccessible before lock and reveal verifies the same locked hash,
 - `make reproduce` works without live astronomy-data access,
 - the primary demo completes from a clean reset three consecutive times,
-- setup, architecture, inference, error handling, reproduction, claims, limitations, and citations
-  are documented,
+- the README contains tested setup steps, an architecture diagram, inference/API integration,
+  error handling, reproduction/eval commands, claims, limitations, data attribution, and citations,
+- the three-minute video shows live execution and architecture rather than relying on slides or
+  unexplained UI alone,
 - the video and repository links are public and verified.
 
 A broken optional feature is a cut, not a reason to delay the shippable path. A high-value P1

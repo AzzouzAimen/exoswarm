@@ -39,6 +39,33 @@
         "duration_hours": 1.294,
         "depth_percent": 0.09766941
       }
+    },
+    {
+      "opaque_target_id": "TARGET-B42",
+      "target_name": "TESS-EB TIC 289801742",
+      "tic_id": "289801742",
+      "catalog_disposition": "ECLIPSING_BINARY",
+      "catalog_source": "MAST TESS-EBs v1.0",
+      "catalog_source_url": "https://archive.stsci.edu/hlsp/tess-ebs",
+      "known_values": {
+        "period_days": 1.389627454121257,
+        "primary_duration_hours": 3.91681502187573,
+        "primary_depth_percent": 15.01313476444884,
+        "secondary_depth_percent": 7.6919907614931
+      }
+    },
+    {
+      "opaque_target_id": "TARGET-C11",
+      "target_name": "WASP-4 b",
+      "tic_id": "402026209",
+      "catalog_disposition": "CONFIRMED_PLANET",
+      "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+      "catalog_source_url": "https://exoplanetarchive.ipac.caltech.edu/overview/WASP-4%20b",
+      "known_values": {
+        "period_days": 1.338230994,
+        "duration_hours": 2.16648,
+        "depth_percent": 2.312
+      }
     }
   ]
 }

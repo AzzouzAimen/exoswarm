@@ -5,6 +5,8 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from exoswarm.domain.enums import AgentRole, ThinkingMode
+
 
 class Settings(BaseSettings):
     """Runtime configuration. Secrets are read from the environment only."""
@@ -25,20 +27,25 @@ class Settings(BaseSettings):
             "featherless_base_url", "FEATHERLESS_BASE_URL", "EXOSWARM_FEATHERLESS_BASE_URL"
         ),
     )
-    inference_timeout_seconds: float = Field(default=30.0, gt=0)
-    inference_max_output_tokens: int = Field(default=1_200, ge=1)
+    inference_timeout_seconds: float = Field(default=120.0, gt=0)
+    inference_max_input_tokens: int = Field(default=32_000, ge=1, le=32_000)
+    inference_max_output_tokens: int = Field(default=20_000, ge=1, le=20_000)
     agent_fallback_enabled: bool = False
+    multi_agent_enabled: bool = True
+    specialist_advisory_enabled: bool = True
+    role_thinking_modes: dict[AgentRole, ThinkingMode] = Field(default_factory=dict)
+    thinking_confirmed_roles: set[AgentRole] = Field(default_factory=set)
     runs_dir: Path = Path("runs")
     data_dir: Path = Path("data")
     target_manifest_path: Path | None = None
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
     max_adaptive_cost_units: int = Field(default=4, ge=0)
-    max_model_calls: int = Field(default=16, ge=0)
+    max_model_calls: int = Field(default=32, ge=0)
     max_tool_calls: int = Field(default=8, ge=0)
-    max_model_retries: int = Field(default=3, ge=0)
+    max_model_retries: int = Field(default=4, ge=0)
     max_critic_revisions: int = Field(default=1, ge=0)
-    run_timeout_seconds: float = Field(default=300.0, gt=0)
+    run_timeout_seconds: float = Field(default=600.0, gt=0)
     sse_poll_interval_seconds: float = Field(default=0.05, gt=0, le=5)
 
     @field_validator("featherless_api_key", mode="before")
@@ -56,3 +63,6 @@ class Settings(BaseSettings):
         if configured is not None:
             return configured.resolve()
         return (self.data_dir / "targets/source_manifest.json").resolve()
+
+    def thinking_mode_for(self, role: AgentRole | str) -> ThinkingMode:
+        return self.role_thinking_modes.get(AgentRole(role), ThinkingMode.OFF)

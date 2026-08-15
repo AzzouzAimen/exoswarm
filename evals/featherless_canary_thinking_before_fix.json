@@ -1,0 +1,174 @@
+{
+  "acceptance": {
+    "minimum_branch_count": 3,
+    "minimum_decision_quality_rate": 0.8,
+    "minimum_first_attempt_valid_rate": 0.9,
+    "passed": false,
+    "semantic_identity_action_parameters_budget_validated": true
+  },
+  "attempts": 9,
+  "decision_quality": {
+    "branch_count": 2,
+    "denominator": 6,
+    "numerator": 4,
+    "rate": 0.6666666666666666,
+    "results": [
+      {
+        "acceptable_actions": [
+          "harmonic_test"
+        ],
+        "case": "clean",
+        "passed": false,
+        "role": "skeptic",
+        "selected_action": null,
+        "verdict": null
+      },
+      {
+        "acceptable_actions": [
+          "harmonic_test"
+        ],
+        "case": "clean",
+        "passed": true,
+        "role": "critic",
+        "selected_action": "harmonic_test",
+        "verdict": "APPROVE"
+      },
+      {
+        "acceptable_actions": [
+          "harmonic_test"
+        ],
+        "case": "odd_even",
+        "passed": false,
+        "role": "skeptic",
+        "selected_action": null,
+        "verdict": null
+      },
+      {
+        "acceptable_actions": [
+          "harmonic_test"
+        ],
+        "case": "odd_even",
+        "passed": true,
+        "role": "critic",
+        "selected_action": "harmonic_test",
+        "verdict": "APPROVE"
+      },
+      {
+        "acceptable_actions": [
+          "alternate_aperture"
+        ],
+        "case": "contamination",
+        "passed": true,
+        "role": "skeptic",
+        "selected_action": "alternate_aperture",
+        "verdict": null
+      },
+      {
+        "acceptable_actions": [
+          "alternate_aperture"
+        ],
+        "case": "contamination",
+        "passed": true,
+        "role": "critic",
+        "selected_action": "alternate_aperture",
+        "verdict": "APPROVE"
+      }
+    ]
+  },
+  "decisions": 6,
+  "finish_reasons": {
+    "length": 5,
+    "stop": 4
+  },
+  "first_attempt_schema_valid": {
+    "denominator": 6,
+    "numerator": 3,
+    "rate": 0.5
+  },
+  "first_attempt_semantic_valid": {
+    "denominator": 6,
+    "numerator": 3,
+    "rate": 0.5
+  },
+  "latency_ms": {
+    "maximum": 18715,
+    "median": 11126
+  },
+  "model_identities": [
+    "deepseek-ai/DeepSeek-V4-Flash-0731"
+  ],
+  "provenance": {
+    "configuration": {
+      "configured_max_output_tokens": 16000,
+      "context_schema_version": "agent-context-v4",
+      "effective_role_max_output_tokens": {
+        "critic": 700,
+        "skeptic": 1200
+      },
+      "inference_model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "requested_repeats": 3
+    },
+    "configuration_sha256": "6bfd59f481f2f922d995c810ee9dae6923c05f57e11e08bb3fd2353ef2c7d267",
+    "evaluation_id": "featherless-canary-v2",
+    "generated_at_utc": "2026-08-15T21:58:26.679558+00:00",
+    "git_commit": "01406ebbc92d2d82b3bd9ab059e6956783b8660a",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v5",
+      "skeptic": "skeptic-decision-v5"
+    },
+    "prompts": {
+      "critic": {
+        "example_set_version": "critic-examples-v1",
+        "template_sha256": "0bf529152db51ded48d028053b509a089133e6f0702c90fe83496711398864ff",
+        "version": "critic-review-v5"
+      },
+      "director": {
+        "example_set_version": "director-examples-v1",
+        "template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+        "version": "director-ratification-v2"
+      },
+      "observer": {
+        "example_set_version": "observer-examples-v1",
+        "template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+        "version": "observer-assessment-v2"
+      },
+      "signal": {
+        "example_set_version": "signal-examples-v1",
+        "template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+        "version": "signal-assessment-v2"
+      },
+      "skeptic": {
+        "example_set_version": "skeptic-examples-v1",
+        "template_sha256": "529e313fcb6b4d398c16cb78f22651814497b4e0cbfe857b8e3aca0d3a148a0b",
+        "version": "skeptic-decision-v5"
+      },
+      "transit_hunter": {
+        "example_set_version": "transit-hunter-examples-v1",
+        "template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+        "version": "transit-hunter-brief-v2"
+      }
+    }
+  },
+  "provider_errors_timeouts": 0,
+  "raw_light_curve_samples_sent": 0,
+  "repairs": 3,
+  "requested_repeats": 3,
+  "schema_valid_after_repair_policy": {
+    "denominator": 6,
+    "numerator": 4,
+    "rate": 0.6666666666666666
+  },
+  "schema_version": "2",
+  "status": "COMPLETED",
+  "usage": {
+    "input_tokens": 18035,
+    "output_tokens": 8504
+  },
+  "validation_failures": {
+    "primary:critic:OUTPUT_TRUNCATED": 1,
+    "primary:skeptic:OUTPUT_TRUNCATED": 2,
+    "repair:skeptic:OUTPUT_TRUNCATED": 2
+  },
+  "varied_evidence_states": 3
+}
