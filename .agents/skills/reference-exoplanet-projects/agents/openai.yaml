@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reference Exoplanet Projects"
+  short_description: "Route work through trusted exoplanet references"
+  default_prompt: "Use $reference-exoplanet-projects to identify the right upstream project and files before implementing this ExoSwarm task."

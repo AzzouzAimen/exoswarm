@@ -80,6 +80,7 @@ Use the narrowest applicable skill. The skill index is in `docs/12_SKILLS_GUIDE.
 
 Examples:
 
+- upstream SHERLOCK/WATSON, ASTER, or Stargazer reference selection and code index -> `reference-exoplanet-projects`
 - architecture/topology -> `engineer-agent-system`
 - harness, permissions, tracing -> `engineer-agent-harness`
 - runtime loop/budgets/recovery -> `engineer-agent-loop`

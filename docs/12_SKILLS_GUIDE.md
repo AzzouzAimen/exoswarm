@@ -4,6 +4,7 @@ The repository includes the supplied skills under `.agents/skills/<name>/SKILL.m
 
 | Skill | Use when |
 |---|---|
+| `reference-exoplanet-projects` | locating and safely adapting indexed SHERLOCK/WATSON, ASTER, or Stargazer code, fixtures, architecture, and evaluation patterns |
 | `engineer-agent-system` | choosing/redesigning agent topology, deterministic vs model boundaries, state/routing/approvals/failure architecture |
 | `engineer-agent-harness` | instructions, tool permissions, model routing, persistence, validation, tracing, recovery, approval boundaries |
 | `engineer-agent-loop` | loop states, retries, budgets, termination, idempotency, resumability, repeated-action protection |
@@ -36,6 +37,7 @@ Use `orchestrate-investigation`, `implement-science-tool`, `build-mission-contro
 
 Across all skills:
 
+- upstream projects are advisory references below ExoSwarm docs, tests, schemas, and local skill contracts,
 - machine-enforce invariants when possible,
 - structured state beats conversational memory,
 - deterministic code owns measurements and policies that can be expressed reliably,
