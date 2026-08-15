@@ -11,7 +11,12 @@ from harness_support import (
     seed_baseline,
 )
 
-from exoswarm.domain.enums import InvestigationStatus, ToolExecutionStatus
+from exoswarm.domain.enums import (
+    HarnessFailureKind,
+    InvestigationStatus,
+    ToolExecutionStatus,
+)
+from exoswarm.domain.errors import ActionValidationError
 from exoswarm.domain.models import EvidenceRecord, ToolExecutionRecord
 
 
@@ -168,3 +173,116 @@ def test_persisted_snapshot_contains_decisions_reviews_invocations_and_budgets(t
     assert '"critic_decisions"' in payload
     assert '"tool_executions"' in payload
     assert '"failures"' in payload
+
+
+@pytest.mark.asyncio
+async def test_terminal_failed_execution_is_not_reexecuted_after_restart(tmp_path) -> None:
+    calls: Counter[str] = Counter()
+    registry = make_registry(
+        "eclipsing_binary", calls=calls, raise_tool="harmonic_test"
+    )
+    first = make_controller(tmp_path, policy_client(), registry)
+    state = first.create("TARGET-X17")
+    seed_baseline(first, state.run_id, "eclipsing_binary")
+    failed = await first.advance(state.run_id)
+    call_count = calls["harmonic_test"]
+
+    restarted = make_controller(tmp_path, policy_client(), registry)
+    recovered = await restarted.advance(state.run_id)
+
+    assert recovered == failed
+    assert calls["harmonic_test"] == call_count
+    assert recovered.tool_executions[-1].status == ToolExecutionStatus.FAILED
+    assert (
+        recovered.tool_executions[-1].failure_kind
+        == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+    )
+
+
+@pytest.mark.asyncio
+async def test_interrupted_prepared_idempotent_action_is_reexecuted_once(tmp_path) -> None:
+    calls: Counter[str] = Counter()
+    registry = make_registry("eclipsing_binary", calls=calls)
+    first = make_controller(tmp_path, policy_client(), registry)
+    state = first.create("TARGET-X17")
+    seed_baseline(first, state.run_id, "eclipsing_binary")
+    state = first._replace(  # noqa: SLF001 - intentional interrupted checkpoint
+        first.get(state.run_id), status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT
+    )
+    state = first._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)  # noqa: SLF001
+    state = first._replace(state, status=InvestigationStatus.RUNNING_TOOL)  # noqa: SLF001
+    parameters = {"trial_factor": 1}
+    execution = ToolExecutionRecord(
+        action_id="action_interrupted_before_execution",
+        step_id="step_0000",
+        tool_name="harmonic_test",
+        parameters=parameters,
+        action_signature=first._action_signature("harmonic_test", parameters),  # noqa: SLF001
+        status=ToolExecutionStatus.PREPARED,
+        adaptive=True,
+    )
+    first._replace(  # noqa: SLF001
+        state,
+        tool_call_count=state.tool_call_count + 1,
+        adaptive_experiments_used=state.adaptive_experiments_used + 1,
+        tool_executions=[*state.tool_executions, execution],
+    )
+
+    restarted = make_controller(tmp_path, policy_client(), registry)
+    recovered = await restarted.advance(state.run_id)
+
+    assert calls["harmonic_test"] == 1
+    assert recovered.status == InvestigationStatus.READY_TO_LOCK
+    restored_execution = next(
+        item for item in recovered.tool_executions if item.action_id == execution.action_id
+    )
+    assert restored_execution.status == ToolExecutionStatus.COMPLETED
+    assert len(restarted.evidence(state.run_id)) == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("locked", [False, True])
+async def test_tool_result_admission_cannot_mutate_lock_eligible_or_locked_run(
+    tmp_path, locked
+) -> None:
+    controller = make_controller(tmp_path, policy_client(), make_registry("clean"))
+    state = controller.create("TARGET-X17")
+    seed_baseline(controller, state.run_id, "clean")
+    state = await controller.advance(state.run_id)
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    if locked:
+        controller.lock(state.run_id)
+        state = controller.get(state.run_id)
+
+    run_dir = controller.artifacts.run_dir(state.opaque_target_id, state.run_id)
+    ledger_path = controller.artifacts.evidence_path(state)
+    state_before = state
+    evidence_before = controller.evidence(state.run_id)
+    ledger_before = ledger_path.read_bytes()
+    trace_before = (run_dir / "trace.jsonl").read_bytes()
+    state_bytes_before = (run_dir / "state.json").read_bytes()
+    result_before = (run_dir / "result.json").read_bytes() if locked else None
+    hash_before = (run_dir / "result.json.sha256").read_bytes() if locked else None
+
+    with pytest.raises(ActionValidationError, match="lock eligibility"):
+        controller.record_tool_result(
+            state.run_id,
+            fixture_result(
+                tool_name="harmonic_test",
+                run_id=state.run_id,
+                action_id=f"fixture_post_lock_{locked}",
+                target_id=state.opaque_target_id,
+                scenario="clean",
+                parameters={"trial_factor": 1},
+            ),
+        )
+
+    assert controller.get(state.run_id) == state_before
+    assert controller.evidence(state.run_id) == evidence_before
+    assert ledger_path.read_bytes() == ledger_before
+    assert (run_dir / "trace.jsonl").read_bytes() == trace_before
+    assert (run_dir / "state.json").read_bytes() == state_bytes_before
+    assert ((run_dir / "result.json").read_bytes() if locked else None) == result_before
+    assert (
+        (run_dir / "result.json.sha256").read_bytes() if locked else None
+    ) == hash_before

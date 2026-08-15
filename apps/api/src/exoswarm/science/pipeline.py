@@ -5,7 +5,7 @@ import json
 import re
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -52,10 +52,31 @@ class PreprocessingParameters(_StrictRequestModel):
 class BlsParameters(_StrictRequestModel):
     minimum_period_days: float = Field(default=0.5, gt=0)
     maximum_period_days: float | None = Field(default=None, gt=0)
-    durations_hours: tuple[float, ...] = (1.5, 2.0, 3.0, 4.5, 6.0)
+    durations_hours: list[Annotated[float, Field(gt=0)]] = Field(
+        default_factory=lambda: [1.5, 2.0, 3.0, 4.5, 6.0],
+        min_length=1,
+        max_length=32,
+    )
     frequency_factor: float = Field(default=1.0, gt=0)
     minimum_snr: float = Field(default=6.0, gt=0)
     minimum_transits: int = Field(default=3, ge=2)
+
+
+class CandidateSearchParameters(_StrictRequestModel):
+    """Model-selectable candidate-search controls; never contains backend paths."""
+
+    preprocessing: PreprocessingParameters = Field(default_factory=PreprocessingParameters)
+    search: BlsParameters = Field(default_factory=BlsParameters)
+
+
+class CandidateSearchRuntimeInputs(_StrictRequestModel):
+    """Controller-owned inputs required to execute candidate search."""
+
+    cached_path: Path
+    artifact_dir: Path
+    ledger_path: Path
+    step_id: str = Field(min_length=1)
+    write_evidence: Literal[False] = False
 
 
 class CandidateAnalysisRequest(_StrictRequestModel):
@@ -65,6 +86,7 @@ class CandidateAnalysisRequest(_StrictRequestModel):
     step_id: str = Field(min_length=1)
     preprocessing: PreprocessingParameters = Field(default_factory=PreprocessingParameters)
     search: BlsParameters = Field(default_factory=BlsParameters)
+    write_evidence: bool = True
 
 
 def _library_versions() -> dict[str, str]:
@@ -292,7 +314,8 @@ def analyze_cached_candidate(
             observation=observation,
             diagnostics={"failure_stage": "ingestion_contract"},
         )
-        _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
+        if request.write_evidence:
+            _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
         return result
     except (FileNotFoundError, CachedLightCurveError) as exc:
         result = _failure_result(
@@ -309,7 +332,8 @@ def analyze_cached_candidate(
             observation=observation,
             diagnostics={"failure_stage": "ingestion"},
         )
-        _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
+        if request.write_evidence:
+            _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
         return result
     except (PreprocessingError, BlsSearchError) as exc:
         result = _failure_result(
@@ -327,7 +351,8 @@ def analyze_cached_candidate(
                 **(_source_diagnostics(observation) if observation else {}),
             },
         )
-        _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
+        if request.write_evidence:
+            _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
         return result
 
     folded_payload: dict[str, list[float]] | None = None
@@ -445,5 +470,6 @@ def analyze_cached_candidate(
             provenance=provenance,
         )
 
-    _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
+    if request.write_evidence:
+        _append_evidence(result, ledger_path=request.ledger_path, step_id=request.step_id)
     return result

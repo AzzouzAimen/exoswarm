@@ -69,6 +69,7 @@ runs/
     <run-id>/
       state.json
       trace.jsonl
+      inference_summary.json
       result.json
       result.json.sha256
       reveal.json
@@ -83,6 +84,11 @@ runs/
 ```
 
 Files may be absent when their corresponding tool has not run. Do not create placeholder plots containing fake scientific values.
+
+`inference_summary.json` is derived from model-call trace records at terminal state. It contains the
+measured fields defined in `docs/inference.md`; unavailable provider usage is serialized as null or
+an explicit `not_measured` state, never an estimate. It must not contain prompts with hidden data,
+secrets, or chain-of-thought.
 
 ## Lock protocol
 

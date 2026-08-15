@@ -43,7 +43,18 @@ Each run is stored under `runs/<opaque-target-id>/<run-id>/`. State snapshots us
 replacement. Trace and evidence records append JSONL. A new controller process can locate a run by
 its run ID and reconstruct its snapshot, trace, and ledger. The loop checkpoints accepted decisions
 and a `PREPARED` invocation before execution, then records matching evidence and marks it
-`COMPLETED`. Resume reruns only a declared-idempotent prepared action when no result was committed.
+`COMPLETED`. A handler exception or invalid/mismatched result marks the invocation `FAILED` with a
+failure class and concise reason in the same durable state update that terminates the run. Resume
+reruns only a declared-idempotent `PREPARED` action when no result was committed; terminal failed
+actions are never replayed.
+
+Candidate search has a split input contract. Model-selectable `preprocessing` and `search` controls
+are validated by the production registry. A backend-only `CandidateSourceResolver` supplies the
+cached FITS path, while the controller derives the run artifact and Evidence Ledger paths. These
+runtime inputs have their own strict schema, are combined only at invocation, and are not stored in
+the execution record, trace, result parameters, or agent context. The science slice suppresses its
+standalone ledger append on this controller-owned path so the harness remains the sole evidence
+committer.
 
 ## Approval and failure policy
 
@@ -61,6 +72,12 @@ hypotheses, validated adaptive actions, remaining budgets, and context/provenanc
 omits raw arrays, cached paths, recognizable identity, catalog/reveal data, and hidden reasoning.
 Candidate measurements enter state only from matching deterministic ledger records.
 
+The default API currently has no configured opaque-target-to-cached-source resolver. It therefore
+terminates the mandatory `search_bls` step with an explicit recoverable precondition failure before
+preparing or executing an action. A test/eval resolver can run the locally cached acceptance FITS
+through the controller, but production provider-canary readiness still requires a versioned,
+backend-only target mapping to be configured at application composition time.
+
 Result lock is a backend policy boundary. A run must be `READY_TO_LOCK` with a disposition and
 terminal reason. The service writes exact canonical JSON bytes, hashes those bytes, updates durable
 state, and only then makes catalog reveal eligible. The catalog gate re-verifies the hash before
@@ -71,3 +88,21 @@ calling a reveal provider.
 No current scaffold endpoint deploys, merges, accesses secrets, deletes artifacts, or contacts a
 catalog/model provider. Enabling those capabilities requires explicit configuration and a later
 implementation task with its own tests and approval boundaries.
+
+## Final-stretch delta
+
+The current scaffold is not yet the submission inference path. The next harness work is narrowly
+limited to: a live Featherless adapter for the existing `InferenceClient`; Skeptic/Critic structured
+calls; attempt/validate/bounded-repair/fallback behavior; recorded token, latency, validation,
+repair, and fallback metadata; and a run-level inference summary. The deterministic controller
+remains the Scientific Director authority.
+
+Current adaptive limits count experiments rather than cost units, and the current
+`SkepticDecision` omits the cost fields described in `docs/05_AGENT_RUNTIME.md`. Implement those as
+one coherent state/registry/schema change. Until then, documentation and UI must label cost-weighted
+budgeting as planned rather than operational.
+
+Do not expand this milestone into more model roles until the live Skeptic/Critic path and its
+failure policy pass. Afterward, an Observer or Signal role is a valid P1 addition only when a test
+shows that its bounded decision changes the scientific trajectory. Multi-model routing,
+fixed-policy ablation, and `pass^3` remain out of scope.

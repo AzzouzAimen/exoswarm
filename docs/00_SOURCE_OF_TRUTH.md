@@ -2,6 +2,29 @@
 
 This context pack was distilled from the supplied ExoSwarm full-concept PDF, the supplied 48-hour tech-stack PDF, and the provided coding-agent skill files. The coding agent will not receive the PDFs, so this repository documentation is the operational source of truth.
 
+## Final-stretch priority override
+
+The original concept remains the source for scientific and architectural invariants. For the
+remaining hackathon implementation, `docs/15_FINAL_STRETCH_PRIORITIES.md` overrides older priority,
+build-order, and breadth recommendations. In particular:
+
+- ship a legible end-to-end software system before expanding scientific coverage,
+- keep the Scientific Director as deterministic orchestration code, not a distinct LLM call,
+- make the Featherless inference path, structured-output handling, and measured run statistics
+  visible,
+- keep only three representative end-to-end evaluation cases: planet-like, eclipsing-binary-like,
+  and inconclusive,
+- do not build the fixed-policy ablation or `pass^3` metric,
+- do not add new transit fitting or broad uncertainty propagation,
+- preserve pixel/centroid work as a high-value P1 differentiator behind a short go/no-go acceptance
+  check rather than making it a P0 blocker,
+- prioritize clean setup, cached reproducibility, blind-lock proof, failure handling, documentation,
+  and the judged demo path.
+
+This changes delivery priority, not scientific truth. Deterministic measurements, typed evidence,
+agent-safe context, provenance, result locking, catalog gating, and precise claim language remain
+non-negotiable.
+
 ## Source-derived requirements
 
 The following are requirements carried directly from the supplied planning context:

@@ -89,7 +89,17 @@ This is a key differentiator. Display:
 - concise reason,
 - expected discriminating outcome,
 - Critic verdict (APPROVE/REVISE/VETO),
-- final executed tool.
+- final executed tool,
+- selected experiment cost and remaining budget units.
+
+### Inference summary
+
+Show a compact Featherless card near the agent activity or final run summary with model identity,
+call count, input/output tokens, schema-valid rate, repair count/rate, fallback count/rate, and
+latency. It must be derived from trace metadata. During scripted or unconfigured runs, label the
+provider and usage metrics as unavailable/scripted instead of showing illustrative values. Include
+the invariant `raw light-curve samples sent to model: 0` only when the context guardrail remains
+enforced.
 
 ### Evidence Ledger
 
@@ -143,8 +153,13 @@ The primary flow should be visually understandable without narration:
 5. Critic review,
 6. deterministic diagnostic and ledger update,
 7. negative-control target follows a different branch,
-8. blindness proof,
-9. result lock/hash,
-10. NASA reveal,
-11. evaluation/ablation proof,
-12. deterministic forward prediction if implemented.
+8. architecture + measured Featherless summary,
+9. blindness proof,
+10. result lock/hash,
+11. NASA reveal,
+12. `make reproduce` + hash match,
+13. deterministic forward prediction if implemented.
+
+The primary video should emphasize the two different target trajectories, bounded inference,
+failure/lock boundaries, and reproducibility. Do not spend video time on a fixed-policy ablation or
+scientific edge cases that are not visible in the judged path.

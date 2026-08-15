@@ -18,6 +18,7 @@ from exoswarm.domain.models import (
 )
 from exoswarm.investigation.controller import InvestigationController
 from exoswarm.investigation.mandatory import MANDATORY_TESTS
+from exoswarm.investigation.runtime_inputs import CandidateSourceResolver
 from exoswarm.investigation.tool_registry import ScientificToolRegistry
 from exoswarm.science.contracts import ScientificToolSpec
 from exoswarm.security.catalog_gate import CatalogGate
@@ -99,6 +100,8 @@ def make_registry(
     calls: Counter[str] | None = None,
     adaptive_status: ToolStatus = ToolStatus.SUCCESS,
     raise_tool: str | None = None,
+    mismatch_tool: str | None = None,
+    malformed_result_tool: str | None = None,
     adaptive_scope: frozenset[str] = frozenset({"science:execute"}),
 ) -> ScientificToolRegistry:
     counts = calls if calls is not None else Counter()
@@ -110,14 +113,17 @@ def make_registry(
         counts[tool_name] += 1
         if tool_name == raise_tool:
             raise RuntimeError("simulated fixture infrastructure failure")
+        result_parameters = dict(parameters)
+        if tool_name == malformed_result_tool:
+            result_parameters["unexpected_result_parameter"] = True
         return fixture_result(
             tool_name=tool_name,
             run_id=run_id,
-            action_id=action_id,
+            action_id=(f"{action_id}_mismatch" if tool_name == mismatch_tool else action_id),
             target_id=target_id,
             scenario=scenario,
             status=adaptive_status if tool_name in ADAPTIVE_TOOLS else ToolStatus.SUCCESS,
-            parameters=parameters,
+            parameters=result_parameters,
             interpretation_code=(
                 interpretation_for(scenario) if tool_name in ADAPTIVE_TOOLS else None
             ),
@@ -207,6 +213,7 @@ def make_controller(
     registry: ScientificToolRegistry,
     *,
     granted_scopes: frozenset[str] = frozenset({"science:execute"}),
+    candidate_sources: CandidateSourceResolver | None = None,
     **settings_overrides: Any,
 ) -> InvestigationController:
     settings = Settings(
@@ -222,6 +229,7 @@ def make_controller(
         CatalogGate(artifacts, UnconfiguredCatalogRevealProvider()),
         inference=inference,
         registry=registry,
+        candidate_sources=candidate_sources,
         granted_scopes=granted_scopes,
     )
 

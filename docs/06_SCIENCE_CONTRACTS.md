@@ -4,10 +4,10 @@
 
 Scientific measurements come from deterministic Python, cached/catalog data, or an explicitly defined statistical method. The LLM never reconstructs measurements from a plot, prose, or raw sample array.
 
-## P0 scientific pipeline
+## Final-stretch P0 scientific pipeline
 
 ```text
-cached TESS light curve / TPF
+cached TESS light curve
   -> quality filtering
   -> normalization / detrending
   -> BLS candidate search
@@ -16,8 +16,13 @@ cached TESS light curve / TPF
   -> odd/even comparison
   -> secondary-eclipse test
   -> P/2, P, 2P harmonic test
-  -> one real spatial pixel/centroid diagnostic
+  -> basic contamination/neighbor context
 ```
+
+Pixel/centroid localization is a high-value P1 differentiator, not a P0 ship blocker. After the
+vertical path is stable, implement or finish it against a real cached TPF and keep it when the
+deterministic acceptance test passes. Otherwise prefer an honestly labeled alternate-aperture
+comparison plus neighbor context. Never rename that fallback as centroid or pixel localization.
 
 ## Tool-result contract
 
@@ -66,7 +71,7 @@ A domain-level negative finding is evidence, not an infrastructure error.
 ### Data and preprocessing
 
 - load cached TESS light curve,
-- load cached Target Pixel File,
+- load cached Target Pixel File only for an accepted conditional spatial diagnostic,
 - apply quality flags,
 - normalize,
 - detrend using one of the declared allowed configurations,
@@ -90,7 +95,7 @@ A domain-level negative finding is evidence, not an infrastructure error.
 - secondary-eclipse significance/evidence,
 - P/2, P, 2P harmonic/alias analysis,
 - basic contamination/neighbor context,
-- one genuine pixel/centroid localization diagnostic.
+- optional genuine pixel/centroid localization diagnostic after its go/no-go gate.
 
 ## Mandatory baseline
 
@@ -105,7 +110,10 @@ Adaptive experiments are additional and evidence-driven.
 
 ## Numerical precision
 
-Do not present BLS decimal output as if it were physical certainty. Final locked measurements should include uncertainty where supported or an explicit validation tolerance where uncertainty is not yet implemented.
+Do not present BLS decimal output as if it were physical certainty. For the final stretch,
+prioritize a defensible period uncertainty or declared comparison tolerance because period is used
+in the catalog reveal. Preserve already verified deterministic uncertainty fields, but do not add
+new depth, duration, radius-ratio, or general uncertainty propagation before the core path ships.
 
 ## Hypothesis updates
 

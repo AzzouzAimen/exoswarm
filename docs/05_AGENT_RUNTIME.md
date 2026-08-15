@@ -23,7 +23,8 @@ The runtime is a state machine around the model. Important truth lives in `Inves
 - unresolved questions
 - step count
 - model-call/tool-call counts
-- experiment budget
+- experiment budget units remaining
+- per-experiment cost for available adaptive actions
 - inference/cost budget if tracked
 - lock state
 - terminal reason
@@ -53,9 +54,11 @@ The exact names are a scaffold convention, but every terminal state must include
 
 ## Specialist objectives
 
-### Scientific Director
+### Scientific Director / investigation controller
 
-Owns control flow. It routes specialists and combines model decisions with deterministic policy. It does not bypass mandatory diagnostics or the catalog gate.
+Owns control flow as deterministic application code. "Scientific Director" is a UI/product label,
+not a distinct P0 inference role. The controller routes bounded model decisions, enforces mandatory
+diagnostics and budgets, and owns terminal transitions and the catalog gate.
 
 ### Observer Agent
 
@@ -89,8 +92,17 @@ predicted_outcomes:
 expected_information_value: medium
 stop_if: spatial evidence resolves the dominant remaining alternative
 priority: high
+budget_units_remaining: 4
+cost_of_selected_experiment: 2
+why_cost_is_justified: >-
+  The spatial test directly targets the strongest unresolved contamination explanation.
 concise_reason: Nearby-source evidence makes spatial localization the most discriminating unused test.
 ```
+
+The three cost fields are the final-stretch target contract and are not implemented in the current
+scaffold schema. Add them with the state/registry budget implementation, not as prose-only values.
+The controller is authoritative for the actual remaining budget and action cost; reject stale or
+mismatched model values.
 
 `expected_information_value` is a decision-quality signal, not a calibrated planet probability.
 
@@ -120,6 +132,11 @@ Bound at least:
 - escalation count if escalation is later enabled.
 
 The model does not decide whether its own budget exists.
+
+For the shippable path, use a default adaptive budget of four units. Suggested initial registry
+costs are: alternate detrending `1`, harmonic test `1`, secondary deep search `1`, alternate
+aperture `1`, centroid localization `2`, and stop `0`. Only registered actions may appear; do not
+add placeholder actions solely to fill this list.
 
 ## Validation before execution
 
@@ -183,3 +200,7 @@ Persist enough to debug without hidden chain-of-thought:
 - retry/escalation/fallback,
 - token/cost metadata if available,
 - terminal reason.
+
+Run completion must aggregate the recorded inference metadata into the summary defined in
+`docs/inference.md` and make it available to the API/UI. Missing provider usage remains explicitly
+`not_measured`; it must never be replaced by a guessed token count.

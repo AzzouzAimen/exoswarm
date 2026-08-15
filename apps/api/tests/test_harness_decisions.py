@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from harness_support import (
+    NoParameters,
     fixture_result,
     make_controller,
     make_registry,
@@ -148,6 +149,7 @@ async def test_unavailable_nonadaptive_action_is_rejected(tmp_path) -> None:
     registry.register(
         ScientificToolSpec(
             name="load_cached_lightcurve",
+            parameter_schema=NoParameters,
             handler=lambda *_args: fixture_result(
                 tool_name="load_cached_lightcurve",
                 run_id="unused",

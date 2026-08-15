@@ -44,8 +44,10 @@ from exoswarm.domain.models import (
     ToolExecutionRecord,
 )
 from exoswarm.investigation.mandatory import missing_mandatory_tests
+from exoswarm.investigation.runtime_inputs import CandidateSourceResolver
 from exoswarm.investigation.state import validate_status_transition
 from exoswarm.investigation.tool_registry import ScientificToolRegistry, scaffold_tool_registry
+from exoswarm.science.contracts import ScientificToolSpec
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
@@ -66,12 +68,14 @@ class _HarnessAbort(Exception):
         *,
         status: InvestigationStatus = InvestigationStatus.FAILED,
         recoverable: bool = True,
+        action_id: str | None = None,
     ) -> None:
         super().__init__(reason)
         self.kind = kind
         self.reason = reason
         self.status = status
         self.recoverable = recoverable
+        self.action_id = action_id
 
 
 class InvestigationController:
@@ -86,6 +90,7 @@ class InvestigationController:
         *,
         inference: InferenceClient | None = None,
         registry: ScientificToolRegistry | None = None,
+        candidate_sources: CandidateSourceResolver | None = None,
         granted_scopes: set[str] | frozenset[str] = frozenset({"science:execute"}),
     ) -> None:
         self.settings = settings
@@ -94,6 +99,7 @@ class InvestigationController:
         self.catalog_gate = catalog_gate
         self.inference = inference or UnconfiguredInferenceClient()
         self.registry = registry or scaffold_tool_registry()
+        self.candidate_sources = candidate_sources
         self.granted_scopes = frozenset(granted_scopes)
         self._states: dict[str, InvestigationState] = {}
         self._events: dict[str, list[InvestigationEvent]] = {}
@@ -167,19 +173,23 @@ class InvestigationController:
         """Admit an already deterministic result, including test/eval fixture results."""
 
         state = self.get(run_id)
-        self.registry.resolve(result.tool_name)
+        self._assert_science_admission_open(state)
+        _, validated_parameters = self.registry.validate_parameters(
+            result.tool_name,
+            parameters=result.parameters,
+        )
         if result.run_id != run_id or result.target_id != state.opaque_target_id:
             raise ValueError("tool result identifiers do not match the durable investigation")
         if state.tool_call_count >= state.max_tool_calls:
             raise ValueError("tool-call budget is exhausted")
-        signature = self._action_signature(result.tool_name, result.parameters)
+        signature = self._action_signature(result.tool_name, validated_parameters)
         if any(item.action_signature == signature for item in state.tool_executions):
             raise ValueError("identical action has already been recorded")
         execution = ToolExecutionRecord(
             action_id=result.action_id,
             step_id=f"step_{state.step_count:04d}",
             tool_name=result.tool_name,
-            parameters=result.parameters,
+            parameters=validated_parameters,
             action_signature=signature,
             status=ToolExecutionStatus.PREPARED,
         )
@@ -310,6 +320,7 @@ class InvestigationController:
                 exc.reason,
                 status=exc.status,
                 recoverable=exc.recoverable,
+                action_id=exc.action_id,
             )
 
     @property
@@ -471,15 +482,13 @@ class InvestigationController:
         agent_decision_id: str | None = None,
         critic_decision_id: str | None = None,
     ) -> ScientificToolResult:
-        if state.status in {
-            InvestigationStatus.READY_TO_LOCK,
-            InvestigationStatus.RESULT_LOCKED,
-            InvestigationStatus.REVEALED,
-        }:
+        try:
+            self._assert_science_admission_open(state)
+        except ActionValidationError as exc:
             raise _HarnessAbort(
                 HarnessFailureKind.UNAVAILABLE_ACTION,
-                "scientific actions are unavailable after lock eligibility",
-            )
+                str(exc),
+            ) from exc
         if state.tool_call_count >= state.max_tool_calls:
             raise _HarnessAbort(
                 HarnessFailureKind.BUDGET_EXHAUSTED,
@@ -540,6 +549,23 @@ class InvestigationController:
             )
 
         action_id = f"action_{token_hex(8)}"
+        runtime_inputs = self._runtime_inputs_for_action(state, spec)
+        try:
+            validated_runtime_inputs = self.registry.validate_runtime_inputs(
+                spec, runtime_inputs
+            )
+            invocation_parameters = self.registry.invocation_parameters(
+                tool_name,
+                validated_parameters=validated_parameters,
+                validated_runtime_inputs=validated_runtime_inputs,
+            )
+        except ActionValidationError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                str(exc),
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            ) from exc
         execution = ToolExecutionRecord(
             action_id=action_id,
             step_id=f"step_{state.step_count:04d}",
@@ -575,13 +601,14 @@ class InvestigationController:
         )
         try:
             result = spec.handler(
-                state.run_id, action_id, state.opaque_target_id, validated_parameters
+                state.run_id, action_id, state.opaque_target_id, invocation_parameters
             )
         except Exception as exc:
             raise _HarnessAbort(
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool infrastructure failure for {tool_name}: {type(exc).__name__}",
                 recoverable=False,
+                action_id=action_id,
             ) from exc
         if (
             result.tool_name != tool_name
@@ -593,30 +620,105 @@ class InvestigationController:
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool result identifiers do not match invocation for {tool_name}",
                 recoverable=False,
+                action_id=action_id,
+            )
+        try:
+            _, result_parameters = self.registry.validate_parameters(
+                result.tool_name,
+                parameters=result.parameters,
+            )
+        except (ActionValidationError, ToolPermissionError, UnknownToolError) as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                f"tool result validation failed for {tool_name}",
+                recoverable=False,
+                action_id=action_id,
+            ) from exc
+        if result_parameters != validated_parameters:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                f"tool result parameters do not match invocation for {tool_name}",
+                recoverable=False,
+                action_id=action_id,
             )
         return self._commit_result(state, result)
+
+    def _runtime_inputs_for_action(
+        self,
+        state: InvestigationState,
+        spec: ScientificToolSpec,
+    ) -> dict[str, Any]:
+        if spec.runtime_input_schema is None:
+            return {}
+        if spec.name != "search_bls":
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                f"no controller-owned runtime input boundary exists for {spec.name}",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            )
+        if self.candidate_sources is None:
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "search_bls requires a configured backend-owned cached candidate source",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            )
+        try:
+            source = self.candidate_sources.resolve(state.opaque_target_id)
+        except LookupError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.PRECONDITION_FAILED,
+                "search_bls has no backend-owned cached candidate source for this opaque target",
+                status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
+                recoverable=True,
+            ) from exc
+        run_dir = self.artifacts.run_dir(state.opaque_target_id, state.run_id)
+        return {
+            "cached_path": source.cached_path,
+            "artifact_dir": run_dir / "artifacts",
+            "ledger_path": self.artifacts.evidence_path(state),
+            "step_id": f"step_{state.step_count:04d}",
+            "write_evidence": False,
+        }
 
     def _commit_result(
         self, state: InvestigationState, result: ScientificToolResult
     ) -> ScientificToolResult:
-        interpretation = result.diagnostics.get("interpretation_code")
-        interpretation_code = interpretation if isinstance(interpretation, str) else None
-        evidence_id = self._evidence_id(result)
+        self._assert_science_admission_open(state)
         execution = next(
             (item for item in state.tool_executions if item.action_id == result.action_id), None
         )
+        if execution is None:
+            raise ValueError("tool result has no matching prepared execution")
+        if (
+            execution.status != ToolExecutionStatus.PREPARED
+            or result.tool_name != execution.tool_name
+            or result.run_id != state.run_id
+            or result.target_id != state.opaque_target_id
+        ):
+            raise ValueError("tool result does not match its prepared execution")
+        _, result_parameters = self.registry.validate_parameters(
+            result.tool_name,
+            parameters=result.parameters,
+        )
+        if result_parameters != execution.parameters:
+            raise ValueError("tool result parameters do not match its prepared execution")
+        interpretation = result.diagnostics.get("interpretation_code")
+        interpretation_code = interpretation if isinstance(interpretation, str) else None
+        evidence_id = self._evidence_id(result)
         record = EvidenceRecord(
             evidence_id=evidence_id,
             run_id=state.run_id,
-            step_id=execution.step_id if execution else f"step_{state.step_count:04d}",
+            step_id=execution.step_id,
             action_id=result.action_id,
             opaque_target_id=state.opaque_target_id,
             tool_name=result.tool_name,
             tool_status=result.status,
             result=result,
             interpretation_code=interpretation_code,
-            agent_decision_id=execution.agent_decision_id if execution else None,
-            critic_decision_id=execution.critic_decision_id if execution else None,
+            agent_decision_id=execution.agent_decision_id,
+            critic_decision_id=execution.critic_decision_id,
         )
         self.artifacts.append_evidence(state, record)
 
@@ -640,6 +742,16 @@ class InvestigationController:
                     ),
                     "result_status": result.status,
                     "evidence_ref": evidence_id,
+                    "failure_kind": (
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+                        if result.status == ToolStatus.FAILED
+                        else None
+                    ),
+                    "failure_reason": (
+                        result.reason or f"tool returned FAILED: {result.tool_name}"
+                        if result.status == ToolStatus.FAILED
+                        else None
+                    ),
                 }
             )
             if item.action_id == result.action_id
@@ -691,6 +803,7 @@ class InvestigationController:
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool returned FAILED: {result.tool_name}",
                 recoverable=False,
+                action_id=result.action_id,
             )
         if result.status == ToolStatus.PRECONDITION_FAILED:
             return self._terminate(
@@ -778,6 +891,7 @@ class InvestigationController:
         *,
         status: InvestigationStatus = InvestigationStatus.FAILED,
         recoverable: bool = True,
+        action_id: str | None = None,
     ) -> InvestigationState:
         failure = HarnessFailureRecord(
             step_id=f"step_{state.step_count:04d}",
@@ -786,12 +900,37 @@ class InvestigationController:
             recoverable=recoverable,
             retry_count=state.model_retry_count,
         )
+        executions = [
+            item.model_copy(
+                update={
+                    "status": ToolExecutionStatus.FAILED,
+                    "failure_kind": kind,
+                    "failure_reason": reason,
+                }
+            )
+            if item.action_id == action_id
+            else item
+            for item in state.tool_executions
+        ]
         state = self._replace(
             state,
             status=status,
             terminal_reason=f"{kind}:{reason}",
             failures=[*state.failures, failure],
+            tool_executions=executions,
         )
+        if action_id is not None:
+            self._emit(
+                state,
+                "tool.failed",
+                {
+                    "action_id": action_id,
+                    "failure_kind": kind,
+                    "concise_reason": reason,
+                    "recoverable": recoverable,
+                },
+                action_id=action_id,
+            )
         self._emit(
             state,
             "run.failed" if status == InvestigationStatus.FAILED else "status.changed",
@@ -813,23 +952,100 @@ class InvestigationController:
         existing = {record.action_id: record for record in self.artifacts.read_evidence(state)}
         for execution in prepared:
             if execution.action_id in existing:
-                state = self._commit_recovered_record(state, existing[execution.action_id])
+                try:
+                    state = self._commit_recovered_record(
+                        state, existing[execution.action_id]
+                    )
+                except ActionValidationError as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                        f"persisted evidence validation failed for {execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
                 result = existing[execution.action_id].result
             else:
-                spec = self.registry.resolve(execution.tool_name)
+                try:
+                    spec, recovered_parameters = self.registry.validate_request(
+                        execution.tool_name,
+                        parameters=execution.parameters,
+                        granted_scopes=self.granted_scopes,
+                    )
+                except ToolPermissionError as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.UNAUTHORIZED_ACTION,
+                        f"prepared action is no longer authorized: {execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
+                except (ActionValidationError, UnknownToolError) as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                        f"prepared action is invalid after restart: {execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
                 if not spec.idempotent:
                     raise _HarnessAbort(
                         HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                         f"cannot safely resume non-idempotent action {execution.tool_name}",
                         recoverable=False,
+                        action_id=execution.action_id,
                     )
-                result = spec.handler(
-                    state.run_id,
-                    execution.action_id,
-                    state.opaque_target_id,
-                    execution.parameters,
-                )
-                self._commit_result(state, result)
+                try:
+                    runtime_inputs = self._runtime_inputs_for_action(state, spec)
+                    validated_runtime_inputs = self.registry.validate_runtime_inputs(
+                        spec, runtime_inputs
+                    )
+                    invocation_parameters = self.registry.invocation_parameters(
+                        execution.tool_name,
+                        validated_parameters=recovered_parameters,
+                        validated_runtime_inputs=validated_runtime_inputs,
+                    )
+                    result = spec.handler(
+                        state.run_id,
+                        execution.action_id,
+                        state.opaque_target_id,
+                        invocation_parameters,
+                    )
+                except _HarnessAbort as exc:
+                    raise _HarnessAbort(
+                        exc.kind,
+                        exc.reason,
+                        status=exc.status,
+                        recoverable=exc.recoverable,
+                        action_id=execution.action_id,
+                    ) from exc
+                except Exception as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                        "tool infrastructure failure while recovering "
+                        f"{execution.tool_name}: {type(exc).__name__}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
+                if (
+                    result.tool_name != execution.tool_name
+                    or result.run_id != state.run_id
+                    or result.action_id != execution.action_id
+                    or result.target_id != state.opaque_target_id
+                ):
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                        "tool result identifiers do not match recovered invocation for "
+                        f"{execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    )
+                try:
+                    self._commit_result(state, result)
+                except (ActionValidationError, ValueError) as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                        f"tool result validation failed while recovering {execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
                 state = self.get(state.run_id)
             state = self._after_result(state, result)
             if self._cannot_advance(state):
@@ -839,6 +1055,34 @@ class InvestigationController:
     def _commit_recovered_record(
         self, state: InvestigationState, record: EvidenceRecord
     ) -> InvestigationState:
+        self._assert_science_admission_open(state)
+        execution = next(
+            (item for item in state.tool_executions if item.action_id == record.action_id), None
+        )
+        if (
+            execution is None
+            or execution.status != ToolExecutionStatus.PREPARED
+            or execution.tool_name != record.tool_name
+            or record.run_id != state.run_id
+            or record.opaque_target_id != state.opaque_target_id
+        ):
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "persisted evidence does not match its prepared execution",
+                recoverable=False,
+                action_id=record.action_id,
+            )
+        _, result_parameters = self.registry.validate_parameters(
+            record.tool_name,
+            parameters=record.result.parameters,
+        )
+        if result_parameters != execution.parameters:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "persisted evidence parameters do not match prepared execution",
+                recoverable=False,
+                action_id=record.action_id,
+            )
         spec = self.registry.resolve(record.tool_name)
         completed = list(state.completed_tests)
         if (
@@ -850,9 +1094,24 @@ class InvestigationController:
         executions = [
             item.model_copy(
                 update={
-                    "status": ToolExecutionStatus.COMPLETED,
+                    "status": (
+                        ToolExecutionStatus.FAILED
+                        if record.tool_status == ToolStatus.FAILED
+                        else ToolExecutionStatus.COMPLETED
+                    ),
                     "result_status": record.tool_status,
                     "evidence_ref": record.evidence_id,
+                    "failure_kind": (
+                        HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+                        if record.tool_status == ToolStatus.FAILED
+                        else None
+                    ),
+                    "failure_reason": (
+                        record.result.reason
+                        or f"tool returned FAILED: {record.tool_name}"
+                        if record.tool_status == ToolStatus.FAILED
+                        else None
+                    ),
                 }
             )
             if item.action_id == record.action_id
@@ -1010,6 +1269,17 @@ class InvestigationController:
             "critic_revision_count": state.critic_revision_count,
             "model_retry_count": state.model_retry_count,
         }
+
+    @staticmethod
+    def _assert_science_admission_open(state: InvestigationState) -> None:
+        if (
+            state.lock_state != LockState.GROUND_TRUTH_LOCKED
+            or InvestigationController._cannot_advance(state)
+        ):
+            raise ActionValidationError(
+                "scientific result admission is unavailable after lock eligibility "
+                "or terminal state"
+            )
 
     @staticmethod
     def _cannot_advance(state: InvestigationState) -> bool:

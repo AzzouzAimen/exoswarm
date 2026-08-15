@@ -409,12 +409,23 @@ def test_official_spoc_btjd_time_column_unit_is_accepted(tmp_path: Path) -> None
 def test_registry_executes_the_vertical_slice(tmp_path: Path) -> None:
     cached_path = tmp_path / "registry.fits"
     _injected_observation(cached_path)
+    request = _parameters(tmp_path, cached_path)
     result = scaffold_tool_registry().execute(
         "search_bls",
         run_id="run_1",
         action_id="action_registry",
         target_id="TARGET-X17",
-        parameters=_parameters(tmp_path, cached_path),
+        parameters={
+            "preprocessing": request["preprocessing"],
+            "search": request["search"],
+        },
+        runtime_inputs={
+            "cached_path": Path(request["cached_path"]),
+            "artifact_dir": Path(request["artifact_dir"]),
+            "ledger_path": Path(request["ledger_path"]),
+            "step_id": request["step_id"],
+            "write_evidence": False,
+        },
         granted_scopes={"science:execute"},
     )
     assert result.status == ToolStatus.SUCCESS

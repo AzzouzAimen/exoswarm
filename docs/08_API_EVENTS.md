@@ -34,7 +34,8 @@ Response contains `run_id`, opaque target ID, initial status, lock state, and ev
 
 `GET /api/investigations/{run_id}`
 
-Returns the agent-safe current structured state/view model.
+Returns the agent-safe current structured state/view model. Once inference has occurred, include the
+recorded run-level inference summary or an explicit scripted/unavailable state.
 
 ### Stream events
 
@@ -83,6 +84,10 @@ Recommended scaffold event types:
 - `status.changed`
 - `agent.started`
 - `agent.decision`
+- `inference.call.completed`
+- `inference.repair`
+- `inference.fallback`
+- `inference.summary`
 - `critic.review`
 - `tool.started`
 - `tool.completed`
@@ -95,6 +100,11 @@ Recommended scaffold event types:
 - `run.failed`
 
 These event names are conventions, not scientific requirements.
+
+Inference events expose model identity, role, attempt kind, latency, usage when supplied, validation
+status, and fallback status. They must not expose prompt bodies, secrets, hidden reasoning, raw
+samples, recognizable target identity, or catalog truth. The terminal `inference.summary` is
+computed from the trace contract in `docs/inference.md`.
 
 ## Ordering and idempotency
 

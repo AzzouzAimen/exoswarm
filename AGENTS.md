@@ -8,10 +8,11 @@ When instructions conflict, use this order:
 
 1. Current user/task instructions.
 2. This `AGENTS.md`.
-3. `docs/00_SOURCE_OF_TRUTH.md` and the narrow architecture/contract document for the changed area.
-4. Repository tests, schemas, and existing code contracts.
-5. The relevant skill under `.agents/skills/`.
-6. General implementation preference.
+3. `docs/15_FINAL_STRETCH_PRIORITIES.md` for remaining hackathon scope and sequencing.
+4. `docs/00_SOURCE_OF_TRUTH.md` and the narrow architecture/contract document for the changed area.
+5. Repository tests, schemas, and existing code contracts.
+6. The relevant skill under `.agents/skills/`.
+7. General implementation preference.
 
 Do not invent scientific or product requirements to fill a gap. If a decision is not specified, choose the smallest reversible scaffold convention and document it.
 
@@ -50,6 +51,13 @@ For the 48-hour core, do **not** add:
 - extra 3D scientific charts.
 
 Use one FastAPI backend, REST + SSE, local cached inputs, JSON/JSONL artifacts, and one central React Three Fiber scene.
+
+For the remaining hackathon work, also do **not** spend time on fixed-policy ablations, `pass^3`,
+large eval suites, new transit fitting, broad uncertainty propagation, or a separate LLM Scientific
+Director. Treat a real pixel/centroid diagnostic as a high-value P1 differentiator: attempt it after
+the core vertical path is stable, give it a time-boxed acceptance gate, and retain an honest
+alternate-aperture/neighbor-context fallback so it cannot block the shippable path. Follow
+`docs/15_FINAL_STRETCH_PRIORITIES.md` for the current tiers and go/no-go rules.
 
 ## Dependency boundaries
 

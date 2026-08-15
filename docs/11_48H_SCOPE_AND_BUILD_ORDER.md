@@ -14,19 +14,23 @@
 - bounded adaptive experiment selection,
 - cached demonstration data,
 - reproducible traces,
-- blind-protocol test.
+- blind-protocol test,
+- live Featherless Skeptic/Critic path with schema validation, bounded repair, and fallback,
+- measured inference summary visible in artifacts/UI,
+- `make reproduce` for the complete locked cached path,
+- clear README setup, architecture, limitations, and target-user framing.
 
 ## P1 - Major competitive advantage
 
-- real pixel/centroid contamination test,
+- real pixel/centroid contamination test with a cached-real acceptance case,
 - visible hypothesis updates,
 - Critic review,
-- agent-vs-fixed-policy mini evaluation,
-- repeated-run consistency metric,
-- value-of-information logging,
+- cost-weighted adaptive budget visible in decisions and UI,
+- evidence-dependent Observer/Signal role only if it creates a visibly different valid branch,
+- polished mission-control storytelling around real state, failures, inference, and lock/reveal,
 - numeric-provenance guardrail.
 
-## P2 - Only after everything works
+## Deferred beyond the hackathon submission
 
 - improved transit fitting/uncertainties beyond the required basic level,
 - multi-model routing,
@@ -35,6 +39,9 @@
 - additional agents,
 - more sophisticated probabilistic validation,
 - multi-sector stitching.
+
+These are not an active final-stretch backlog. Revisit them after submission rather than consuming
+time that can improve the scored P0/P1 system.
 
 ## Build order
 
@@ -51,16 +58,21 @@
 
 No real scientific or model integrations yet.
 
-### Phase 1 - Deterministic scientific core
+### Phase 1 - Stabilize the deterministic vertical slice
 
 - cached input loader + provenance,
 - quality/preprocessing,
 - BLS + phase fold,
 - period/epoch/depth/duration/SNR,
-- mandatory odd/even + secondary + contamination baseline,
-- harmonic test,
+- mandatory odd/even + secondary + basic contamination baseline,
+- harmonic/alternate-aperture diagnostics only as required by the selected cases,
 - artifact plots,
 - science validation fixtures.
+
+After this vertical path is stable, give centroid localization a focused implementation and
+cached-real acceptance window because it is both scientifically useful and visually distinctive.
+If it misses the checkpoint, defer it and use an honestly labeled fallback. Do not implement new
+transit fitting or broad uncertainty propagation first.
 
 ### Phase 2 - Investigation runtime
 
@@ -69,10 +81,12 @@ No real scientific or model integrations yet.
 - mandatory controller,
 - Evidence Ledger + state updates,
 - bounded loop/stopping rules,
-- Featherless model client,
-- Director/Skeptic structured decisions,
+- live Featherless model client for Skeptic/Critic,
+- deterministic Director/controller policy plus Skeptic structured decisions,
 - Critic review,
-- agent failure/fallback handling.
+- structured-output attempt -> validate -> bounded repair -> deterministic fallback,
+- inference usage/latency/validation tracing,
+- cost-weighted adaptive budget.
 
 ### Phase 3 - Blind lock/reveal
 
@@ -93,13 +107,11 @@ No real scientific or model integrations yet.
 - lock/reveal experience,
 - one central R3F scene.
 
-### Phase 5 - Evals + reproducibility
+### Phase 5 - Three cases + reproducibility
 
-- 6-10 curated cases over time,
+- planet-like, eclipsing-binary-like, and inconclusive cases,
 - branch-diversity tests,
-- fixed-policy baseline,
-- pass^3 consistency,
-- `make reproduce`,
+- complete cached `make reproduce` with locked hash verification,
 - repository artifact/report output.
 
 ### Phase 6 - Demo hardening
@@ -112,6 +124,23 @@ Only after the core path works:
 - frontend refresh/reconnect,
 - three consecutive clean runs,
 - final video route.
+
+Then freeze low-value feature scope. With submission gates green, continue only with the ranked P1
+differentiators above—especially accepted centroid evidence and mission-control storytelling—or
+with work that fixes a demonstrated blocker in setup, the judged flow, blinding, inference,
+reproducibility, or truthful presentation.
+
+### Phase 7 - Documentation and submission assets
+
+- clean-clone quickstart that is actually exercised,
+- architecture and bounded-inference explanation,
+- Featherless statistics from recorded traces,
+- error-handling and blind-lock proof,
+- reproduction instructions and limitations,
+- concise three-minute video route with captions,
+- public repository/video/link checks.
+
+Documentation and the video are deliverables, not cleanup work after all optional code is finished.
 
 ## Four-person parallel ownership
 

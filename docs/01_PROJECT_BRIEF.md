@@ -72,6 +72,18 @@ After lock:
 
 The catalog is an evaluator, not an input to the investigation.
 
+## Target user and transferable value
+
+The immediate users are hackathon judges and engineers evaluating whether an agentic workflow is
+bounded, observable, reproducible, and useful—not professional astronomers validating every edge
+case. ExoSwarm demonstrates a reusable software pattern for any evidence-heavy domain: the model
+selects a bounded deterministic analysis under budget; typed tools perform it; an append-only ledger
+and trace make the trajectory auditable; and hidden reference answers remain gated until commitment.
+
+This framing does not relax scientific honesty. It explains why architecture legibility, failure
+handling, context isolation, measured inference behavior, and blind-lock integrity are the product's
+primary value.
+
 ## Minimum proof for the hackathon
 
 A credible P0 demonstration must show:
@@ -82,4 +94,6 @@ A credible P0 demonstration must show:
 - a visible adaptive experiment decision,
 - result lock before reveal,
 - CI/test evidence that the blind protocol cannot be bypassed,
-- reproducible run artifacts.
+- reproducible run artifacts,
+- a visible Featherless inference summary based on recorded—not estimated—metrics,
+- a clean setup/reproduction path and honest limitations.

@@ -29,16 +29,16 @@
 
 | Component | Implementation |
 |---|---|
-| Scientific Director | LangGraph node / routing logic |
-| Observer Agent | Featherless model + Pydantic structured output |
-| Signal Agent | Featherless model + Pydantic structured output |
-| Transit Hunter | LangGraph decision node + deterministic Python tools |
+| Scientific Director | product label for deterministic controller/routing logic; not a P0 model call |
+| Observer Agent | P1 after the core path, only for a real bounded data-quality decision |
+| Signal Agent | P1 after the core path, only for a real evidence-dependent preprocessing choice |
+| Transit Hunter | deterministic controller + scientific tools for P0 |
 | Skeptic Agent | Featherless structured decision |
 | Critic Agent | structured APPROVE / REVISE / VETO |
 | Shared state | LangGraph StateGraph + Pydantic / TypedDict |
 | Validation | Pydantic + deterministic policy checks |
 | Maximum turns | LangGraph / Python |
-| Experiment budget | state field + Python checks |
+| Experiment budget | cost units in state + per-action cost + Python checks |
 | Mandatory diagnostics | explicit Python control logic |
 | Hypothesis updates | deterministic Python rules |
 | Measurements | deterministic Python only |
@@ -64,9 +64,9 @@
 | Secondary eclipse | custom deterministic Python |
 | P/2, P, 2P harmonic test | Astropy BLS + custom Python |
 | Neighbor context | cached catalog data / HTTP lookup |
-| Pixel contamination | Lightkurve TPF + NumPy |
-| Centroid | NumPy / SciPy |
-| Uncertainty/tolerance | deterministic SciPy/statistical calculation |
+| Pixel contamination | high-value P1 after the core path; Lightkurve TPF + NumPy |
+| Centroid | high-value P1 behind a cached-real acceptance gate; NumPy / SciPy |
+| Uncertainty/tolerance | prioritize period comparison; preserve verified existing values; do not expand broadly |
 | Static scientific plots | Matplotlib |
 | Interactive scientific plots | Plotly |
 
@@ -105,4 +105,9 @@
 - full probabilistic exoplanet validation,
 - extra 3D scenes or 3D scientific charts.
 
-Multi-model routing is P2/stretch. Make the core reliable with one primary model first.
+Multi-model routing is out of scope for the hackathon submission. Make the core reliable and
+observable with one primary model.
+
+The live provider path must report model identity, calls, input/output tokens, schema-valid/repair/
+fallback counts, and latency from recorded call metadata. See `docs/inference.md`. Do not publish
+estimated operational metrics as measurements.

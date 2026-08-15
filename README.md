@@ -6,16 +6,37 @@ ExoSwarm is an AI-orchestrated TESS investigation system that uses deterministic
 
 ExoSwarm is **not** an LLM planet detector. Numerical measurements belong to deterministic scientific code. The agent layer decides what evidence to seek next, which competing hypothesis deserves attention, and when the implemented evidence is sufficient to stop.
 
+## Who it is for
+
+ExoSwarm is a reference implementation for engineers building auditable AI decision systems in
+science, finance, security, and other evidence-heavy domains. The reusable pattern is an LLM that
+chooses which bounded, potentially expensive deterministic analysis to run next while a typed
+ledger records what happened. Its blind-lock protocol also addresses benchmark contamination: a
+result on public data is more credible when the system can prove the decision layer could not see
+the answer before committing its result.
+
 ## Core architecture
 
 The project deliberately combines a deterministic workflow with bounded agentic control:
 
-- **Deterministic scientific layer:** TESS loading, preprocessing, BLS, phase folding, measurements, odd/even checks, secondary-eclipse checks, harmonic tests, pixel/centroid diagnostics, hypothesis-update rules, result locking, and catalog gating.
-- **Agent layer:** bounded decisions over structured evidence using a Scientific Director with Observer, Signal, Transit Hunter, Skeptic, and Critic roles.
+- **Deterministic scientific layer:** TESS loading, preprocessing, BLS, phase folding, measurements, odd/even checks, secondary-eclipse checks, harmonic tests, contamination diagnostics, hypothesis-update rules, result locking, and catalog gating.
+- **Control layer:** deterministic orchestration owns phases, budgets, permissions, retries, and stopping. Featherless-backed Skeptic and Critic calls provide bounded judgment where experiment selection benefits from it; role labels do not require separate LLM calls.
 - **Mandatory baseline:** safety-critical vetting is code-enforced and cannot be skipped by the model.
 - **Adaptive layer:** the Skeptic selects a discriminating follow-up experiment from a bounded registry; the Critic returns APPROVE, REVISE, or VETO.
 - **Blind protocol:** agents see opaque target IDs; recognizable identity and NASA ground truth are unavailable until the result is locked.
 - **Evidence Ledger:** append-only structured scientific evidence powers agent context, auditability, UI storytelling, evaluation, and reproducibility.
+
+## Inference layer
+
+Featherless.ai is the intended live inference provider, with `DeepSeek-V4-Flash-0731` as the single
+primary model. The current harness uses a scripted inference client and deliberately leaves the live
+provider unconfigured. Before submission, the live path must expose measured call count, input/output
+tokens, schema-valid rate, repair rate, fallback rate, latency, and model identity for each run. Raw
+light-curve samples sent to the model must remain **zero**; models receive compact evidence packets
+with deterministic measurements and provenance references.
+
+See [`docs/inference.md`](docs/inference.md) for the implementation and reporting contract. Never
+replace unavailable metrics with estimates in the README, UI, demo, or artifacts.
 
 ## 48-hour stack
 
@@ -58,7 +79,7 @@ docs/                        architecture and implementation contracts
 
 ## Scientific path
 
-The P0 scientific path is:
+The shippable P0 scientific path is:
 
 ```text
 cached TESS data
@@ -69,8 +90,13 @@ cached TESS data
   -> odd/even test
   -> secondary-eclipse test
   -> P/2-P-2P harmonic test
-  -> one real pixel/centroid spatial diagnostic
+  -> basic contamination context
 ```
+
+A real pixel/centroid diagnostic remains a high-value P1 differentiator. Attempt it after the
+end-to-end core is stable and keep it when a real cached TPF case passes a short acceptance check.
+If it misses that checkpoint, ship an honestly labeled alternate-aperture test plus cached
+neighbor/contamination context and do not imply pixel-level localization.
 
 All measurements must have explicit units, method/provenance, and explicit failure states. Where uncertainty is not available, report a declared tolerance rather than fake precision.
 
@@ -92,7 +118,9 @@ observe
   -> unlock NASA reveal
 ```
 
-A valid demo must show at least one planet-like case and one false-positive/eclipsing-binary case taking visibly different evidence-driven trajectories.
+A valid demo must show one planet-like case and one false-positive/eclipsing-binary case taking
+visibly different evidence-driven trajectories. A third inconclusive case belongs in the compact
+evaluation suite but need not consume the primary three-minute demo.
 
 ## Blindness and result lock
 
@@ -118,6 +146,7 @@ runs/
       trace.jsonl
       result.json
       result.json.sha256
+      inference_summary.json
       reveal.json             # only after lock + reveal
       artifacts/
         raw_lightcurve.png
@@ -126,16 +155,18 @@ runs/
         centroid.png
 ```
 
-`make reproduce` should eventually be able to rerun the deterministic path from cached real source data without requiring astronomy-data network access and verify the locked artifacts.
+`make reproduce` must become the submission-grade cached/no-network reproduction path and verify the
+result artifact hash. The current command reproduces the deterministic candidate-search slice; it
+does not yet reproduce the complete locked investigation.
 
 ## Project status and scope
 
-Phase 1 now includes the first deterministic vertical slice: a local cached TESS light-curve FITS
-product can be filtered, detrended, searched with Astropy BLS, phase-folded, measured, written as a
-provenance artifact, and appended to the Evidence Ledger. A cached real TESS acceptance artifact is
-validated locally from an ignored official SPOC product without a runtime network dependency. The
-remaining astronomy diagnostics, investigation loop, live inference, and catalog integration remain
-intentionally unimplemented.
+The deterministic vertical slice can filter, detrend, search, phase-fold, and measure a local cached
+TESS light-curve FITS product with provenance and Evidence Ledger output. The bounded investigation
+harness is operational with scripted inference, durable state/trace/ledger recovery, validated tool
+requests, and result-lock/catalog-gate boundaries. The default API still lacks its backend target
+source mapping, and the live Featherless adapter, remaining diagnostics, full two-target path,
+run-level inference summary, and real reveal provider remain unfinished.
 
 ## Scaffold quick start
 
@@ -153,13 +184,14 @@ For local development, run `make dev-api` and `make dev-web` in separate termina
 cached-real FITS present, `make reproduce` reruns the deterministic local candidate analysis and
 never contacts an astronomy-data service or generates placeholder science.
 
-Do not silently expand the scaffold into a full astronomy pipeline or a polished demo. See:
+Do not invent capabilities or fake demo values while completing the ranked final-stretch work. See:
 
-- [`FIRST_AGENT_PROMPT.md`](FIRST_AGENT_PROMPT.md) - first prompt for the coding agent.
 - [`AGENTS.md`](AGENTS.md) - repository-wide coding-agent rules.
 - [`docs/00_SOURCE_OF_TRUTH.md`](docs/00_SOURCE_OF_TRUTH.md) - source-derived constraints vs scaffold conventions.
-- [`docs/11_48H_SCOPE_AND_BUILD_ORDER.md`](docs/11_48H_SCOPE_AND_BUILD_ORDER.md) - P0/P1/P2 priority and implementation order.
+- [`docs/11_48H_SCOPE_AND_BUILD_ORDER.md`](docs/11_48H_SCOPE_AND_BUILD_ORDER.md) - P0/P1/deferred priority and implementation order.
 - [`docs/13_HARNESS_SCAFFOLD.md`](docs/13_HARNESS_SCAFFOLD.md) - implemented harness boundary and authority classes.
+- [`docs/15_FINAL_STRETCH_PRIORITIES.md`](docs/15_FINAL_STRETCH_PRIORITIES.md) - current cut list, sequencing, and submission gates.
+- [`docs/inference.md`](docs/inference.md) - Featherless integration and measured inference-statistics contract.
 
 ## Scientific claim language
 

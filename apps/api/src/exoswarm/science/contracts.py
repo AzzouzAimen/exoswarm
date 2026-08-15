@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.models import Provenance, ScientificToolResult
@@ -24,17 +24,24 @@ class ApprovalRequirement(StrEnum):
 ToolHandler = Callable[[str, str, str, dict[str, Any]], ScientificToolResult]
 
 
+class NoParameters(BaseModel):
+    """Explicit strict contract for actions that accept no model-selected parameters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 @dataclass(frozen=True, slots=True)
 class ScientificToolSpec:
     name: str
     handler: ToolHandler
+    parameter_schema: type[BaseModel]
     side_effect_level: SideEffectLevel = SideEffectLevel.ARTIFACT_WRITE
     approval: ApprovalRequirement = ApprovalRequirement.RUNTIME_POLICY
     required_scopes: frozenset[str] = frozenset({"science:execute"})
     timeout_seconds: int = 60
     max_retries: int = 0
     idempotent: bool = True
-    parameter_schema: type[BaseModel] | None = None
+    runtime_input_schema: type[BaseModel] | None = None
     mandatory_test: str | None = None
     adaptive: bool = False
     required_completed_tests: frozenset[str] = frozenset()

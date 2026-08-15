@@ -9,11 +9,7 @@ flowchart LR
     UI[Next.js Mission Control] -->|REST| API[FastAPI]
     API --> CTRL[Investigation Controller / LangGraph]
     CTRL --> BASE[Mandatory Baseline Controller]
-    CTRL --> DIR[Scientific Director]
-    DIR --> OBS[Observer]
-    DIR --> SIG[Signal Agent]
-    DIR --> TH[Transit Hunter]
-    DIR --> SK[Skeptic]
+    CTRL --> SK[Skeptic - Featherless]
     SK --> CR[Critic]
     CTRL --> REG[Validated Experiment Registry]
     REG --> SCI[Deterministic Science Tools]
@@ -58,14 +54,19 @@ flowchart LR
 
 ## Manager + bounded specialists
 
-The Scientific Director owns the investigation. Specialist contexts are isolated and narrow.
+The deterministic investigation controller owns the investigation. "Scientific Director" may be
+used as a product label for this control policy, but it is not a separate P0 LLM agent. Do not add a
+model call merely to preserve the role name. Specialist contexts are isolated and narrow. The P0
+live inference surface is Skeptic selection plus Critic review; after that path is stable, Observer
+or Signal calls are worthwhile P1 additions only when their bounded decisions visibly change a
+trajectory.
 
 | Role | Primary objective | Typical output |
 |---|---|---|
-| Scientific Director | route the investigation and apply deterministic control policy | next phase / specialist / terminal transition |
-| Observer | inspect compact data-quality evidence | quality/preparation decision |
-| Signal Agent | choose among allowed preprocessing strategies | preprocessing decision |
-| Transit Hunter | request candidate-search/measurement operations | candidate/tool decision |
+| Investigation controller | deterministic routing, mandatory policy, budgets, failures, and terminal transitions | next phase / allowed model call / tool / terminal state |
+| Observer | optional bounded review only if it changes a real decision | quality/preparation decision |
+| Signal Agent | optional bounded choice among allowed preprocessing strategies | preprocessing decision |
+| Transit Hunter | optional bounded request over candidate actions | candidate/tool decision |
 | Skeptic | identify strongest non-planetary alternative and best discriminating experiment | `SkepticDecision` |
 | Critic | test the proposed adaptive experiment for redundancy/information value | APPROVE / REVISE / VETO |
 
@@ -80,7 +81,10 @@ Mandatory checks must not depend on the LLM remembering them. A viable transit c
 - secondary-eclipse test,
 - basic contamination screening.
 
-After the baseline, adaptive experiments may include harmonic checks, centroid localization, alternate aperture/preprocessing analysis, or STOP, subject to the bounded registry and current evidence.
+After the baseline, adaptive experiments may include harmonic checks, alternate
+aperture/preprocessing analysis, or STOP, subject to the bounded registry, current evidence, and
+cost-weighted budget. Centroid localization is a high-value P1 option once its deterministic
+implementation passes the final-stretch go/no-go check.
 
 ## Explicit loop
 

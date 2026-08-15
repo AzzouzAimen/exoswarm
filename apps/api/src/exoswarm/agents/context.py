@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -14,6 +16,9 @@ from exoswarm.domain.models import (
 FORBIDDEN_CONTEXT_KEYS = frozenset(
     {
         "cached_path",
+        "cache_path",
+        "local_path",
+        "private_provenance_path",
         "catalog_disposition",
         "catalog_payload",
         "fits_path",
@@ -23,10 +28,26 @@ FORBIDDEN_CONTEXT_KEYS = frozenset(
         "raw_lightcurve",
         "reveal",
         "source_data_ref",
+        "source_path",
         "target_name",
         "tic_id",
         "toi_id",
     }
+)
+
+_WINDOWS_PATH = re.compile(r"(?i)(?:\b[a-z]:[\\/]|\\\\[^\\\s]+\\[^\\\s]+)")
+_POSIX_PATH = re.compile(
+    r"(?:^|[\s\"'(])/(?!/)[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*"
+)
+_LOCAL_FILE_SUFFIX = re.compile(
+    r"(?i)\.(?:fits?|fts|csv|tsv|npy|npz|parquet)(?:\b|$)"
+)
+_HIDDEN_AUTHORITY = re.compile(
+    r"(?i)\b(?:ground[-_\s]?truth|catalog(?:ue)?|reveal(?:ed)?)\b"
+)
+_RECOGNIZABLE_TARGET = re.compile(
+    r"(?i)\b(?:tic|toi)\s*[-:#]?\s*\d+[a-z]?\b|"
+    r"\b(?:kepler|k2|wasp|hat-p|tres|gj|hd)\s*[- ]?\s*\d+[a-z]?\b"
 )
 
 
@@ -173,20 +194,42 @@ def assemble_context(
 
 
 def assert_agent_safe_context(packet: AgentContextPacket) -> None:
-    """Fail closed when forbidden fields or local-path-like strings enter a packet."""
+    """Fail closed when non-allowlisted authority data enters a compact packet."""
+
+    def reject_unsafe_string(value: str) -> None:
+        lowered = value.lower()
+        if len(value) > 1_000:
+            raise RuntimeError("agent context contains an oversized raw value")
+        if lowered.startswith("file:") or "file://" in lowered:
+            raise RuntimeError("agent context contains a local file URI")
+        if _WINDOWS_PATH.search(value) or _POSIX_PATH.search(value):
+            raise RuntimeError("agent context contains a local source path")
+        if _LOCAL_FILE_SUFFIX.search(value):
+            raise RuntimeError("agent context contains a cached source location")
+        if _HIDDEN_AUTHORITY.search(value):
+            raise RuntimeError("agent context contains catalog or reveal authority data")
+        if _RECOGNIZABLE_TARGET.search(value):
+            raise RuntimeError("agent context contains recognizable target identity")
+        stripped = value.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                decoded = None
+            if isinstance(decoded, list) and len(decoded) >= 3:
+                raise RuntimeError("agent context contains a raw observation array")
 
     def inspect(value: Any, key: str | None = None) -> None:
-        if key in FORBIDDEN_CONTEXT_KEYS:
+        normalized_key = key.lower() if key is not None else None
+        if normalized_key in FORBIDDEN_CONTEXT_KEYS:
             raise RuntimeError(f"forbidden agent-context field: {key}")
         if isinstance(value, dict):
             for child_key, child_value in value.items():
                 inspect(child_value, str(child_key))
-        elif isinstance(value, list):
+        elif isinstance(value, (list, tuple)):
             for child in value:
                 inspect(child)
         elif isinstance(value, str):
-            lowered = value.lower()
-            if "file://" in lowered or ".fits" in lowered or "\\" in value:
-                raise RuntimeError("agent context contains a local source path")
+            reject_unsafe_string(value)
 
     inspect(packet.model_dump(mode="json"))

@@ -45,17 +45,18 @@ When a science tool is implemented:
 
 Set expected values/ranges and tolerances before evaluating a new result. Include positive, negative, and indeterminate cases. Test fragile units explicitly: days vs hours, fraction vs percent vs ppm, epoch conventions, radius ratio vs depth, sign/sigma conventions.
 
-## Agent evaluation suite
+## Final-stretch agent evaluation suite
 
-Create roughly 6-10 curated cases over time, including:
+Keep a locked three-case minimum suite for the submission:
 
-- several clean planet-like/confirmed-planet holdouts,
-- one or more eclipsing binaries,
-- one contaminated candidate,
-- one noisy/variable target,
+- one clean planet-like/confirmed-planet holdout,
+- one eclipsing-binary-like false positive,
 - one deliberately difficult/inconclusive case.
 
-Do not optimize the agent for one demo star.
+Run the suite after meaningful harness/inference changes. Keep deterministic unit fixtures for
+additional failure classes. Once all submission gates are green, add a fourth contamination/spatial
+case only if it validates the centroid path or improves the visible demo; do not pursue case count
+for its own sake. Do not optimize the agent for one demo star.
 
 ## Deterministic graders
 
@@ -81,39 +82,24 @@ At minimum, test evidence states representing:
 
 - clean planet-like evidence,
 - eclipsing-binary-like evidence,
-- contamination-like evidence,
-- weak/noisy evidence.
+- weak/noisy or contamination-like evidence.
 
 Assert that at least some cases select different valid next actions. If every path is predetermined, the behavior belongs in a workflow, not the agent.
 
-## Fixed-policy ablation
+## Explicit final-stretch cuts
 
-Baseline:
+Do not build the agent-vs-fixed-policy ablation or the `pass^3` stochastic metric for the hackathon
+submission. Retain ordinary deterministic regression checks, branch tests, and the three-case
+minimum suite; a gated fourth high-value spatial case is allowed.
+Release repeatability below is operational demo hardening, not an inference-consistency metric.
 
-```text
-BLS -> odd/even -> secondary -> centroid -> final
-```
+## Provider and structured-output canary
 
-Compare against adaptive selection on the same cases:
-
-- correct next experiment where definable,
-- correct final disposition,
-- unnecessary experiments,
-- repeated tool calls,
-- invalid requests,
-- mandatory-test completion,
-- mean experiments,
-- realized information value,
-- turns,
-- latency,
-- cost,
-- consistency.
-
-If adaptive and fixed systems perform similarly, report that rather than manufacturing a benefit.
-
-## Consistency
-
-For important stochastic cases, run multiple times and track `pass^3`: whether the case succeeds correctly across three independent runs.
+Before connecting Featherless to the main demo, run a small repeated canary against the real
+Skeptic schema (target: 20 calls if time/provider budget allows). Record model identity, latency,
+input/output tokens, first-attempt schema-valid count, repair count, fallback count, and errors. The
+canary is evidence for the integration; it must not mutate the locked three-case evaluator or use
+raw light-curve samples.
 
 ## Release/demo gate
 

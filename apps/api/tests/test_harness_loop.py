@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
+from pathlib import Path
 
 import pytest
 from harness_support import (
@@ -19,9 +21,23 @@ from exoswarm.domain.enums import (
     Disposition,
     HarnessFailureKind,
     InvestigationStatus,
+    ToolExecutionStatus,
     ToolStatus,
 )
 from exoswarm.domain.errors import ModelProviderTimeoutError
+from exoswarm.investigation.runtime_inputs import (
+    CachedCandidateSource,
+    MappingCandidateSourceResolver,
+)
+from exoswarm.investigation.tool_registry import (
+    ScientificToolRegistry,
+    scaffold_tool_registry,
+)
+from exoswarm.science.contracts import ScientificToolSpec
+from exoswarm.science.pipeline import (
+    CandidateSearchParameters,
+    CandidateSearchRuntimeInputs,
+)
 
 
 @pytest.mark.asyncio
@@ -162,6 +178,54 @@ async def test_scientific_precondition_and_tool_infrastructure_failures_are_dist
     failed = await infrastructure.advance(failed.run_id)
     assert failed.status == InvestigationStatus.FAILED
     assert failed.failures[-1].kind == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+    assert failed.tool_executions[-1].status == ToolExecutionStatus.FAILED
+    assert (
+        failed.tool_executions[-1].failure_kind
+        == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+    )
+    assert "RuntimeError" in (failed.tool_executions[-1].failure_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_mismatched_tool_result_identifiers_fail_the_execution_durably(tmp_path) -> None:
+    controller = make_controller(
+        tmp_path,
+        policy_client(),
+        make_registry("eclipsing_binary", mismatch_tool="harmonic_test"),
+    )
+    state = controller.create("TARGET-X17")
+    seed_baseline(controller, state.run_id, "eclipsing_binary")
+
+    failed = await controller.advance(state.run_id)
+
+    execution = failed.tool_executions[-1]
+    assert failed.status == InvestigationStatus.FAILED
+    assert execution.status == ToolExecutionStatus.FAILED
+    assert execution.failure_kind == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+    assert "identifiers do not match" in (execution.failure_reason or "")
+    assert execution.evidence_ref is None
+    assert len(controller.evidence(state.run_id)) == 4
+
+
+@pytest.mark.asyncio
+async def test_invalid_tool_result_parameters_fail_the_execution_durably(tmp_path) -> None:
+    controller = make_controller(
+        tmp_path,
+        policy_client(),
+        make_registry("eclipsing_binary", malformed_result_tool="harmonic_test"),
+    )
+    state = controller.create("TARGET-X17")
+    seed_baseline(controller, state.run_id, "eclipsing_binary")
+
+    failed = await controller.advance(state.run_id)
+
+    execution = failed.tool_executions[-1]
+    assert failed.status == InvestigationStatus.FAILED
+    assert execution.status == ToolExecutionStatus.FAILED
+    assert execution.failure_kind == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+    assert "result validation failed" in (execution.failure_reason or "")
+    assert execution.evidence_ref is None
+    assert len(controller.evidence(state.run_id)) == 4
 
 
 @pytest.mark.asyncio
@@ -194,3 +258,118 @@ async def test_tool_result_fixture_provenance_remains_in_ledger(tmp_path) -> Non
     record = controller.evidence(state.run_id)[0]
     assert record.result.provenance.code_version == "test-fixture-v1"
     assert record.result.provenance.source_data_ref.startswith("fixture:")
+
+
+@pytest.mark.asyncio
+async def test_candidate_runtime_inputs_are_typed_backend_owned_and_not_persisted(
+    tmp_path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def candidate_handler(run_id, action_id, target_id, parameters):
+        captured.update(parameters)
+        safe_parameters = {
+            "preprocessing": parameters["preprocessing"],
+            "search": parameters["search"],
+        }
+        return fixture_result(
+            tool_name="search_bls",
+            run_id=run_id,
+            action_id=action_id,
+            target_id=target_id,
+            scenario="clean",
+            parameters=safe_parameters,
+        )
+
+    registry = ScientificToolRegistry(
+        [
+            ScientificToolSpec(
+                name="search_bls",
+                handler=candidate_handler,
+                parameter_schema=CandidateSearchParameters,
+                runtime_input_schema=CandidateSearchRuntimeInputs,
+                mandatory_test="signal_quality",
+                order=10,
+            )
+        ]
+    )
+    cached_path = tmp_path / "private" / "recognizable-target.fits"
+    resolver = MappingCandidateSourceResolver(
+        {"TARGET-X17": CachedCandidateSource(cached_path=cached_path)}
+    )
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient({}),
+        registry,
+        candidate_sources=resolver,
+    )
+    state = controller.create("TARGET-X17")
+
+    updated = await controller.advance(state.run_id)
+
+    assert captured["cached_path"] == cached_path
+    assert captured["write_evidence"] is False
+    assert captured["artifact_dir"] == (
+        controller.artifacts.run_dir(state.opaque_target_id, state.run_id) / "artifacts"
+    )
+    assert captured["ledger_path"] == controller.artifacts.evidence_path(updated)
+    execution = updated.tool_executions[-1]
+    assert execution.status == ToolExecutionStatus.COMPLETED
+    assert set(execution.parameters) == {"preprocessing", "search"}
+    persisted = json.dumps(updated.model_dump(mode="json")) + "\n" + "\n".join(
+        event.model_dump_json() for event in controller.events(state.run_id)
+    )
+    assert str(cached_path) not in persisted
+    assert "recognizable-target" not in persisted
+
+
+@pytest.mark.asyncio
+async def test_default_candidate_path_fails_explicitly_without_backend_source(tmp_path) -> None:
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient({}),
+        scaffold_tool_registry(),
+    )
+    state = controller.create("TARGET-X17")
+
+    failed = await controller.advance(state.run_id)
+
+    assert failed.status == InvestigationStatus.INSUFFICIENT_EVIDENCE
+    assert failed.failures[-1].kind == HarnessFailureKind.PRECONDITION_FAILED
+    assert "backend-owned cached candidate source" in failed.failures[-1].concise_reason
+    assert failed.tool_executions == []
+    assert controller.evidence(state.run_id) == ()
+
+
+@pytest.mark.asyncio
+async def test_cached_real_candidate_can_cross_the_controller_runtime_boundary(
+    tmp_path,
+) -> None:
+    repository_root = Path(__file__).parents[3]
+    case_path = repository_root / "evals/fixtures/cached_real_tess_case.json"
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    cached_path = repository_root / case["cached_path"]
+    if not cached_path.is_file():
+        pytest.skip("cached-real TESS acceptance artifact is unavailable")
+    resolver = MappingCandidateSourceResolver(
+        {
+            case["opaque_target_id"]: CachedCandidateSource(
+                cached_path=cached_path
+            )
+        }
+    )
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient({}),
+        scaffold_tool_registry(),
+        candidate_sources=resolver,
+    )
+    state = controller.create(case["opaque_target_id"])
+
+    updated = await controller.advance(state.run_id)
+
+    assert updated.candidate_signals
+    assert updated.completed_tests == ["signal_quality"]
+    assert updated.tool_executions[-1].status == ToolExecutionStatus.COMPLETED
+    assert len(controller.evidence(state.run_id)) == 1
+    assert str(cached_path) not in json.dumps(updated.model_dump(mode="json"))

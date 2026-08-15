@@ -143,6 +143,30 @@ class ToolExecutionRecord(StrictModel):
     critic_decision_id: str | None = None
     result_status: ToolStatus | None = None
     evidence_ref: str | None = None
+    failure_kind: HarnessFailureKind | None = None
+    failure_reason: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def lifecycle_fields_match_status(self) -> ToolExecutionRecord:
+        if self.status == ToolExecutionStatus.PREPARED:
+            if any(
+                value is not None
+                for value in (
+                    self.result_status,
+                    self.evidence_ref,
+                    self.failure_kind,
+                    self.failure_reason,
+                )
+            ):
+                raise ValueError("PREPARED execution cannot contain terminal result fields")
+        elif self.status == ToolExecutionStatus.COMPLETED:
+            if self.result_status is None or self.evidence_ref is None:
+                raise ValueError("COMPLETED execution requires result status and evidence ref")
+            if self.failure_kind is not None or self.failure_reason is not None:
+                raise ValueError("COMPLETED execution cannot contain failure fields")
+        elif self.failure_kind is None or self.failure_reason is None:
+            raise ValueError("FAILED execution requires failure classification and reason")
+        return self
 
 
 class HarnessFailureRecord(StrictModel):

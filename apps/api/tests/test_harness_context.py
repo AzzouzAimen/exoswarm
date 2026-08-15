@@ -2,11 +2,23 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from harness_support import fixture_result, make_controller, make_registry, seed_baseline
 
-from exoswarm.agents.context import FORBIDDEN_CONTEXT_KEYS, assemble_context
+from exoswarm.agents.context import (
+    FORBIDDEN_CONTEXT_KEYS,
+    AgentContextPacket,
+    assemble_context,
+    assert_agent_safe_context,
+)
 from exoswarm.agents.model_client import ScriptedInferenceClient
-from exoswarm.domain.models import Provenance, ScientificToolResult
+from exoswarm.domain.enums import InformationValue, Priority
+from exoswarm.domain.models import (
+    InvestigationState,
+    Provenance,
+    ScientificToolResult,
+    SkepticDecision,
+)
 
 
 def test_context_is_compact_ledger_derived_and_ground_truth_isolated(tmp_path) -> None:
@@ -79,3 +91,75 @@ def test_candidate_numbers_are_exactly_traceable_to_deterministic_evidence(tmp_p
         source = ledger[measurement.evidence_ref].result.measurements[name]
         assert (measurement.value, measurement.unit) == (source.value, source.unit)
 
+
+@pytest.mark.parametrize(
+    "forbidden_value",
+    [
+        "/private/cache/recognizable-target.csv",
+        "file:///private/cache/target.fits",
+        r"C:\private\cache\target.fits",
+        "TIC 123456789",
+        "TOI-700 d",
+        "ground-truth catalog reveal",
+        "[0.9998, 1.0001, 0.9987, 1.0002]",
+    ],
+)
+def test_context_rejects_paths_identity_truth_and_raw_array_strings(
+    forbidden_value,
+) -> None:
+    state = InvestigationState(
+        run_id="run_context_boundary",
+        opaque_target_id="TARGET-X17",
+        active_hypotheses=[forbidden_value],
+    )
+
+    with pytest.raises(RuntimeError, match="agent context"):
+        assemble_context(state)
+
+
+def test_context_reviews_every_proposed_decision_string() -> None:
+    state = InvestigationState(
+        run_id="run_proposal_boundary",
+        opaque_target_id="TARGET-X17",
+        step_count=1,
+    )
+    decision = SkepticDecision(
+        decision_id="decision_1",
+        run_id=state.run_id,
+        step_id="step_0001",
+        hypothesis_under_test="eclipsing_binary",
+        requested_experiment="harmonic_test",
+        reason_code="LOCAL_SOURCE_LEAK",
+        expected_discriminating_result="Read /private/cache/recognizable-target.csv",
+        expected_information_value=InformationValue.MEDIUM,
+        priority=Priority.MEDIUM,
+        concise_reason="A compact proposed action.",
+    )
+
+    with pytest.raises(RuntimeError, match="agent context"):
+        assemble_context(state, role="critic", proposed_decision=decision)
+
+
+def test_context_allows_scientific_notation_units_and_ordinary_prose() -> None:
+    state = InvestigationState(
+        run_id="run_legitimate_context",
+        opaque_target_id="TARGET-X17",
+        active_hypotheses=["instrumental_or_variable_noise"],
+        strongest_unresolved_alternative="eclipsing_binary",
+    )
+    packet = assemble_context(state)
+    payload = packet.model_dump(mode="python")
+    payload["proposed_decision"] = SkepticDecision(
+        decision_id="decision_legitimate",
+        run_id=state.run_id,
+        step_id="step_0000",
+        hypothesis_under_test="eclipsing_binary",
+        requested_experiment="harmonic_test",
+        reason_code="COMPARE_ODD_EVEN",
+        expected_discriminating_result="Compare a 1e-5 fractional signal in m/s units.",
+        expected_information_value=InformationValue.MEDIUM,
+        priority=Priority.MEDIUM,
+        concise_reason="Ordinary scientific prose remains valid.",
+    )
+
+    assert_agent_safe_context(AgentContextPacket.model_validate(payload))
