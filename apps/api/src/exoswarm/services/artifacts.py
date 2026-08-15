@@ -5,7 +5,8 @@ import re
 from pathlib import Path
 
 from exoswarm.domain.events import InvestigationEvent
-from exoswarm.domain.models import InvestigationState
+from exoswarm.domain.models import EvidenceRecord, InvestigationState
+from exoswarm.investigation.evidence import JsonlEvidenceLedger
 
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -70,6 +71,27 @@ class FileSystemRunArtifactStore:
             return []
         return [
             InvestigationEvent.model_validate_json(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+
+    def evidence_path(self, state: InvestigationState) -> Path:
+        return self.run_dir(state.opaque_target_id, state.run_id) / "evidence.jsonl"
+
+    def append_evidence(self, state: InvestigationState, record: EvidenceRecord) -> None:
+        existing = self.read_evidence(state)
+        if any(item.evidence_id == record.evidence_id for item in existing):
+            raise ValueError(f"evidence already exists: {record.evidence_id}")
+        if any(item.action_id == record.action_id for item in existing):
+            raise ValueError(f"action already has evidence: {record.action_id}")
+        JsonlEvidenceLedger(self.evidence_path(state)).append(record)
+
+    def read_evidence(self, state: InvestigationState) -> list[EvidenceRecord]:
+        path = self.evidence_path(state)
+        if not path.exists():
+            return []
+        return [
+            EvidenceRecord.model_validate_json(line)
             for line in path.read_text(encoding="utf-8").splitlines()
             if line
         ]

@@ -7,6 +7,10 @@ caller-owned run artifact and Evidence Ledger paths. It never contacts MAST. The
 requires `TIME`, `PDCSAP_FLUX`, `PDCSAP_FLUX_ERR`, and `QUALITY`, explicit day/TDB/BTJD metadata,
 sector, cadence, and a declared flux unit.
 
+Official SPOC products may encode the `TIME` column unit as `BJD - 2457000, days` (or the
+documented `JD - 2457000, days`) while also declaring `TIMEUNIT=d`, `TIMESYS=TDB`, and the TESS
+2457000.0 BJD reference. The loader normalizes those unambiguous official spellings to days.
+
 The action applies the Lightkurve TESS default quality-bitmask convention (175), finite/error
 filtering, positive-impulse rejection, median detrending, Astropy unit-aware Box Least Squares,
 and phase folding. It returns period in days, epoch in BTJD/TDB, duration in hours, depth as a
@@ -40,11 +44,11 @@ Not adopted: SHERLOCK orchestration, mutable result carriers, plots/reports/cata
 multiple detrenders/search engines, placeholder false-alarm/odd-even/depth-error metrics, and its
 approximate radius-ratio calculation.
 
-## Pending cached-real acceptance artifact
+## Cached-real acceptance artifact
 
-The repository currently has no real file under `data/cached/lightcurves/`. The remaining gate needs
-one unmodified local SPOC TESS light-curve FITS product with the required columns/metadata/checksums
-and documented acquisition provenance, plus `evals/fixtures/cached_real_tess_case.json`:
+The local acceptance case uses one unmodified public SPOC TESS light-curve FITS product with the
+required columns, metadata, checksums, and documented acquisition provenance. The agent-safe
+configuration is `evals/fixtures/cached_real_tess_case.json`:
 
 ```json
 {
@@ -60,3 +64,14 @@ and documented acquisition provenance, plus `evals/fixtures/cached_real_tess_cas
 
 The expected range must be set from independent documentation before this implementation's output
 is evaluated. Recognizable identity and catalog truth stay backend-only.
+
+The cached FITS and identity-bearing provenance remain ignored at `data/cached/lightcurves/` and
+`data/ground_truth/`. `scripts/acquire_cached_tess.py` is the manually invoked, networked one-time
+acquisition boundary; its exact invocation is stored only in the private provenance JSON. Normal
+science execution and `make reproduce` read the opaque cached file and never contact MAST.
+
+The selected official SPOC file is structurally valid but preserves extension-level `CHECKSUM`
+values that Astropy reports as invalid through both tested official MAST delivery routes. The
+acquisition record retains each embedded value and validity result plus a local SHA-256. Invalid
+`DATASUM` values remain fatal; absent `DATASUM` keywords are recorded explicitly rather than
+invented.

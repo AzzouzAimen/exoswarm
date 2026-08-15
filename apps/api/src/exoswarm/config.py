@@ -17,4 +17,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
-
+    max_model_calls: int = Field(default=16, ge=0)
+    max_tool_calls: int = Field(default=8, ge=0)
+    max_model_retries: int = Field(default=1, ge=0)
+    max_critic_revisions: int = Field(default=1, ge=0)

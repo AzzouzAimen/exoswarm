@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from pydantic import BaseModel
+
 from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.models import Provenance, ScientificToolResult
 
@@ -32,6 +34,11 @@ class ScientificToolSpec:
     timeout_seconds: int = 60
     max_retries: int = 0
     idempotent: bool = True
+    parameter_schema: type[BaseModel] | None = None
+    mandatory_test: str | None = None
+    adaptive: bool = False
+    required_completed_tests: frozenset[str] = frozenset()
+    order: int = 100
 
 
 def not_implemented_result(

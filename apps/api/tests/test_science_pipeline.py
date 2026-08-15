@@ -11,6 +11,7 @@ from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.models import EvidenceRecord
 from exoswarm.investigation.tool_registry import scaffold_tool_registry
 from exoswarm.science.harmonic import classify_harmonic_relation
+from exoswarm.science.io import load_cached_tess_fits
 from exoswarm.science.pipeline import analyze_cached_candidate
 
 INJECTED_PERIOD_DAYS = 3.2
@@ -387,6 +388,24 @@ def test_ambiguous_time_units_or_system_are_rejected(
     assert result.measurements == {}
 
 
+def test_official_spoc_btjd_time_column_unit_is_accepted(tmp_path: Path) -> None:
+    cached_path = tmp_path / "spoc-time-unit.fits"
+    time = np.arange(1000.0, 1005.0, 20.0 / 60.0 / 24.0)
+    _write_tess_fits(
+        cached_path,
+        time=time,
+        flux=np.full(len(time), 100_000.0),
+        flux_error=np.full(len(time), 100.0),
+        time_unit="BJD - 2457000, days",
+    )
+
+    observation = load_cached_tess_fits(cached_path)
+
+    assert observation.time_unit == "d"
+    assert observation.time_system == "TDB"
+    assert observation.bjd_reference == 2_457_000.0
+
+
 def test_registry_executes_the_vertical_slice(tmp_path: Path) -> None:
     cached_path = tmp_path / "registry.fits"
     _injected_observation(cached_path)
@@ -402,22 +421,114 @@ def test_registry_executes_the_vertical_slice(tmp_path: Path) -> None:
 
 
 def test_cached_real_tess_acceptance_case_if_present(tmp_path: Path) -> None:
-    case_path = Path(__file__).parents[3] / "evals/fixtures/cached_real_tess_case.json"
+    repository_root = Path(__file__).parents[3]
+    case_path = repository_root / "evals/fixtures/cached_real_tess_case.json"
     if not case_path.exists():
         pytest.skip(
             "requires evals/fixtures/cached_real_tess_case.json and its referenced cached SPOC FITS"
         )
     case = json.loads(case_path.read_text(encoding="utf-8"))
-    cached_path = Path(__file__).parents[3] / case["cached_path"]
-    parameters = _parameters(tmp_path, cached_path)
-    parameters["search"].update(case.get("search", {}))
-    result = analyze_cached_candidate(
+    cached_path = repository_root / case["cached_path"]
+    if not cached_path.exists():
+        pytest.skip("requires the ignored local cached-real SPOC FITS")
+    provenance_path = repository_root / case["private_provenance_path"]
+    acquisition = json.loads(provenance_path.read_text(encoding="utf-8"))
+
+    first_parameters = _parameters(tmp_path / "first", cached_path)
+    first_parameters["search"].update(case["search"])
+    first = analyze_cached_candidate(
         run_id="run_real",
         action_id="action_real",
         target_id=case["opaque_target_id"],
-        parameters=parameters,
+        parameters=first_parameters,
     )
-    assert result.status == ToolStatus.SUCCESS
+    second_parameters = _parameters(tmp_path / "second", cached_path)
+    second_parameters["search"].update(case["search"])
+    second = analyze_cached_candidate(
+        run_id="run_real",
+        action_id="action_real",
+        target_id=case["opaque_target_id"],
+        parameters=second_parameters,
+    )
+
+    assert first.status == ToolStatus.SUCCESS
+    assert first == second
     expected = case["expected"]
-    assert expected["period_days_min"] <= result.measurements["period"].value
-    assert result.measurements["period"].value <= expected["period_days_max"]
+    assert first.diagnostics["sector"] == expected["sector"]
+    assert expected["cadence_seconds_min"] <= first.diagnostics["cadence_seconds"]
+    assert first.diagnostics["cadence_seconds"] <= expected["cadence_seconds_max"]
+    assert first.diagnostics["time_system"] == expected["time_system"]
+    assert first.diagnostics["time_unit"] == expected["time_unit"]
+    assert first.diagnostics["epoch_convention"] == "BTJD = BJD(TDB) - 2457000.0"
+    assert first.diagnostics["input_flux_unit"] == expected["flux_unit"]
+    assert first.measurements["period"].unit == "d"
+    assert expected["period_days_min"] <= first.measurements["period"].value
+    assert first.measurements["period"].value <= expected["period_days_max"]
+    assert first.measurements["epoch"].unit == expected["epoch_unit"]
+    assert np.isfinite(first.measurements["epoch"].value)
+    assert first.measurements["duration"].unit == "h"
+    assert expected["duration_hours_min"] <= first.measurements["duration"].value
+    assert first.measurements["duration"].value <= expected["duration_hours_max"]
+    assert first.measurements["depth"].unit == expected["depth_unit"]
+    assert expected["depth_fraction_min"] <= first.measurements["depth"].value
+    assert first.measurements["depth"].value <= expected["depth_fraction_max"]
+    assert np.isfinite(first.measurements["snr"].value)
+    assert first.measurements["snr"].value >= expected["minimum_snr"]
+    assert first.measurements["usable_transits"].value >= expected["minimum_usable_transits"]
+
+    assert first.provenance.source_sha256 == acquisition["cache"]["sha256"]
+    assert first.diagnostics["source_size_bytes"] == acquisition["cache"]["size_bytes"]
+    assert first.provenance.library_versions["astropy"]
+    assert first.provenance.library_versions["lightkurve"]
+    assert first.diagnostics["fits_checksum"]
+    assert "fits_datasum" in first.diagnostics
+    assert first.diagnostics["fits_datasum"] == acquisition["cache"]["fits_checksums"][1][
+        "datasum"
+    ]
+    assert acquisition["cache"]["fits_checksums"][1]["checksum"]
+    assert all(
+        checksum["datasum_valid"] is not False
+        for checksum in acquisition["cache"]["fits_checksums"]
+    )
+
+    relative_artifact = "runs/TARGET-X17/run_1/artifacts/action_real.candidate-search.json"
+    first_artifact_path = tmp_path / "first" / relative_artifact
+    second_artifact_path = tmp_path / "second" / relative_artifact
+    assert first_artifact_path.read_bytes() == second_artifact_path.read_bytes()
+    artifact = json.loads(first_artifact_path.read_text(encoding="utf-8"))
+    assert artifact["processing"]["quality_bitmask"] == 175
+    assert artifact["processing"]["detrend_window_days"] == 1.0
+    assert artifact["processing"]["retained_source_indices"]
+    assert artifact["processing"]["quality_removed_indices"]
+
+    ledger_path = tmp_path / "first/runs/TARGET-X17/run_1/evidence.jsonl"
+    first_ledger_line = ledger_path.read_text(encoding="utf-8").splitlines()[0]
+    append_parameters = _parameters(tmp_path / "first", cached_path)
+    append_parameters["search"].update(case["search"])
+    appended = analyze_cached_candidate(
+        run_id="run_real",
+        action_id="action_real_append",
+        target_id=case["opaque_target_id"],
+        parameters=append_parameters,
+    )
+    ledger_lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert appended.status == ToolStatus.SUCCESS
+    assert len(ledger_lines) == 2
+    assert ledger_lines[0] == first_ledger_line
+    assert EvidenceRecord.model_validate_json(ledger_lines[1]).action_id == "action_real_append"
+
+    agent_safe_payloads = [
+        case_path.read_text(encoding="utf-8"),
+        first.model_dump_json(),
+        first_artifact_path.read_text(encoding="utf-8"),
+        *ledger_lines,
+    ]
+    forbidden_values = [
+        *acquisition["forbidden_agent_visible_values"],
+        str(cached_path),
+        str(cached_path.resolve()),
+    ]
+    for payload in agent_safe_payloads:
+        payload_lower = payload.lower()
+        for forbidden in forbidden_values:
+            assert forbidden.lower() not in payload_lower

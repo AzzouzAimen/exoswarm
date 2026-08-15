@@ -93,7 +93,11 @@ def load_cached_tess_fits(path: Path) -> CachedTessLightCurve:
                 raise CachedLightCurveError("cached light-curve columns have unequal lengths")
 
             time_unit = str(table.columns["TIME"].unit or "").strip().lower()
-            if time_unit not in {"d", "day", "days"}:
+            tess_btjd_column_units = {
+                "bjd - 2457000, days",
+                "jd - 2457000, days",
+            }
+            if time_unit not in {"d", "day", "days", *tess_btjd_column_units}:
                 raise CachedLightCurvePreconditionError(
                     "TIME must declare days as its FITS column unit"
                 )

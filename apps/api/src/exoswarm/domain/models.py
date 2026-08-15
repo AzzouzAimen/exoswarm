@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -9,10 +9,12 @@ from exoswarm.domain.enums import (
     TERMINAL_STATUSES,
     CriticVerdict,
     Disposition,
+    HarnessFailureKind,
     InformationValue,
     InvestigationStatus,
     LockState,
     Priority,
+    ToolExecutionStatus,
     ToolStatus,
 )
 
@@ -92,6 +94,7 @@ class CandidateSignal(StrictModel):
 
 
 class SkepticDecision(StrictModel):
+    role: Literal["skeptic"] = "skeptic"
     decision_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str = Field(min_length=1)
@@ -108,6 +111,7 @@ class SkepticDecision(StrictModel):
 
 
 class CriticDecision(StrictModel):
+    role: Literal["critic"] = "critic"
     decision_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str = Field(min_length=1)
@@ -127,6 +131,28 @@ class CriticDecision(StrictModel):
         return self
 
 
+class ToolExecutionRecord(StrictModel):
+    action_id: str = Field(min_length=1)
+    step_id: str = Field(min_length=1)
+    tool_name: str = Field(min_length=1)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    action_signature: str = Field(min_length=1)
+    status: ToolExecutionStatus
+    adaptive: bool = False
+    agent_decision_id: str | None = None
+    critic_decision_id: str | None = None
+    result_status: ToolStatus | None = None
+    evidence_ref: str | None = None
+
+
+class HarnessFailureRecord(StrictModel):
+    step_id: str = Field(min_length=1)
+    kind: HarnessFailureKind
+    concise_reason: str = Field(min_length=1, max_length=500)
+    recoverable: bool
+    retry_count: int = Field(default=0, ge=0)
+
+
 class InvestigationState(StrictModel):
     run_id: str = Field(min_length=1)
     opaque_target_id: str = Field(min_length=1)
@@ -144,8 +170,18 @@ class InvestigationState(StrictModel):
     model_call_count: int = Field(default=0, ge=0)
     tool_call_count: int = Field(default=0, ge=0)
     adaptive_experiments_used: int = Field(default=0, ge=0)
+    critic_revision_count: int = Field(default=0, ge=0)
+    model_retry_count: int = Field(default=0, ge=0)
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
+    max_model_calls: int = Field(default=16, ge=0)
+    max_tool_calls: int = Field(default=8, ge=0)
+    max_model_retries: int = Field(default=1, ge=0)
+    max_critic_revisions: int = Field(default=1, ge=0)
+    accepted_decisions: list[SkepticDecision] = Field(default_factory=list)
+    critic_decisions: list[CriticDecision] = Field(default_factory=list)
+    tool_executions: list[ToolExecutionRecord] = Field(default_factory=list)
+    failures: list[HarnessFailureRecord] = Field(default_factory=list)
     terminal_reason: str | None = None
     context_version: str = "1"
     created_at: datetime = Field(default_factory=utc_now)

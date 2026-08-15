@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+from collections import Counter
+
+import pytest
+from harness_support import (
+    critic_policy,
+    fixture_result,
+    make_controller,
+    make_registry,
+    policy_client,
+    seed_baseline,
+    skeptic_policy,
+)
+
+from exoswarm.agents.model_client import ScriptedInferenceClient
+from exoswarm.domain.enums import (
+    CriticVerdict,
+    Disposition,
+    HarnessFailureKind,
+    InvestigationStatus,
+    ToolStatus,
+)
+from exoswarm.domain.errors import ModelProviderTimeoutError
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("scenario", "expected_action", "expected_verdict", "expected_status", "disposition"),
+    [
+        (
+            "clean",
+            None,
+            CriticVerdict.VETO,
+            InvestigationStatus.READY_TO_LOCK,
+            Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING,
+        ),
+        (
+            "eclipsing_binary",
+            "harmonic_test",
+            CriticVerdict.APPROVE,
+            InvestigationStatus.READY_TO_LOCK,
+            Disposition.PLANETARY_INTERPRETATION_REJECTED,
+        ),
+        (
+            "contamination",
+            "centroid_localization",
+            CriticVerdict.REVISE,
+            InvestigationStatus.READY_TO_LOCK,
+            Disposition.PLANETARY_INTERPRETATION_REJECTED,
+        ),
+        (
+            "weak",
+            "alternate_detrend",
+            CriticVerdict.APPROVE,
+            InvestigationStatus.INSUFFICIENT_EVIDENCE,
+            None,
+        ),
+    ],
+)
+async def test_curated_evidence_scenarios_take_valid_different_branches(
+    tmp_path,
+    scenario,
+    expected_action,
+    expected_verdict,
+    expected_status,
+    disposition,
+) -> None:
+    client = policy_client()
+    controller = make_controller(tmp_path, client, make_registry(scenario))
+    created = controller.create("TARGET-X17")
+    seed_baseline(controller, created.run_id, scenario)
+
+    final = await controller.advance(created.run_id)
+
+    adaptive = [item for item in final.tool_executions if item.adaptive]
+    expected_actions = [] if expected_action is None else [expected_action]
+    assert [item.tool_name for item in adaptive] == expected_actions
+    assert final.critic_decisions[-1].verdict == expected_verdict
+    assert final.status == expected_status
+    assert final.disposition == disposition
+    assert final.terminal_reason
+    assert final.model_call_count == 2
+    assert all(call.model_identity == "mock:evidence-aware-fixture-v1" for call in client.calls)
+
+
+@pytest.mark.asyncio
+async def test_mandatory_baseline_is_controller_enforced_before_any_model_call(tmp_path) -> None:
+    calls: Counter[str] = Counter()
+    client = policy_client()
+    controller = make_controller(tmp_path, client, make_registry("eclipsing_binary", calls=calls))
+    state = controller.create("TARGET-X17")
+
+    for expected_count in range(1, 5):
+        state = await controller.advance(state.run_id)
+        assert state.model_call_count == 0
+        assert len(state.completed_tests) == expected_count
+
+    assert set(state.completed_tests) == {
+        "signal_quality",
+        "odd_even",
+        "secondary_eclipse",
+        "contamination",
+    }
+    assert calls == Counter(
+        {
+            "search_bls": 1,
+            "odd_even": 1,
+            "secondary_eclipse": 1,
+            "contamination_screening": 1,
+        }
+    )
+    assert state.candidate_signals
+
+
+@pytest.mark.asyncio
+async def test_model_timeout_retries_once_then_recovers(tmp_path) -> None:
+    client = ScriptedInferenceClient(
+        {
+            "skeptic": [ModelProviderTimeoutError("fixture timeout"), skeptic_policy],
+            "critic": [critic_policy],
+        }
+    )
+    controller = make_controller(
+        tmp_path, client, make_registry("eclipsing_binary"), max_model_retries=1
+    )
+    state = controller.create("TARGET-X17")
+    seed_baseline(controller, state.run_id, "eclipsing_binary")
+
+    state = await controller.advance(state.run_id)
+
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    assert state.model_retry_count == 1
+    assert state.model_call_count == 3
+    assert any(item.kind == HarnessFailureKind.MODEL_TIMEOUT for item in state.failures)
+    assert any(event.type == "model.retry" for event in controller.events(state.run_id))
+
+
+@pytest.mark.asyncio
+async def test_scientific_precondition_and_tool_infrastructure_failures_are_distinct(
+    tmp_path,
+) -> None:
+    precondition = make_controller(
+        tmp_path / "precondition",
+        policy_client(),
+        make_registry("eclipsing_binary", adaptive_status=ToolStatus.PRECONDITION_FAILED),
+    )
+    state = precondition.create("TARGET-X17")
+    seed_baseline(precondition, state.run_id, "eclipsing_binary")
+    state = await precondition.advance(state.run_id)
+    assert state.status == InvestigationStatus.INSUFFICIENT_EVIDENCE
+    assert state.failures[-1].kind == HarnessFailureKind.PRECONDITION_FAILED
+    assert precondition.evidence(state.run_id)[-1].tool_status == ToolStatus.PRECONDITION_FAILED
+
+    infrastructure = make_controller(
+        tmp_path / "infrastructure",
+        policy_client(),
+        make_registry("eclipsing_binary", raise_tool="harmonic_test"),
+    )
+    failed = infrastructure.create("TARGET-X17")
+    seed_baseline(infrastructure, failed.run_id, "eclipsing_binary")
+    failed = await infrastructure.advance(failed.run_id)
+    assert failed.status == InvestigationStatus.FAILED
+    assert failed.failures[-1].kind == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
+
+
+@pytest.mark.asyncio
+async def test_no_evidence_is_preserved_as_scientific_result(tmp_path) -> None:
+    controller = make_controller(
+        tmp_path,
+        policy_client(),
+        make_registry("weak", adaptive_status=ToolStatus.NO_EVIDENCE),
+        max_adaptive_experiments=1,
+    )
+    state = controller.create("TARGET-X17")
+    seed_baseline(controller, state.run_id, "weak")
+    state = await controller.advance(state.run_id)
+    assert state.status == InvestigationStatus.INSUFFICIENT_EVIDENCE
+    assert controller.evidence(state.run_id)[-1].tool_status == ToolStatus.NO_EVIDENCE
+
+
+@pytest.mark.asyncio
+async def test_tool_result_fixture_provenance_remains_in_ledger(tmp_path) -> None:
+    controller = make_controller(tmp_path, policy_client(), make_registry("clean"))
+    state = controller.create("TARGET-X17")
+    result = fixture_result(
+        tool_name="search_bls",
+        run_id=state.run_id,
+        action_id="fixture_candidate",
+        target_id=state.opaque_target_id,
+        scenario="clean",
+    )
+    controller.record_tool_result(state.run_id, result)
+    record = controller.evidence(state.run_id)[0]
+    assert record.result.provenance.code_version == "test-fixture-v1"
+    assert record.result.provenance.source_data_ref.startswith("fixture:")

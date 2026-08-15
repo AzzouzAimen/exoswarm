@@ -1,0 +1,38 @@
+{
+  "schema_version": "1",
+  "opaque_target_id": "TARGET-X17",
+  "cached_path": "data/cached/lightcurves/TARGET-X17-sector-2-lc.fits",
+  "private_provenance_path": "data/ground_truth/cached_real_tess_acquisition.json",
+  "search": {
+    "minimum_period_days": 0.75,
+    "maximum_period_days": 6.0,
+    "durations_hours": [
+      1.5,
+      2.0,
+      2.5,
+      3.0,
+      4.0
+    ],
+    "frequency_factor": 1.0,
+    "minimum_snr": 6.0,
+    "minimum_transits": 3
+  },
+  "expected": {
+    "sector": 2,
+    "cadence_seconds_min": 119.0,
+    "cadence_seconds_max": 121.0,
+    "time_system": "TDB",
+    "time_unit": "d",
+    "epoch_unit": "BTJD",
+    "flux_unit": "e-/s",
+    "depth_unit": "relative_flux_fraction",
+    "period_days_min": 0.94,
+    "period_days_max": 0.943,
+    "duration_hours_min": 1.5,
+    "duration_hours_max": 3.0,
+    "depth_fraction_min": 0.0075,
+    "depth_fraction_max": 0.013,
+    "minimum_snr": 6.0,
+    "minimum_usable_transits": 3
+  }
+}

@@ -1,14 +1,14 @@
 # Agent Harness Scaffold
 
-This document records the Phase 0 control boundary. It is operational architecture, not a
-claim that the scientific investigation loop is implemented.
+This document records the mocked bounded-harness milestone. The control loop is operational with
+scripted inference and deterministic fixture results; live provider configuration remains deferred.
 
 ## Harness boundary
 
 The model is an optional decision component behind `agents/model_client.py`. It cannot execute
-Python functions directly. A future loop must validate structured model output, resolve an
-allowlisted action in `investigation/tool_registry.py`, enforce the tool specification, and only
-then invoke deterministic science code.
+Python functions directly. The loop validates structured model output, resolves an allowlisted
+action in `investigation/tool_registry.py`, enforces the tool specification, and only then invokes
+deterministic science code.
 
 Current surfaces:
 
@@ -17,15 +17,15 @@ Current surfaces:
 | Instructions | Repository contract plus role-specific adapter modules |
 | Tools and schemas | Allowlisted `ScientificToolRegistry` and typed `ScientificToolResult` |
 | Permissions | Side-effect and approval metadata on every registered tool |
-| Model routing | One `InferenceClient` boundary; live provider intentionally unconfigured |
-| Loop control | Explicit status/budget fields; `advance()` fails as not implemented |
+| Model routing | One `InferenceClient` boundary plus queued `ScriptedInferenceClient`; live provider intentionally unconfigured |
+| Loop control | One-cycle `advance()` with mandatory policy, Skeptic request, Critic review, validation, execution, update, and stopping |
 | Durable state | Atomic `state.json`; append-only `trace.jsonl` and Evidence Ledger writer |
 | Context | Explicit agent-safe `AgentContextPacket` assembled from durable state |
 | Output validation | Strict Pydantic models with forbidden extra fields and semantic validators |
-| Retries | Per-tool retry metadata; execution policy deferred until the bounded loop exists |
+| Retries | Bounded transient model retry; validation and domain failures do not retry |
 | Tracing | Stable run, step, action, event IDs and monotonically ordered event envelopes |
-| Recovery | Persisted state and trace reload on process-local cache miss |
-| Evaluation | Schema, tool, blind-protocol, result-lock, and API boundary tests |
+| Recovery | State, trace, ledger, decisions, and prepared/completed invocations reload after restart |
+| Evaluation | Four branch scenarios plus schema, authorization, failure, context, restart, blind-protocol, result-lock, and API tests |
 
 ## Authority classes
 
@@ -41,16 +41,25 @@ The `agents` package has no import path to `services.nasa_reveal` or
 
 Each run is stored under `runs/<opaque-target-id>/<run-id>/`. State snapshots use atomic file
 replacement. Trace and evidence records append JSONL. A new controller process can locate a run by
-its run ID and reconstruct its current snapshot plus trace. The future investigation loop must
-checkpoint after every accepted transition and use action IDs for idempotency.
+its run ID and reconstruct its snapshot, trace, and ledger. The loop checkpoints accepted decisions
+and a `PREPARED` invocation before execution, then records matching evidence and marks it
+`COMPLETED`. Resume reruns only a declared-idempotent prepared action when no result was committed.
 
 ## Approval and failure policy
 
-Model output is a request, never authority. Unknown actions are rejected. Scientific stubs return
-typed `NOT_IMPLEMENTED` results with empty measurements and provenance rather than invented data.
-Only transient infrastructure failures may eventually receive bounded retries. Invalid output,
+Model output is a request, never authority. Schema, role/run/step identity, registry membership,
+availability, strict parameters, scopes, preconditions, duplicate policy, mandatory/lock rules, and
+budgets are checked before execution. Scientific stubs return typed `NOT_IMPLEMENTED` results with
+empty measurements and provenance rather than invented data. Only transient model/provider failures
+receive bounded retries in this milestone. Invalid output,
 authorization denial, precondition failure, negative scientific evidence, and exhausted budgets
 remain distinct states.
+
+The model packet is rebuilt from durable state and compact Evidence Ledger records. It contains
+opaque identity, evidence-linked measurements with units, completed checks, recent evidence,
+hypotheses, validated adaptive actions, remaining budgets, and context/provenance versions. It
+omits raw arrays, cached paths, recognizable identity, catalog/reveal data, and hidden reasoning.
+Candidate measurements enter state only from matching deterministic ledger records.
 
 Result lock is a backend policy boundary. A run must be `READY_TO_LOCK` with a disposition and
 terminal reason. The service writes exact canonical JSON bytes, hashes those bytes, updates durable
@@ -62,4 +71,3 @@ calling a reveal provider.
 No current scaffold endpoint deploys, merges, accesses secrets, deletes artifacts, or contacts a
 catalog/model provider. Enabling those capabilities requires explicit configuration and a later
 implementation task with its own tests and approval boundaries.
-

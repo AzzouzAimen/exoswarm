@@ -28,3 +28,19 @@ class ModelNotConfiguredError(ExoSwarmError):
 
 class CapabilityNotImplementedError(ExoSwarmError):
     code = "NOT_IMPLEMENTED"
+
+
+class InvalidModelOutputError(ExoSwarmError):
+    code = "INVALID_MODEL_OUTPUT"
+
+
+class ModelProviderTimeoutError(ExoSwarmError):
+    code = "MODEL_TIMEOUT"
+
+
+class ModelProviderError(ExoSwarmError):
+    code = "MODEL_PROVIDER_FAILURE"
+
+
+class ActionValidationError(ExoSwarmError):
+    code = "ACTION_VALIDATION_FAILED"

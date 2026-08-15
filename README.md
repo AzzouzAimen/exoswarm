@@ -133,8 +133,9 @@ runs/
 Phase 1 now includes the first deterministic vertical slice: a local cached TESS light-curve FITS
 product can be filtered, detrended, searched with Astropy BLS, phase-folded, measured, written as a
 provenance artifact, and appended to the Evidence Ledger. A cached real TESS acceptance artifact is
-still required. The remaining astronomy diagnostics, investigation loop, live inference, and catalog
-integration remain intentionally unimplemented.
+validated locally from an ignored official SPOC product without a runtime network dependency. The
+remaining astronomy diagnostics, investigation loop, live inference, and catalog integration remain
+intentionally unimplemented.
 
 ## Scaffold quick start
 
@@ -148,9 +149,9 @@ make lint
 make build
 ```
 
-For local development, run `make dev-api` and `make dev-web` in separate terminals. `make reproduce`
-remains a scaffold until the cached real TESS acceptance artifact and manifest are added; it never
-generates placeholder science.
+For local development, run `make dev-api` and `make dev-web` in separate terminals. With the ignored
+cached-real FITS present, `make reproduce` reruns the deterministic local candidate analysis and
+never contacts an astronomy-data service or generates placeholder science.
 
 Do not silently expand the scaffold into a full astronomy pipeline or a polished demo. See:
 
