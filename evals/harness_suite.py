@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from exoswarm.agents.context import AgentContextPacket
+from exoswarm.agents.context import CONTEXT_SCHEMA_VERSION, AgentContextPacket
 from exoswarm.agents.model_client import ScriptedInferenceClient
 from exoswarm.config import Settings
 from exoswarm.domain.enums import (
@@ -44,6 +44,8 @@ from exoswarm.services.artifacts import FileSystemRunArtifactStore
 from exoswarm.services.nasa_reveal import UnconfiguredCatalogRevealProvider
 from exoswarm.services.target_registry import TargetRegistry
 from pydantic import BaseModel, ConfigDict, Field
+
+from evals.provenance import evaluation_provenance
 
 SUITE_ROOT = Path(__file__).resolve().parent / "harness" / "v1"
 _DYNAMIC_REFERENCE = re.compile(
@@ -892,6 +894,15 @@ async def _run_suite_in(base: Path) -> dict[str, Any]:
     return {
         "schema_version": "1",
         "suite_id": scenarios["suite_id"],
+        "provenance": evaluation_provenance(
+            evaluation_id=scenarios["suite_id"],
+            configuration={
+                "scenario_schema_version": scenarios["schema_version"],
+                "scenario_count": len(results),
+                "inference_mode": "scripted",
+                "context_schema_version": CONTEXT_SCHEMA_VERSION,
+            },
+        ),
         "passed": not suite_failures,
         "scenario_count": len(results),
         "passed_count": sum(item["passed"] for item in results),

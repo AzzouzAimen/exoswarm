@@ -95,6 +95,10 @@ No current endpoint deploys, merges, deletes artifacts, or reveals catalog truth
 lock. Supplying `FEATHERLESS_API_KEY` enables model-provider contact for Skeptic/Critic only. The
 real provider canary is credential-gated and never runs as part of ordinary offline tests.
 
+The file-backed run service is deployed as one API process per runs directory. Controller-local
+single-writer guards do not coordinate multiple Uvicorn workers; horizontal instances therefore
+need isolated run directories until a shared coordination layer is deliberately introduced.
+
 ## Final-stretch delta
 
 The submission backend path is implemented and verified by the credential-gated 20-decision
@@ -114,6 +118,10 @@ non-decisive adaptive result can start another bounded decision cycle with rebui
 Adaptive `PRECONDITION_FAILED` evidence is retained and replanned with only sanitized registered
 alternatives. Unimplemented or target-unsupported actions are omitted before inference.
 
+Agent context schema `agent-context-v3` exposes only the action choices valid for the current
+durable state. The full registry, including unavailable and previously executed actions, remains a
+deterministic audit/enforcement concern and is not presented as a model affordance.
+
 Skeptic and Critic decisions are also bound to the packet context version as well as run and step
 identifiers. Controller-local advances are single-writer, provider calls have enforced deadlines,
 and production scientific handlers run in killable subprocesses. Candidate-producing tools write
@@ -124,3 +132,7 @@ execute an action.
 Do not expand this milestone into more model roles. An Observer or Signal role is a valid P1
 addition only when a test shows that its bounded decision changes the scientific trajectory.
 Multi-model routing, fixed-policy ablation, and `pass^3` remain out of scope.
+
+The `observer.py`, `signal.py`, and `transit_hunter.py` modules are reserved role-name markers, not
+unfinished runtime nodes. They intentionally export no adapter until that evidence and test exist;
+the sole production topology remains Director routing plus Skeptic/Critic judgment.

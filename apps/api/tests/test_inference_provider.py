@@ -87,6 +87,41 @@ def test_partial_provider_usage_is_not_reported_as_a_complete_total() -> None:
     assert summary.median_latency_ms == "not_measured"
 
 
+def test_truncated_primary_is_counted_as_repair_eligible() -> None:
+    truncated = InferenceTraceRecord(
+        call_id="call_truncated",
+        run_id="run_1",
+        step_id="step_0001",
+        role="skeptic",
+        provider="featherless",
+        model_identity="deepseek-ai/DeepSeek-V4-Flash-0731",
+        output_schema="SkepticDecision",
+        attempt_kind="primary",
+        context_version="1",
+        latency_ms=10,
+        status="OUTPUT_TRUNCATED",
+        schema_valid=False,
+        validation_error_code="OUTPUT_TRUNCATED",
+        finish_reason="length",
+    )
+    repaired = truncated.model_copy(
+        update={
+            "call_id": "call_repair",
+            "attempt_kind": "repair",
+            "status": "SUCCESS",
+            "schema_valid": True,
+            "validation_error_code": None,
+            "finish_reason": "stop",
+        }
+    )
+
+    summary = derive_inference_summary([truncated, repaired])
+
+    assert summary.repairs.numerator == 1
+    assert summary.repairs.denominator == 1
+    assert summary.repairs.rate == 1.0
+
+
 def completion(
     content: str,
     *,

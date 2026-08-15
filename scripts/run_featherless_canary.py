@@ -7,15 +7,17 @@ import os
 import statistics
 import sys
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 API_SRC = ROOT / "apps" / "api" / "src"
-if str(API_SRC) not in sys.path:
-    sys.path.insert(0, str(API_SRC))
+for import_root in (ROOT, API_SRC):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
-from exoswarm.agents.context import assemble_context
+from exoswarm.agents.context import CONTEXT_SCHEMA_VERSION, assemble_context
 from exoswarm.agents.inference_provider import FeatherlessInferenceClient
 from exoswarm.config import Settings
 from exoswarm.domain.enums import InformationValue, Priority
@@ -27,46 +29,115 @@ from exoswarm.domain.models import (
     SkepticDecision,
 )
 
+from evals.provenance import evaluation_provenance
+
+
+@dataclass(frozen=True, slots=True)
+class CanaryCase:
+    name: str
+    state: InvestigationState
+    actions: tuple[str, ...]
+    costs: dict[str, int]
+    acceptable_actions: frozenset[str]
+
+
+def _runtime_configuration(settings: Settings, repeats: int) -> dict[str, Any]:
+    return {
+        "inference_model": settings.model,
+        "context_schema_version": CONTEXT_SCHEMA_VERSION,
+        "max_output_tokens": settings.inference_max_output_tokens,
+        "requested_repeats": repeats,
+    }
+
 
 def _proposal(
     state: InvestigationState, *, experiment: str, cost: int
 ) -> SkepticDecision:
+    experiment_claims = {
+        "alternate_aperture": (
+            "Test whether the candidate depth is stable under a different aperture.",
+            "A depth shift would discriminate contamination from an on-target signal.",
+        ),
+        "alternate_detrend": (
+            "Test whether the candidate persists under an alternate detrending window.",
+            "Signal instability would support an instrumental or variable-noise explanation.",
+        ),
+        "harmonic_test": (
+            "Test the candidate at the P/2, P, and 2P aliases.",
+            "A preferred harmonic would discriminate an eclipsing-binary interpretation.",
+        ),
+        "secondary_deep_search": (
+            "Search more deeply for secondary-like structure at the candidate period.",
+            "Secondary structure would weaken the planetary interpretation.",
+        ),
+        "stop": (
+            "Stop because the supplied evidence has no material unresolved alternative.",
+            "No additional bounded experiment is expected to change the disposition.",
+        ),
+    }
+    objective, discriminating_result = experiment_claims[experiment]
     return SkepticDecision(
         decision_id="decision_canary",
         run_id=state.run_id,
         step_id="step_0001",
         context_version=state.context_version,
-        hypothesis_under_test="bounded_canary_alternative",
+        hypothesis_under_test=(
+            state.strongest_unresolved_alternative or "residual_false_positive"
+        ),
         requested_experiment=experiment,
         parameters={},
-        reason_code="CANARY_PROPOSAL",
-        expected_discriminating_result="Exercise the strict live response schema.",
+        reason_code="CANARY_RELEVANT_PROPOSAL",
+        expected_discriminating_result=discriminating_result,
         expected_information_value=InformationValue.MEDIUM,
         priority=Priority.MEDIUM,
         budget_units_remaining=state.adaptive_cost_units_remaining,
         cost_of_selected_experiment=cost,
-        why_cost_is_justified="The canary checks the bounded schema contract.",
-        concise_reason="A safe fixed proposal for schema validation.",
+        why_cost_is_justified=(
+            "The action directly tests the strongest unresolved alternative at the declared cost."
+            if cost
+            else "Stopping consumes no experiment budget because no material alternative remains."
+        ),
+        concise_reason=objective,
     )
 
 
-def _canary_cases() -> tuple[tuple[InvestigationState, tuple[str, ...], dict[str, int]], ...]:
+def _canary_cases() -> tuple[CanaryCase, ...]:
     cases = (
-        ("clean", "eclipsing_binary", ("harmonic_test", "stop"), 11.2),
-        ("odd_even", "eclipsing_binary", ("harmonic_test", "alternate_detrend", "stop"), 9.4),
+        (
+            "clean",
+            "eclipsing_binary",
+            ("harmonic_test", "stop"),
+            11.2,
+            frozenset({"harmonic_test"}),
+        ),
+        (
+            "odd_even",
+            "eclipsing_binary",
+            ("harmonic_test", "alternate_detrend", "stop"),
+            9.4,
+            frozenset({"harmonic_test"}),
+        ),
         (
             "contamination",
             "background_contamination",
             ("alternate_aperture", "harmonic_test", "stop"),
             8.1,
+            frozenset({"alternate_aperture"}),
         ),
         (
             "weak",
             "instrumental_or_variable_noise",
             ("alternate_detrend", "secondary_deep_search", "stop"),
             6.3,
+            frozenset({"alternate_detrend"}),
         ),
-        ("resolved", "none_material", ("stop",), 14.0),
+        (
+            "resolved",
+            "none_material",
+            ("stop",),
+            14.0,
+            frozenset({"stop"}),
+        ),
     )
     costs = {
         "alternate_aperture": 1,
@@ -76,7 +147,9 @@ def _canary_cases() -> tuple[tuple[InvestigationState, tuple[str, ...], dict[str
         "stop": 0,
     }
     built = []
-    for index, (name, alternative, actions, snr) in enumerate(cases, 1):
+    for index, (name, alternative, actions, snr, acceptable_actions) in enumerate(
+        cases, 1
+    ):
         state = InvestigationState(
             run_id=f"run_canary_{name}",
             opaque_target_id=f"TARGET-CANARY-{index}",
@@ -101,8 +174,45 @@ def _canary_cases() -> tuple[tuple[InvestigationState, tuple[str, ...], dict[str
                 )
             ],
         )
-        built.append((state, actions, {action: costs[action] for action in actions}))
+        built.append(
+            CanaryCase(
+                name=name,
+                state=state,
+                actions=actions,
+                costs={action: costs[action] for action in actions},
+                acceptable_actions=acceptable_actions,
+            )
+        )
     return tuple(built)
+
+
+def _decision_quality_result(
+    *,
+    case: CanaryCase,
+    role: str,
+    decision: SkepticDecision | CriticDecision | None,
+    proposal: SkepticDecision,
+) -> dict[str, Any]:
+    selected_action: str | None = None
+    verdict: str | None = None
+    if isinstance(decision, SkepticDecision):
+        selected_action = decision.requested_experiment
+    elif isinstance(decision, CriticDecision):
+        verdict = str(decision.verdict)
+        if decision.verdict == "APPROVE":
+            selected_action = proposal.requested_experiment
+        elif decision.verdict == "REVISE":
+            selected_action = decision.revised_experiment
+        else:
+            selected_action = "stop"
+    return {
+        "case": case.name,
+        "role": role,
+        "selected_action": selected_action,
+        "verdict": verdict,
+        "acceptable_actions": sorted(case.acceptable_actions),
+        "passed": selected_action in case.acceptable_actions,
+    }
 
 
 def _parameters_match_contract(parameters: dict[str, Any], contract: dict[str, Any]) -> bool:
@@ -188,6 +298,10 @@ async def run_canary(repeats: int) -> dict[str, Any]:
             "status": "SKIPPED",
             "reason": "FEATHERLESS_API_KEY is absent",
             "requested_repeats": repeats,
+            "provenance": evaluation_provenance(
+                evaluation_id="featherless-canary-v1",
+                configuration={"requested_repeats": repeats},
+            ),
         }
     settings = Settings(_env_file=None)
     client = FeatherlessInferenceClient.from_settings(settings)
@@ -196,10 +310,12 @@ async def run_canary(repeats: int) -> dict[str, Any]:
     valid_decisions = 0
     primary_semantic_valid = 0
     validation_failures: Counter[str] = Counter()
+    quality_results: list[dict[str, Any]] = []
     cases = _canary_cases()
     exercised_states: set[str] = set()
     for index in range(repeats):
-        state, actions, costs = cases[index % len(cases)]
+        case = cases[index % len(cases)]
+        state, actions, costs = case.state, case.actions, case.costs
         exercised_states.add(state.run_id)
         proposal_action = next((action for action in actions if action != "stop"), "stop")
         proposal = _proposal(
@@ -230,6 +346,7 @@ async def run_canary(repeats: int) -> dict[str, Any]:
             ),
         )
         for role, context, schema in role_cases:
+            final_decision: SkepticDecision | CriticDecision | None = None
             outcome = await client.decide_attempt(
                 role=role,
                 context=context,
@@ -252,34 +369,42 @@ async def run_canary(repeats: int) -> dict[str, Any]:
             if outcome.call.schema_valid and semantic_error is None:
                 primary_semantic_valid += 1
                 valid_decisions += 1
-                continue
-            if outcome.call.status not in {"INVALID", "OUTPUT_TRUNCATED"} and not semantic_error:
-                continue
-            repairs += 1
-            repair = await client.decide_attempt(
-                role=role,
-                context=context,
-                output_schema=schema,
-                attempt_kind="repair",
-                validation_error_code=(
-                    semantic_error or outcome.call.validation_error_code
-                ),
+                final_decision = outcome.decision
+            elif outcome.call.status in {"INVALID", "OUTPUT_TRUNCATED"} or semantic_error:
+                repairs += 1
+                repair = await client.decide_attempt(
+                    role=role,
+                    context=context,
+                    output_schema=schema,
+                    attempt_kind="repair",
+                    validation_error_code=(
+                        semantic_error or outcome.call.validation_error_code
+                    ),
+                )
+                calls.append(repair.call)
+                repair_semantic_error = (
+                    _semantic_error(role, repair.decision, context)
+                    if repair.decision is not None
+                    else None
+                )
+                if repair_semantic_error:
+                    validation_failures[f"repair:{role}:{repair_semantic_error}"] += 1
+                elif not repair.call.schema_valid:
+                    validation_failures[
+                        f"repair:{role}:"
+                        f"{repair.call.error_type or repair.call.validation_error_code or repair.call.status}"
+                    ] += 1
+                if repair.call.schema_valid and repair_semantic_error is None:
+                    valid_decisions += 1
+                    final_decision = repair.decision
+            quality_results.append(
+                _decision_quality_result(
+                    case=case,
+                    role=role,
+                    decision=final_decision,
+                    proposal=proposal,
+                )
             )
-            calls.append(repair.call)
-            repair_semantic_error = (
-                _semantic_error(role, repair.decision, context)
-                if repair.decision is not None
-                else None
-            )
-            if repair_semantic_error:
-                validation_failures[f"repair:{role}:{repair_semantic_error}"] += 1
-            elif not repair.call.schema_valid:
-                validation_failures[
-                    f"repair:{role}:"
-                    f"{repair.call.error_type or repair.call.validation_error_code or repair.call.status}"
-                ] += 1
-            if repair.call.schema_valid and repair_semantic_error is None:
-                valid_decisions += 1
 
     primary = [item for item in calls if item.attempt_kind == "primary"]
     first_valid = sum(item.schema_valid for item in primary)
@@ -290,9 +415,19 @@ async def run_canary(repeats: int) -> dict[str, Any]:
     output_tokens = [
         item.output_tokens for item in calls if item.output_tokens is not None
     ]
+    quality_passes = sum(item["passed"] for item in quality_results)
+    selected_branches = {
+        item["selected_action"]
+        for item in quality_results
+        if item["selected_action"] is not None
+    }
     return {
         "schema_version": "1",
         "status": "COMPLETED",
+        "provenance": evaluation_provenance(
+            evaluation_id="featherless-canary-v1",
+            configuration=_runtime_configuration(settings, repeats),
+        ),
         "model_identities": sorted({item.model_identity for item in calls}),
         "requested_repeats": repeats,
         "decisions": len(primary),
@@ -340,16 +475,29 @@ async def run_canary(repeats: int) -> dict[str, Any]:
             else "not_measured",
         },
         "raw_light_curve_samples_sent": 0,
+        "decision_quality": {
+            "numerator": quality_passes,
+            "denominator": len(quality_results),
+            "rate": quality_passes / len(quality_results)
+            if quality_results
+            else "not_applicable",
+            "branch_count": len(selected_branches),
+            "results": quality_results,
+        },
         "acceptance": {
             "passed": bool(
                 primary
                 and primary_semantic_valid / len(primary) >= 0.9
                 and valid_decisions == len(primary)
+                and quality_passes / len(quality_results) >= 0.8
+                and len(selected_branches) >= 3
                 and not any(
                     item.status in {"PROVIDER_ERROR", "TIMEOUT"} for item in calls
                 )
             ),
             "minimum_first_attempt_valid_rate": 0.9,
+            "minimum_decision_quality_rate": 0.8,
+            "minimum_branch_count": 3,
             "semantic_identity_action_parameters_budget_validated": True,
         },
     }

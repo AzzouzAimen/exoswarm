@@ -43,7 +43,7 @@ def derive_inference_summary(records: list[InferenceTraceRecord]) -> InferenceSu
         for record in records
         if not record.fallback_used
         and record.attempt_kind == "primary"
-        and record.status == "INVALID"
+        and record.status in {"INVALID", "OUTPUT_TRUNCATED"}
     }
     repairs = {
         (record.step_id, record.role)

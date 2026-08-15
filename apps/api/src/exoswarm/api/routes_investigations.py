@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import StreamingResponse
@@ -12,29 +12,10 @@ from exoswarm.api.sse import encode_sse
 from exoswarm.domain.models import ArtifactMetadata, InvestigationState, LockReceipt, RevealResult
 from exoswarm.investigation.controller import InvestigationController
 from exoswarm.investigation.runner import InvestigationRunService, RunExecutionSnapshot
-from exoswarm.security.blinding import agent_safe_state
+from exoswarm.security.blinding import agent_safe_state, assert_agent_safe_payload
 
 router = APIRouter(prefix="/api", tags=["investigations"])
 Controller = Annotated[InvestigationController, Depends(get_controller)]
-
-_PRIVATE_API_KEYS = frozenset(
-    {
-        "cached_path",
-        "catalog_disposition",
-        "catalog_payload",
-        "ground_truth",
-        "known_period",
-        "private_provenance",
-        "private_provenance_path",
-        "provenance",
-        "source_data_ref",
-        "source_path",
-        "target_name",
-        "tic_id",
-        "toi_id",
-    }
-)
-
 
 class CreateInvestigationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -61,24 +42,10 @@ def _runner(request: Request) -> InvestigationRunService:
     return request.app.state.run_service
 
 
-def _assert_public_payload(payload: Any) -> None:
-    if isinstance(payload, dict):
-        forbidden = _PRIVATE_API_KEYS.intersection(payload)
-        if forbidden:
-            raise RuntimeError(
-                f"public API payload contains private fields: {sorted(forbidden)}"
-            )
-        for value in payload.values():
-            _assert_public_payload(value)
-    elif isinstance(payload, list):
-        for value in payload:
-            _assert_public_payload(value)
-
-
 @router.get("/targets")
 def list_targets(request: Request) -> list[dict[str, object]]:
     payload = request.app.state.target_registry.list_agent_safe()
-    _assert_public_payload(payload)
+    assert_agent_safe_payload(payload)
     return payload
 
 
@@ -129,7 +96,7 @@ def read_investigation(
 ) -> dict[str, object]:
     payload = agent_safe_state(controller.get(run_id))
     payload["execution"] = _runner(request).inspect(run_id).model_dump(mode="json")
-    _assert_public_payload(payload)
+    assert_agent_safe_payload(payload)
     return payload
 
 
@@ -146,7 +113,7 @@ def stream_events(
         async for event in _runner(request).stream_events(
             run_id, after_sequence=after_sequence
         ):
-            _assert_public_payload(event.model_dump(mode="json"))
+            assert_agent_safe_payload(event.model_dump(mode="json"))
             for encoded in encode_sse((event,)):
                 yield encoded
 
@@ -175,5 +142,5 @@ def artifact_metadata(run_id: str, controller: Controller) -> ArtifactListRespon
         opaque_target_id=state.opaque_target_id,
         artifacts=controller.artifacts.list_artifacts(state),
     )
-    _assert_public_payload(payload.model_dump(mode="json"))
+    assert_agent_safe_payload(payload.model_dump(mode="json"))
     return payload

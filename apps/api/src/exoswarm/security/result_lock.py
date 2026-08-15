@@ -40,7 +40,7 @@ class ResultLockService:
         )
         content = canonical_result_bytes(result)
         digest = hashlib.sha256(content).hexdigest()
-        result_path = self.artifacts.write_bytes(state, "result.json", content)
+        self.artifacts.write_bytes(state, "result.json", content)
         self.artifacts.write_bytes(state, "result.json.sha256", f"{digest}\n".encode())
 
         updated_payload = state.model_dump(mode="json")
@@ -57,7 +57,6 @@ class ResultLockService:
             run_id=state.run_id,
             opaque_target_id=state.opaque_target_id,
             sha256=digest,
-            result_path=str(result_path),
+            result_path="result.json",
             locked_at=locked_at,
         )
-

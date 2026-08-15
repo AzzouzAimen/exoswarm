@@ -29,11 +29,11 @@ The project deliberately combines a deterministic workflow with bounded agentic 
 ## Inference layer
 
 Featherless.ai is the intended live inference provider, with `DeepSeek-V4-Flash-0731` as the single
-primary model. The current harness uses a scripted inference client and deliberately leaves the live
-provider unconfigured. Before submission, the live path must expose measured call count, input/output
-tokens, schema-valid rate, repair rate, fallback rate, latency, and model identity for each run. Raw
-light-curve samples sent to the model must remain **zero**; models receive compact evidence packets
-with deterministic measurements and provenance references.
+primary model. The API uses it for bounded Skeptic and Critic decisions when
+`FEATHERLESS_API_KEY` is configured; offline tests inject a scripted client. Every run exposes
+measured call count, input/output tokens, schema-valid rate, repair rate, fallback rate, latency,
+and model identity. Raw light-curve samples sent to the model remain **zero**; models receive
+compact evidence packets with deterministic measurements and provenance references.
 
 See [`docs/inference.md`](docs/inference.md) for the implementation and reporting contract. Never
 replace unavailable metrics with estimates in the README, UI, demo, or artifacts.
@@ -184,6 +184,18 @@ For local development, run `make dev-api` and `make dev-web` in separate termina
 uses the committed cached-real FITS inputs, never contacts an astronomy-data service, and never
 generates placeholder science. With a Featherless key configured, run the live gates documented in
 [`docs/inference.md`](docs/inference.md).
+
+Build the production backend container from the repository root so cached target inputs and the
+frozen backend lock plus the `science` and `agents` dependency groups are included:
+
+```bash
+docker build -f apps/api/Dockerfile -t exoswarm-api .
+docker run --rm -p 8000:8000 --env-file .env exoswarm-api
+```
+
+Run one API process per runs directory. The controller cache and JSON/JSONL artifact coordination
+are process-local/file-backed and are not safe for multiple Uvicorn workers sharing the same
+directory.
 
 Do not invent capabilities or fake demo values while completing the ranked final-stretch work. See:
 

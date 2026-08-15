@@ -15,7 +15,7 @@ from exoswarm.domain.models import (
     SkepticDecision,
 )
 
-CONTEXT_SCHEMA_VERSION = "agent-context-v2"
+CONTEXT_SCHEMA_VERSION = "agent-context-v3"
 CONTEXT_PROVENANCE_VERSION = "evidence-ledger-v2"
 MAX_SERIALIZED_CONTEXT_BYTES = 16_384
 
@@ -207,7 +207,7 @@ class AgentContextPacket(_FrozenPacket):
     proposed_decision: SkepticDecision | None = None
     remaining_budgets: RemainingBudgets
     context_version: str
-    context_schema_version: Literal["agent-context-v2"] = CONTEXT_SCHEMA_VERSION
+    context_schema_version: Literal["agent-context-v3"] = CONTEXT_SCHEMA_VERSION
     provenance_version: str
     context_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     serialized_size_bytes: int = Field(ge=0, le=MAX_SERIALIZED_CONTEXT_BYTES)
@@ -267,14 +267,10 @@ def build_experiment_options(
         for spec in experiment_specs
         if spec.name
     }
-    names = sorted(
-        available
-        | {
-            name
-            for name, spec in specs_by_name.items()
-            if bool(getattr(spec, "adaptive", True))
-        }
-    )
+    # Negative affordances are not useful choices. The registry/controller retains
+    # the complete action inventory for audit and enforcement, while inference sees
+    # only actions that are valid for this exact durable state.
+    names = sorted(available)
     executions = {item.tool_name for item in state.tool_executions}
     remaining_cost = _spec_value(
         state,
@@ -315,8 +311,6 @@ def build_experiment_options(
             availability_reason = "required_tests_incomplete"
         elif isinstance(remaining_cost, int) and cost > remaining_cost:
             availability_reason = "insufficient_cost_budget"
-        elif name not in available:
-            availability_reason = "not_currently_available"
         else:
             availability_reason = None
         parameter_schema = getattr(spec, "parameter_schema", None)

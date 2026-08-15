@@ -43,6 +43,19 @@ def test_evaluation_report_is_machine_readable_and_has_no_ephemeral_run_ids(
     assert "24/24 scenarios passed" in summary
 
 
+def test_evaluation_report_records_reproducible_provenance(harness_report: dict) -> None:
+    provenance = harness_report["provenance"]
+    assert provenance["evaluation_id"] == "exoswarm-harness-adversarial-v1"
+    assert provenance["git_commit"]
+    assert isinstance(provenance["git_worktree_dirty"], bool)
+    assert provenance["generated_at_utc"].endswith("+00:00")
+    assert provenance["prompt_versions"] == {
+        "critic": "critic-review-v3",
+        "skeptic": "skeptic-decision-v3",
+    }
+    assert len(provenance["configuration_sha256"]) == 64
+
+
 def test_unnecessary_tool_metric_compares_against_locked_trajectory() -> None:
     from evals.harness_suite import _unnecessary_tool_call_count
 

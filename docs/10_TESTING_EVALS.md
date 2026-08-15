@@ -99,8 +99,10 @@ Run 10 repetitions of the two-role canary (20 decisions total) across its five b
 states. Record model identity, finish reasons, latency, input/output tokens, first-attempt schema
 and semantic validity, repairs, fallback count, and errors. Require at least 90% first-attempt
 validity and 100% validity after the one repair policy, with no provider error/timeout and no raw
-light-curve samples. The canary is integration evidence; it must not mutate the locked three-case
-evaluator.
+light-curve samples. Also require at least 80% evidence-specific decision quality and at least
+three distinct resolved action branches across the five states. Reports must include timestamp,
+commit, prompt versions, sanitized configuration, and a configuration fingerprint. The canary is
+integration evidence; it must not mutate the locked three-case evaluator.
 
 The credential-independent three-target gate is
 `apps/api/tests/test_cached_backend_gate.py`. The live scientific boundary gate is

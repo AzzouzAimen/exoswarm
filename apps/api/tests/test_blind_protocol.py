@@ -8,6 +8,7 @@ import pytest
 from exoswarm.domain.enums import Disposition, InvestigationStatus
 from exoswarm.domain.errors import ResultNotLockedError
 from exoswarm.domain.models import InvestigationState, RevealResult
+from exoswarm.security.blinding import assert_agent_safe_payload
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
@@ -81,3 +82,30 @@ def test_agent_modules_do_not_import_reveal_authority() -> None:
                 violations.append(f"{path.name}: {sorted(imported)}")
 
     assert violations == []
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        {"nested": {"tic_id": "123"}},
+        {"reason": "Compare against TIC 123456789"},
+        {"reason": "Read C:\\private\\target.fits"},
+        {"reason": "/private/cache/target.csv"},
+        {"samples": "[1.0, 2.0, 3.0]"},
+        {"samples": [1.0, 2.0, 3.0]},
+    ],
+)
+def test_public_agent_payload_rejects_nested_authority_and_raw_sources(unsafe) -> None:
+    with pytest.raises(RuntimeError):
+        assert_agent_safe_payload(unsafe)
+
+
+def test_public_agent_payload_accepts_opaque_structured_state() -> None:
+    assert_agent_safe_payload(
+        {
+            "opaque_target_id": "TARGET-X17",
+            "measurements": {"period": {"value": 2.2, "unit": "day"}},
+            "evidence_refs": ["evidence_1", "evidence_2"],
+            "parameters": {"durations_hours": [1.5, 2.0, 3.0, 4.5, 6.0]},
+        }
+    )

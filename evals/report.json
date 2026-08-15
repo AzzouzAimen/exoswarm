@@ -10,6 +10,23 @@
   },
   "passed": true,
   "passed_count": 24,
+  "provenance": {
+    "configuration": {
+      "context_schema_version": "agent-context-v3",
+      "inference_mode": "scripted",
+      "scenario_count": 24,
+      "scenario_schema_version": "1"
+    },
+    "configuration_sha256": "7df950098a0bfab48da75f2138744f38f75e3e0258a0b8ca227dbe94058e835b",
+    "evaluation_id": "exoswarm-harness-adversarial-v1",
+    "generated_at_utc": "2026-08-15T17:46:19.129357+00:00",
+    "git_commit": "28b4936bc3063ee524f2228ac572a90f9605d391",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v3",
+      "skeptic": "skeptic-decision-v3"
+    }
+  },
   "scenario_count": 24,
   "scenarios": [
     {
@@ -35,8 +52,8 @@
         "context_bytes_max": 5558,
         "context_count": 2,
         "context_fingerprints": [
-          "c0e7f1e26526f0719ed32a2b0d21197d6024ea0bd7c46f2e706f110eb48563ca",
-          "d22a6d7a672b6a919dcf78617dee8893ab78cd4a1a59cf6320f6e389ae46bc0a"
+          "3d72149ecaa8e121e16dd888883671cc231eb5f71ff97854d5e96ce240364d86",
+          "34b14ca9310131c0788bbec83483e83e09a56765b3214d3c5b9f1e048e744349"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -102,8 +119,8 @@
         "context_bytes_max": 5602,
         "context_count": 2,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "05283e91ae6227bb764d0b622b432888c3f6f6bdb251c46d062eb32e43744c13"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -171,8 +188,8 @@
         "context_bytes_max": 5566,
         "context_count": 2,
         "context_fingerprints": [
-          "f32c5dd6d3c1d05892bb0c0f1ccd203d0840b0f8d432c0101f9a149521b50e10",
-          "14ebde862da94df083e5aa4c52b5b50e52555e1fd64f59632451df6b6db93be7"
+          "c2240b6a7eb4fe7ea58da215cb49b46a94d072e7a45a656aca6b6fc4d75fa129",
+          "4b679b32b8726296eb75307b5faea32c129d37a0ced44ac1f8f87a6003fc00b9"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -242,8 +259,8 @@
         "context_bytes_max": 5601,
         "context_count": 2,
         "context_fingerprints": [
-          "dcd527ec2a89b1a3ff43c9af385f60a229c6d579259778452a9c9c0c44c4e437",
-          "4bccf38500857227b22bc050feb247ade254343cf9829e6eec6add1e08d7b423"
+          "d516ee2f20176475f1ac0519885ec07a08698b50b1509d4a0a3b02a7301a744f",
+          "6b8b61d2409322c49ce35ec4c6134f909ffa82261678e32cef3c74be8a9cf72e"
         ],
         "critic_revisions": 1,
         "critic_verdicts": [
@@ -308,8 +325,8 @@
         "context_bytes_max": 5563,
         "context_count": 2,
         "context_fingerprints": [
-          "c0e7f1e26526f0719ed32a2b0d21197d6024ea0bd7c46f2e706f110eb48563ca",
-          "a9146fd58132d848379c8298ba0119ee8bd6e30ba2b9ee84dcd86a20e1482369"
+          "3d72149ecaa8e121e16dd888883671cc231eb5f71ff97854d5e96ce240364d86",
+          "a2c01137b98995bfa304c752fa3e032d595325b8a38b79d1b7ec49ce6e9159a0"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -377,9 +394,9 @@
         "context_bytes_max": 5602,
         "context_count": 3,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "eee108efd9f9f1464c143887bb1a1685204f56b0229275404aebcaec77113bec"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "e1f3b72983f5db7bd831c8ba63a81a8d223b6f1df85693462e0f96ac75af746a"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -444,8 +461,8 @@
         "context_bytes_max": 4903,
         "context_count": 2,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -511,9 +528,9 @@
         "context_bytes_max": 5602,
         "context_count": 3,
         "context_fingerprints": [
-          "d1d94e7a2bd59a45de8440ab94180d03fbc49ff64f741f093b2a6821bc10f456",
-          "ed31fb7e86ec2a2a8ca023e7194c0a34cc7d6f69af44829c4341a6fcc999d170",
-          "d1d94e7a2bd59a45de8440ab94180d03fbc49ff64f741f093b2a6821bc10f456"
+          "b883f031bc8bf73a7da574037cc711e70d33600a688a2d04e2b3d4f4ed6d0eb2",
+          "d5b6022970978670ffa51b68147366855eb7c73519f2ac2a3e9dd688a19a6302",
+          "b883f031bc8bf73a7da574037cc711e70d33600a688a2d04e2b3d4f4ed6d0eb2"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -580,8 +597,8 @@
         "context_bytes_max": 4903,
         "context_count": 2,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -694,8 +711,8 @@
         "context_bytes_max": 5234,
         "context_count": 2,
         "context_fingerprints": [
-          "a36f21ca47df2459b1145a0bc4aec78091f7e0d5002d2882d8a0da6a37f13f4d",
-          "a36f21ca47df2459b1145a0bc4aec78091f7e0d5002d2882d8a0da6a37f13f4d"
+          "7968c7d6ce4daddc927e5db62b6218cee912fd6755909852763bf31ce736e960",
+          "7968c7d6ce4daddc927e5db62b6218cee912fd6755909852763bf31ce736e960"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -759,8 +776,8 @@
         "context_bytes_max": 5602,
         "context_count": 2,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "05283e91ae6227bb764d0b622b432888c3f6f6bdb251c46d062eb32e43744c13"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -830,8 +847,8 @@
         "context_bytes_max": 5602,
         "context_count": 2,
         "context_fingerprints": [
-          "282e7aa19b7dead1e5c25b984d71a74d6057ceb7c41782593f24038d9792502f",
-          "05283e91ae6227bb764d0b622b432888c3f6f6bdb251c46d062eb32e43744c13"
+          "07762d3a12145a5ea0c62a3f0655f840f32b634dbf770989791712d663e6dcf5",
+          "1c5e70d42f6e9c98e4a4c3edbca6c97301c78fae7943b27a7b0775a9cc3ce477"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -963,8 +980,8 @@
         "context_bytes_max": 6302,
         "context_count": 2,
         "context_fingerprints": [
-          "52fb23e46bd9f1440be2e7b0876075e3893bff91d60780cfff06f8ef4d41ba31",
-          "e8316ffc7125b240f740f30a8d126979a345c9351ed62e2c158eef5580d4e1b4"
+          "51c5e6cd49c1e02597da0b362f04b7f8100bf5f2909762c9215e119e2118b8ae",
+          "583b02521ebf58e23125b8e9e924b9fe742eb44a722a409720492aada92d880b"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [
@@ -1184,7 +1201,7 @@
         "context_bytes_max": 4903,
         "context_count": 1,
         "context_fingerprints": [
-          "523158d791d4d5bae000f848535d1832e6091dee3c2bfd7eebb2c4160f1a95f8"
+          "8d7601da4ee15e53e7e0491c9c8a8bb5d41d122599f064aa1d4e4534a1e5658b"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],
@@ -1347,8 +1364,8 @@
         "context_bytes_max": 5601,
         "context_count": 2,
         "context_fingerprints": [
-          "60b029308df1c23e247749569609e7f4430dfb3dbc002b079954e71b97f96245",
-          "e3b652921806b03680e8074a2143e80db47d2158321a749b54c38418a80afbb6"
+          "df11cd3ab0d2befd5f6e1216c4052daff29a3b4decef9e73c0828e1750644c3f",
+          "db6f25d010bfa9c6155b0ef78908da5ff38c1e4b5de67904579660aff4e8dd34"
         ],
         "critic_revisions": 0,
         "critic_verdicts": [],

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         ),
     )
     inference_timeout_seconds: float = Field(default=30.0, gt=0)
-    inference_max_output_tokens: int = Field(default=16_000, ge=1)
+    inference_max_output_tokens: int = Field(default=1_200, ge=1)
     agent_fallback_enabled: bool = False
     runs_dir: Path = Path("runs")
     data_dir: Path = Path("data")

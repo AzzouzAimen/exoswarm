@@ -238,7 +238,7 @@ def test_available_experiments_include_decision_metadata_and_authoritative_costs
     assert options["harmonic_test"].availability_reason is None
 
 
-def test_experiment_metadata_marks_previously_executed_actions(tmp_path) -> None:
+def test_context_omits_previously_executed_and_unavailable_actions(tmp_path) -> None:
     controller = make_controller(tmp_path, ScriptedInferenceClient({}), make_registry("clean"))
     state = controller.create("TARGET-X17")
     seed_baseline(controller, state.run_id, "clean")
@@ -262,12 +262,9 @@ def test_experiment_metadata_marks_previously_executed_actions(tmp_path) -> None
         adaptive_experiment_costs={"centroid_localization": 2},
         experiment_specs=controller.registry.specs,
     )
-    harmonic = next(
-        item for item in packet.available_experiments if item.action_name == "harmonic_test"
+    assert tuple(item.action_name for item in packet.available_experiments) == (
+        "centroid_localization",
     )
-
-    assert harmonic.already_executed is True
-    assert harmonic.availability_reason == "already_executed"
 
 
 def test_relevant_adverse_evidence_survives_context_pressure() -> None:

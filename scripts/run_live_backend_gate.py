@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from exoswarm.agents.context import CONTEXT_SCHEMA_VERSION
 from exoswarm.api.app import create_app
 from exoswarm.config import Settings
 from fastapi.testclient import TestClient
 
-ROOT = Path(__file__).resolve().parents[1]
+from evals.provenance import evaluation_provenance
 
 
 def _require_success(response, operation: str) -> dict[str, Any]:
@@ -105,6 +111,16 @@ def run_gate(*, target_id: str, timeout_seconds: float) -> dict[str, Any]:
             return {
                 "schema_version": "1",
                 "status": "PASS",
+                "provenance": evaluation_provenance(
+                    evaluation_id="live-backend-gate-v1",
+                    configuration={
+                        "inference_model": settings.model,
+                        "context_schema_version": CONTEXT_SCHEMA_VERSION,
+                        "max_output_tokens": settings.inference_max_output_tokens,
+                        "target_id": target_id,
+                        "timeout_seconds": timeout_seconds,
+                    },
+                ),
                 "opaque_target_id": target_id,
                 "run_status_before_lock": state["status"],
                 "disposition": state["disposition"],

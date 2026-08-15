@@ -28,7 +28,8 @@ key means unconfigured rather than attempting a broken client startup.
 
 DeepSeek V4 requests explicitly disable thinking with
 `chat_template_kwargs={"thinking": false}` and request JSON mode with
-`response_format={"type":"json_object"}`. The configured output ceiling is 16,000 tokens; a
+`response_format={"type":"json_object"}`. The default output ceiling is 1,200 tokens, which leaves
+headroom above the measured compact decision payloads without permitting unbounded verbosity; a
 provider `finish_reason=length` is classified as `OUTPUT_TRUNCATED`, not generic invalid output.
 
 ## Call policy
@@ -128,10 +129,15 @@ This produces 20 decisions across five evidence states. Accept the integration w
 - invalid output follows the bounded repair/fallback policy,
 - timeouts and provider errors become typed trace events,
 - no secret, target identity, catalog truth, local path, or raw sample reaches the request,
+- at least 80% of final decisions select the evidence-specific expected bounded action,
+- the five states produce at least three distinct resolved action branches,
 - a scripted/offline fallback keeps the failure path demonstrable without being mislabeled live.
 
-The 2026-08-15 acceptance run recorded 20/20 first-attempt schema and semantic successes, zero
-repairs, zero provider errors/timeouts, and zero raw light-curve samples sent. The canary results
-are integration evidence, not a scientific accuracy claim. The
+Every generated report records its UTC timestamp, git commit, prompt versions, sanitized model and
+runtime configuration (including context schema), worktree state, and configuration fingerprint.
+The final 2026-08-15 `agent-context-v3` run recorded 19/20 first-attempt valid decisions, 20/20
+after one bounded repair, 20/20 evidence-specific decision-quality passes across four branches,
+and zero provider errors/timeouts. The canary results are integration and bounded decision-policy
+evidence, not a scientific accuracy claim. The
 separate `scripts/run_live_backend_gate.py` command exercises a cached scientific target through
 FastAPI, SSE, live agents, locking, artifact listing, and hash-verified reveal.

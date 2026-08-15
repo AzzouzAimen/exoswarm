@@ -4,7 +4,7 @@
   ],
   "artifact_count": 6,
   "artifact_paths": [
-    "artifacts/action_1475433da49bc697.candidate-search.json",
+    "artifacts/action_85b72aaaafbdd5b8.candidate-search.json",
     "evidence.jsonl",
     "inference_summary.json",
     "result.json",
@@ -19,7 +19,7 @@
     "contamination"
   ],
   "disposition": "PLANETARY_INTERPRETATION_WEAK",
-  "event_count": 36,
+  "event_count": 35,
   "event_types": [
     "agent.decision",
     "agent.started",
@@ -30,11 +30,12 @@
     "inference.attempt",
     "inference.summary",
     "investigation.created",
+    "status.changed",
     "tool.completed",
     "tool.started"
   ],
   "inference": {
-    "agent_calls": 3,
+    "agent_calls": 2,
     "fallbacks": {
       "denominator": 2,
       "numerator": 0,
@@ -42,27 +43,45 @@
     },
     "first_attempt_schema_valid": {
       "denominator": 2,
-      "numerator": 1,
-      "rate": 0.5
+      "numerator": 2,
+      "rate": 1.0
     },
-    "input_tokens": 11207,
-    "max_input_tokens": 3778,
-    "median_input_tokens": 3731.0,
-    "median_latency_ms": 4667.0,
+    "input_tokens": 7339,
+    "max_input_tokens": 3739,
+    "median_input_tokens": 3669.5,
+    "median_latency_ms": 3605.5,
     "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
-    "output_tokens": 636,
+    "output_tokens": 438,
     "provider": "featherless",
     "provider_errors_timeouts": 0,
     "raw_light_curve_samples_sent": 0,
     "repairs": {
-      "denominator": 1,
-      "numerator": 1,
-      "rate": 1.0
+      "denominator": 0,
+      "numerator": 0,
+      "rate": "not_applicable"
     }
   },
-  "locked_sha256": "f28c30bdd0c1e37bb0c5bf73d323588b9b15f385bfa79fff9eb3882f63fb1c51",
-  "model_calls": 3,
+  "locked_sha256": "995d7b797788bbb8889e288a629a9e61e38568c813c53c630ca9c7f31f90b8b4",
+  "model_calls": 2,
   "opaque_target_id": "TARGET-P21",
+  "provenance": {
+    "configuration": {
+      "context_schema_version": "agent-context-v3",
+      "inference_model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "max_output_tokens": 1200,
+      "target_id": "TARGET-P21",
+      "timeout_seconds": 300.0
+    },
+    "configuration_sha256": "40e04de857c95d6d027313527df3c9c022a4d1e018438401145de41314d1621d",
+    "evaluation_id": "live-backend-gate-v1",
+    "generated_at_utc": "2026-08-15T17:44:00.019493+00:00",
+    "git_commit": "28b4936bc3063ee524f2228ac572a90f9605d391",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v3",
+      "skeptic": "skeptic-decision-v3"
+    }
+  },
   "reveal_hash_verified": true,
   "run_status_before_lock": "READY_TO_LOCK",
   "schema_version": "1",

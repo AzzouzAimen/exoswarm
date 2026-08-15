@@ -13,10 +13,26 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --project apps/api --extra science --frozen
-      - run: uv run --project apps/api ruff check apps/api/src apps/api/tests scripts
-      - run: uv run --project apps/api --extra science pytest apps/api/tests
-      - run: uv run --project apps/api --extra science python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
+      - run: uv sync --project apps/api --extra science --extra agents --frozen
+      - run: uv run --project apps/api ruff check apps/api/src apps/api/tests scripts evals
+      - run: uv run --project apps/api --extra science --extra agents pytest apps/api/tests
+      - run: uv run --project apps/api --extra science --extra agents python scripts/run_harness_evals.py --json /tmp/harness.json --markdown /tmp/harness.md
+      - run: uv run --project apps/api --extra science --extra agents python scripts/reproduce.py
+      - run: uv run --project apps/api --extra science --extra agents python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
+      - run: docker build --file apps/api/Dockerfile --tag exoswarm-api:ci .
+      - name: Smoke-test backend container
+        run: |
+          container_id=$(docker run --detach --publish 8000:8000 exoswarm-api:ci)
+          trap 'docker logs "$container_id"; docker rm --force "$container_id"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health > /tmp/health.json; then
+              break
+            fi
+            sleep 1
+          done
+          python -c "import json; assert json.load(open('/tmp/health.json'))['status'] == 'ok'"
+          curl --fail --silent http://127.0.0.1:8000/api/targets > /tmp/targets.json
+          python -c "import json; targets=json.load(open('/tmp/targets.json')); assert targets"
 
   frontend:
     runs-on: ubuntu-latest
