@@ -309,9 +309,11 @@ async def test_candidate_runtime_inputs_are_typed_backend_owned_and_not_persiste
 
     assert captured["cached_path"] == cached_path
     assert captured["write_evidence"] is False
-    assert captured["artifact_dir"] == (
-        controller.artifacts.run_dir(state.opaque_target_id, state.run_id) / "artifacts"
-    )
+    run_dir = controller.artifacts.run_dir(state.opaque_target_id, state.run_id)
+    staged_artifact_dir = Path(captured["artifact_dir"])
+    assert staged_artifact_dir.name == "artifacts"
+    assert staged_artifact_dir.parent.parent == run_dir / ".tool-staging"
+    assert not (run_dir / ".tool-staging").exists()
     assert captured["ledger_path"] == controller.artifacts.evidence_path(updated)
     execution = updated.tool_executions[-1]
     assert execution.status == ToolExecutionStatus.COMPLETED

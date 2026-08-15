@@ -1,0 +1,8 @@
+{
+  "schema_version": "1",
+  "suite_id": "exoswarm-harness-adversarial-v1",
+  "files": {
+    "acceptance.json": "f625899a0555a0ca272bfcaf926289f0d8f9b66cae0232d12888070da9885142",
+    "scenarios.json": "56099f025613ec7d7dce2b81e2610f48918d0fbd8676550649c838869fc15ad4"
+  }
+}

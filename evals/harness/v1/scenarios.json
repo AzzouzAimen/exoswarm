@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "suite_id": "exoswarm-harness-adversarial-v1",
+  "cases": [
+    {"id": "clean_planet_like", "profile": "clean", "critic": "VETO"},
+    {"id": "eclipsing_binary_adverse", "profile": "eclipsing_binary", "skeptic_action": "harmonic_test", "critic": "APPROVE"},
+    {"id": "ambiguous_inconclusive", "profile": "weak", "skeptic_action": "alternate_detrend", "critic": "APPROVE"},
+    {"id": "evidence_branch_contamination", "profile": "contamination", "skeptic_action": "harmonic_test", "critic": "REVISE", "revised_action": "centroid_localization"},
+    {"id": "irrelevant_valid_action", "profile": "clean", "skeptic_action": "alternate_detrend", "critic": "VETO"},
+    {"id": "malformed_primary_valid_repair", "profile": "eclipsing_binary", "skeptic_sequence": ["malformed", "valid"], "skeptic_action": "harmonic_test", "critic": "APPROVE"},
+    {"id": "malformed_primary_repair_failure", "profile": "eclipsing_binary", "skeptic_sequence": ["malformed", "malformed"]},
+    {"id": "provider_timeout_explicit_fallback", "profile": "eclipsing_binary", "skeptic_sequence": ["timeout"], "skeptic_action": "harmonic_test", "critic": "APPROVE", "fallback": true, "max_model_retries": 0},
+    {"id": "stale_context_mismatched_decision", "profile": "eclipsing_binary", "skeptic_sequence": ["stale", "stale"]},
+    {"id": "unaffordable_action", "profile": "eclipsing_binary", "all_adaptive_cost_units": 2, "max_adaptive_cost_units": 1},
+    {"id": "repeated_action", "profile": "eclipsing_binary", "skeptic_action": "harmonic_test", "setup": "repeat"},
+    {"id": "tool_failure", "profile": "eclipsing_binary", "skeptic_action": "harmonic_test", "critic": "APPROVE", "tool_failure": "harmonic_test"},
+    {"id": "tool_timeout", "profile": "eclipsing_binary", "skeptic_action": "harmonic_test", "critic": "APPROVE", "tool_timeout": "harmonic_test"},
+    {"id": "restart_prepared_action", "profile": "eclipsing_binary", "setup": "prepared_restart", "skeptic_action": "harmonic_test", "critic": "APPROVE"},
+    {"id": "context_pressure_trimming", "profile": "weak", "setup": "context_pressure", "skeptic_action": "harmonic_test", "critic": "APPROVE", "max_tool_calls": 20, "max_adaptive_experiments": 12, "max_adaptive_cost_units": 20},
+    {"id": "runner_no_progress", "profile": "clean", "setup": "no_progress"},
+    {"id": "budget_step_exit", "profile": "clean", "setup": "raw", "max_steps": 1},
+    {"id": "budget_model_exit", "profile": "clean", "max_model_calls": 0},
+    {"id": "budget_tool_exit", "profile": "eclipsing_binary", "skeptic_action": "harmonic_test", "max_tool_calls": 4},
+    {"id": "budget_adaptive_exit", "profile": "clean", "max_adaptive_experiments": 0},
+    {"id": "budget_cost_exit", "profile": "clean", "max_adaptive_cost_units": 0},
+    {"id": "budget_critic_revision_exit", "profile": "contamination", "critic": "REVISE", "revised_action": "centroid_localization", "max_critic_revisions": 0},
+    {"id": "budget_runner_advance_exit", "profile": "clean", "setup": "advance_budget", "max_steps": 2},
+    {"id": "budget_runner_wall_clock_exit", "profile": "clean", "setup": "runner_timeout", "runner_timeout_seconds": 0.01}
+  ]
+}

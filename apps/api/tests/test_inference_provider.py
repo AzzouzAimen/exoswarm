@@ -22,6 +22,7 @@ from exoswarm.agents.inference_provider import (
 )
 from exoswarm.agents.inference_telemetry import derive_inference_summary
 from exoswarm.agents.model_client import ScriptedInferenceClient
+from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
 from exoswarm.config import Settings
 from exoswarm.domain.enums import HarnessFailureKind, InvestigationStatus
 from exoswarm.domain.models import InferenceTraceRecord, InvestigationState, SkepticDecision
@@ -57,6 +58,7 @@ def test_partial_provider_usage_is_not_reported_as_a_complete_total() -> None:
         role="skeptic",
         provider="featherless",
         model_identity="deepseek-ai/DeepSeek-V4-Flash-0731",
+        output_schema="SkepticDecision",
         attempt_kind="primary",
         context_version="1",
         input_tokens=100,
@@ -104,6 +106,7 @@ def valid_decision_response(request: dict[str, Any]) -> Any:
             "decision_id": f"decision_{context['step_id']}",
             "run_id": context["run_id"],
             "step_id": context["step_id"],
+            "context_version": context["context_version"],
             "hypothesis_under_test": "eclipsing_binary",
             "requested_experiment": "harmonic_test",
             "parameters": {"trial_factor": 1},
@@ -112,6 +115,11 @@ def valid_decision_response(request: dict[str, Any]) -> Any:
             "predicted_outcomes": {"RESOLVED": "Update from deterministic evidence."},
             "expected_information_value": "high",
             "priority": "high",
+            "budget_units_remaining": context["remaining_budgets"]["adaptive_cost_units"],
+            "cost_of_selected_experiment": context["adaptive_experiment_costs"][
+                "harmonic_test"
+            ],
+            "why_cost_is_justified": "The bounded harmonic test costs one unit.",
             "concise_reason": "The bounded harmonic check discriminates the alternatives.",
         }
     else:
@@ -121,6 +129,7 @@ def valid_decision_response(request: dict[str, Any]) -> Any:
             "decision_id": f"critic_{context['step_id']}",
             "run_id": context["run_id"],
             "step_id": context["step_id"],
+            "context_version": context["context_version"],
             "skeptic_decision_id": proposal["decision_id"],
             "verdict": "APPROVE",
             "reason_code": "FEATHERLESS_APPROVE",
@@ -136,7 +145,11 @@ async def test_featherless_adapter_uses_safe_openai_compatible_request_and_metad
         opaque_target_id="TARGET-X17",
         step_count=1,
     )
-    context = assemble_context(state, available_experiments=("harmonic_test",))
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
     sdk, transport = fake_sdk([valid_decision_response])
     client = FeatherlessInferenceClient(api_key="secret-never-persist", sdk=sdk)
 
@@ -154,6 +167,13 @@ async def test_featherless_adapter_uses_safe_openai_compatible_request_and_metad
     assert outcome.call.input_tokens == 100
     assert outcome.call.output_tokens == 25
     assert outcome.call.schema_valid is True
+    assert outcome.call.output_schema == "SkepticDecision"
+    assert outcome.call.prompt_version == SKEPTIC_PROMPT_VERSION
+    assert outcome.call.context_fingerprint == context.context_fingerprint
+    sanitized_trace = outcome.call.model_dump_json()
+    assert '"messages"' not in sanitized_trace
+    assert '"response"' not in sanitized_trace
+    assert '"content"' not in sanitized_trace
     request = transport.requests[0]
     assert request["model"] == "deepseek-ai/DeepSeek-V4-Flash-0731"
     assert "response_format" not in request
@@ -175,7 +195,11 @@ async def test_featherless_adapter_classifies_provider_failures_without_raw_erro
     error: Exception, status: str, error_type: str
 ) -> None:
     state = InvestigationState(run_id="run_error", opaque_target_id="TARGET-X17", step_count=1)
-    context = assemble_context(state, available_experiments=("harmonic_test",))
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
     sdk, _ = fake_sdk([error])
     client = FeatherlessInferenceClient(api_key="secret-never-persist", sdk=sdk)
 
@@ -237,6 +261,8 @@ async def test_invalid_primary_gets_one_repair_and_summary_is_trace_derived(tmp_
     assert "secret-never-persist" not in persisted
     assert "not-json" not in persisted
     assert "AGENT_FALLBACK" not in persisted
+    assert "available, affordable, unexecuted" not in persisted
+    assert '"choices"' not in persisted
 
 
 @pytest.mark.asyncio

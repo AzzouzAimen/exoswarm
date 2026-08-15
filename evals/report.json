@@ -1,0 +1,1501 @@
+{
+  "failed_count": 0,
+  "known_gaps": [],
+  "metrics": {
+    "artifact_reload_cases": 24,
+    "branch_count": 4,
+    "cost_budget_status": "graded",
+    "repeated_tool_calls": 0,
+    "unnecessary_tool_calls": 0
+  },
+  "passed": true,
+  "passed_count": 24,
+  "scenario_count": 24,
+  "scenarios": [
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5032,
+        "context_count": 2,
+        "context_fingerprints": [
+          "70dd4a1dbfc471397f25aa5984e422a8e268c1c6371b836b05acd41df3fba358",
+          "54cd9dd4f4517b3723b2d970abfbc34d3a8c25ed1ece7a5245aed1b093bbedbd"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "VETO"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "evidence_records": 4,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 18,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "clean_planet_like",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5076,
+        "context_count": 2,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "cf26bee97f46cbe3ef8b3eebfa4e5077c810e272e2fa02e10e7c10d151e44179"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 5,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 21,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "eclipsing_binary_adverse",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "alternate_detrend"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "alternate_detrend"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5040,
+        "context_count": 2,
+        "context_fingerprints": [
+          "45e507fcdf9690f11a3897a3d8d20c328256f20c9a1b8b0a9d0d31a697505016",
+          "29a10b1145e746ee3609ed0bf63bae54a0366ce49f86cf06e895f00d768e261b"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": null,
+        "evidence_records": 5,
+        "failure_kinds": [
+          "INSUFFICIENT_EVIDENCE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "INSUFFICIENT_EVIDENCE:DETERMINISTIC_EVIDENCE:WEAK_NOISY: evidence remains weak or inconclusive",
+        "selected_tools": [
+          "alternate_detrend"
+        ],
+        "status": "INSUFFICIENT_EVIDENCE",
+        "step_count": 1,
+        "terminal_reason": "INSUFFICIENT_EVIDENCE:DETERMINISTIC_EVIDENCE:WEAK_NOISY: evidence remains weak or inconclusive",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "alternate_detrend": 1
+        },
+        "trace_events": 21,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "ambiguous_inconclusive",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 2,
+        "adaptive_cost_units_used": 2,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "centroid_localization"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "centroid_localization"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5075,
+        "context_count": 2,
+        "context_fingerprints": [
+          "e71395f080ab3c5080e5ed9ba5856848d01aea6d7c40bda28a90dc62dcb9f1b1",
+          "c9da5b5acdba8c4303853f22fbf2cff12cee4d1f53ca0836264bb223887f8411"
+        ],
+        "critic_revisions": 1,
+        "critic_verdicts": [
+          "REVISE"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 5,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "DETERMINISTIC_EVIDENCE:CONTAMINATION_LIKELY",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:CONTAMINATION_LIKELY",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "centroid_localization": 1
+        },
+        "trace_events": 21,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "evidence_branch_contamination",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5037,
+        "context_count": 2,
+        "context_fingerprints": [
+          "70dd4a1dbfc471397f25aa5984e422a8e268c1c6371b836b05acd41df3fba358",
+          "daec1846d568892424ddf03b5a0e8375c9eb2a77c0225d72a1362ae48149bcdc"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "VETO"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "evidence_records": 4,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
+        "selected_tools": [
+          "alternate_detrend"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "CRITIC_VETO:LOCKED_EVAL_VETO",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 18,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "irrelevant_valid_action",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "repair",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "INVALID",
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5076,
+        "context_count": 3,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "64009c9fdba9535febca8e7da672aba3d63aaa4ecac8f96bf12b3aa45d807f7a"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 5,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 3,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 23,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "malformed_primary_valid_repair",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "repair"
+        ],
+        "attempt_statuses": [
+          "INVALID",
+          "INVALID"
+        ],
+        "context_bytes_max": 4377,
+        "context_count": 2,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "INVALID_MODEL_OUTPUT"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "INVALID_MODEL_OUTPUT:skeptic returned invalid structured output",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 1,
+        "terminal_reason": "INVALID_MODEL_OUTPUT:skeptic returned invalid structured output",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 16,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "malformed_primary_repair_failure",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "TIMEOUT",
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5076,
+        "context_count": 3,
+        "context_fingerprints": [
+          "b2d894b276b2b887b22f26d602bf23bfdccfa091dbce19c11b1f81ed23fe86a4",
+          "104b444ffeb7942f8fcd54e3db5ce36cb25f762cb2abed27ec3f1eca6fe926d8",
+          "b2d894b276b2b887b22f26d602bf23bfdccfa091dbce19c11b1f81ed23fe86a4"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 5,
+        "failure_kinds": [],
+        "fallback_labels": [
+          "AGENT_FALLBACK"
+        ],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 3,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 24,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "provider_timeout_explicit_fallback",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "repair"
+        ],
+        "attempt_statuses": [
+          "INVALID",
+          "INVALID"
+        ],
+        "context_bytes_max": 4377,
+        "context_count": 2,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "INVALID_MODEL_OUTPUT"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "INVALID_MODEL_OUTPUT:Skeptic step identifier is stale or mismatched",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 1,
+        "terminal_reason": "INVALID_MODEL_OUTPUT:Skeptic step identifier is stale or mismatched",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 16,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "stale_context_mismatched_decision",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 1,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 4,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT",
+        "selected_tools": [],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 12,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "unaffordable_action",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "repair"
+        ],
+        "attempt_statuses": [
+          "INVALID",
+          "INVALID"
+        ],
+        "context_bytes_max": 4653,
+        "context_count": 2,
+        "context_fingerprints": [
+          "b4ce002b2ccb1a6b05d8f2fb1034230789c33520f067115dc29e16a17dacbb32",
+          "b4ce002b2ccb1a6b05d8f2fb1034230789c33520f067115dc29e16a17dacbb32"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 5,
+        "failure_kinds": [
+          "REPEATED_ACTION"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 5,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "REPEATED_ACTION:identical action has already been accepted: harmonic_test",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 1,
+        "terminal_reason": "REPEATED_ACTION:identical action has already been accepted: harmonic_test",
+        "tool_calls": 5,
+        "tool_invocations": {},
+        "trace_events": 18,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "repeated_action",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5076,
+        "context_count": 2,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "cf26bee97f46cbe3ef8b3eebfa4e5077c810e272e2fa02e10e7c10d151e44179"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "TOOL_INFRASTRUCTURE_FAILURE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "TOOL_INFRASTRUCTURE_FAILURE:tool infrastructure failure for harmonic_test: RuntimeError",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "FAILED",
+        "step_count": 1,
+        "terminal_reason": "TOOL_INFRASTRUCTURE_FAILURE:tool infrastructure failure for harmonic_test: RuntimeError",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 20,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "tool_failure",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5076,
+        "context_count": 2,
+        "context_fingerprints": [
+          "06a51aec30b867dbf37dc72bcf4679f994e4ce9d67ed188bf6107fa3009550ad",
+          "cf26bee97f46cbe3ef8b3eebfa4e5077c810e272e2fa02e10e7c10d151e44179"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "TOOL_TIMEOUT"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "TOOL_TIMEOUT:tool execution timed out for harmonic_test",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "FAILED",
+        "step_count": 1,
+        "terminal_reason": "TOOL_TIMEOUT:tool execution timed out for harmonic_test",
+        "tool_calls": 5,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 20,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "tool_timeout",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 3,
+        "adaptive_cost_units_used": 1,
+        "adaptive_experiments": 1,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": "PLANETARY_INTERPRETATION_REJECTED",
+        "evidence_records": 5,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 1,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "selected_tools": [],
+        "status": "READY_TO_LOCK",
+        "step_count": 0,
+        "terminal_reason": "DETERMINISTIC_EVIDENCE:ODD_EVEN_MISMATCH",
+        "tool_calls": 5,
+        "tool_invocations": {},
+        "trace_events": 12,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "restart_prepared_action",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 11,
+        "adaptive_cost_units_used": 9,
+        "adaptive_experiments": 9,
+        "adaptive_tools": [
+          "harmonic_test"
+        ],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "alternate_detrend",
+          "harmonic_test"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "SUCCESS"
+        ],
+        "context_bytes_max": 5666,
+        "context_count": 2,
+        "context_fingerprints": [
+          "dc4c8824886db58939b201951149bfe8b4dbbc5e5f2ef01d132e7c4e8022b2d6",
+          "e9c1c77da88b24ead6cc103ae1236feeedce904eb969428b25664b84baf080ac"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [
+          "APPROVE"
+        ],
+        "disposition": null,
+        "evidence_records": 13,
+        "failure_kinds": [
+          "INSUFFICIENT_EVIDENCE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 6,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "INSUFFICIENT_EVIDENCE:DETERMINISTIC_EVIDENCE:WEAK_NOISY: evidence remains weak or inconclusive",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "INSUFFICIENT_EVIDENCE",
+        "step_count": 1,
+        "terminal_reason": "INSUFFICIENT_EVIDENCE:DETERMINISTIC_EVIDENCE:WEAK_NOISY: evidence remains weak or inconclusive",
+        "tool_calls": 13,
+        "tool_invocations": {
+          "harmonic_test": 1
+        },
+        "trace_events": 37,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "context_pressure_trimming",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "TOOL_INFRASTRUCTURE_FAILURE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "NO_DURABLE_PROGRESS",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 0,
+        "terminal_reason": "TOOL_INFRASTRUCTURE_FAILURE:RUNNER_NO_PROGRESS: controller returned without durable state progress",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 11,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "runner_no_progress",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 1,
+        "failure_kinds": [
+          "BUDGET_EXHAUSTED"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": false,
+        "mandatory_tests": [
+          "signal_quality"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "BUDGET_EXHAUSTED:maximum total step budget reached",
+        "selected_tools": [],
+        "status": "BUDGET_EXHAUSTED",
+        "step_count": 1,
+        "terminal_reason": "BUDGET_EXHAUSTED:maximum total step budget reached",
+        "tool_calls": 1,
+        "tool_invocations": {
+          "search_bls": 1
+        },
+        "trace_events": 7,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_step_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "BUDGET_EXHAUSTED"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "BUDGET_EXHAUSTED:model-call budget reached before inference",
+        "selected_tools": [],
+        "status": "BUDGET_EXHAUSTED",
+        "step_count": 1,
+        "terminal_reason": "BUDGET_EXHAUSTED:model-call budget reached before inference",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 12,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_model_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary"
+        ],
+        "attempt_statuses": [
+          "INVALID"
+        ],
+        "context_bytes_max": 4377,
+        "context_count": 1,
+        "context_fingerprints": [
+          "ffcf0e3dae3e8f91254ab0f8a72a57a43bf290472d0d8715be1bcc9f4b3f78a3"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "BUDGET_EXHAUSTED"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 1,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "BUDGET_EXHAUSTED:tool-call budget reached before inferred action",
+        "selected_tools": [],
+        "status": "BUDGET_EXHAUSTED",
+        "step_count": 1,
+        "terminal_reason": "BUDGET_EXHAUSTED:tool-call budget reached before inferred action",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 14,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_tool_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "evidence_records": 4,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED",
+        "selected_tools": [],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 12,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_adaptive_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 0,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "evidence_records": 4,
+        "failure_kinds": [],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "ADAPTIVE_COST_BUDGET_EXHAUSTED",
+        "selected_tools": [],
+        "status": "READY_TO_LOCK",
+        "step_count": 1,
+        "terminal_reason": "ADAPTIVE_COST_BUDGET_EXHAUSTED",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 12,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_cost_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [
+          "primary",
+          "primary"
+        ],
+        "attempt_statuses": [
+          "SUCCESS",
+          "INVALID"
+        ],
+        "context_bytes_max": 5075,
+        "context_count": 2,
+        "context_fingerprints": [
+          "35ce514f6ae417d6e9dc3ec044b7ec4ea274842c4d1847b6492ce196b0f235f2",
+          "8c403c94b5ce0a2ca0921a9e916bd3e36cc7f4f78ce0325ea85bfdaccfc2282f"
+        ],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "BUDGET_EXHAUSTED"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 2,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 4,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "BUDGET_EXHAUSTED:Critic revision budget reached",
+        "selected_tools": [
+          "harmonic_test"
+        ],
+        "status": "BUDGET_EXHAUSTED",
+        "step_count": 1,
+        "terminal_reason": "BUDGET_EXHAUSTED:Critic revision budget reached",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 17,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_critic_revision_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "TOOL_INFRASTRUCTURE_FAILURE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "ADVANCE_BUDGET_EXHAUSTED",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 0,
+        "terminal_reason": "TOOL_INFRASTRUCTURE_FAILURE:RUNNER_ADVANCE_BUDGET_EXHAUSTED: outer loop advance budget reached",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 11,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_runner_advance_exit",
+      "passed": true
+    },
+    {
+      "actual": {
+        "adaptive_cost_units_remaining": 4,
+        "adaptive_cost_units_used": 0,
+        "adaptive_experiments": 0,
+        "adaptive_tools": [],
+        "all_tools": [
+          "search_bls",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination_screening"
+        ],
+        "attempt_kinds": [],
+        "attempt_statuses": [],
+        "context_bytes_max": 0,
+        "context_count": 0,
+        "context_fingerprints": [],
+        "critic_revisions": 0,
+        "critic_verdicts": [],
+        "disposition": null,
+        "evidence_records": 4,
+        "failure_kinds": [
+          "TOOL_INFRASTRUCTURE_FAILURE"
+        ],
+        "fallback_labels": [],
+        "lock_state": "GROUND_TRUTH_LOCKED",
+        "mandatory_checks_completed": true,
+        "mandatory_tests": [
+          "signal_quality",
+          "odd_even",
+          "secondary_eclipse",
+          "contamination"
+        ],
+        "model_calls": 0,
+        "model_retries": 0,
+        "production_context_fingerprints_valid": true,
+        "recent_evidence_max": 0,
+        "recovery_events": 0,
+        "repeated_tool_calls": 0,
+        "runner_stop_reason": "WALL_CLOCK_TIMEOUT",
+        "selected_tools": [],
+        "status": "FAILED",
+        "step_count": 0,
+        "terminal_reason": "TOOL_INFRASTRUCTURE_FAILURE:RUNNER_TIMEOUT: wall-clock execution budget reached",
+        "tool_calls": 4,
+        "tool_invocations": {},
+        "trace_events": 11,
+        "unnecessary_tool_calls": 0
+      },
+      "failures": [],
+      "id": "budget_runner_wall_clock_exit",
+      "passed": true
+    }
+  ],
+  "schema_version": "1",
+  "suite_failures": [],
+  "suite_id": "exoswarm-harness-adversarial-v1"
+}

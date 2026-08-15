@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     target_manifest_path: Path | None = None
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
+    max_adaptive_cost_units: int = Field(default=4, ge=0)
     max_model_calls: int = Field(default=16, ge=0)
     max_tool_calls: int = Field(default=8, ge=0)
     max_model_retries: int = Field(default=1, ge=0)

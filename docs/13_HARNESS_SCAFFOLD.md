@@ -101,10 +101,19 @@ The submission inference path is implemented. Next work should exercise the cred
 canary, connect the mission-control UI to real SSE/state, add a contrasting cached target, and build
 trajectory evaluations. The deterministic controller remains the Scientific Director authority.
 
-Current adaptive limits count experiments rather than cost units, and the current
-`SkepticDecision` omits the cost fields described in `docs/05_AGENT_RUNTIME.md`. Implement those as
-one coherent state/registry/schema change. Until then, documentation and UI must label cost-weighted
-budgeting as planned rather than operational.
+Adaptive limits enforce both an experiment-count ceiling and deterministic cost units. Registry
+specifications own action prices; durable state records configured, used, and remaining cost units;
+and each `SkepticDecision` declares its observed remaining budget, selected cost, and concise cost
+justification. The controller validates those declarations, applies a Critic revision's actual
+registry price, and consumes units only in the durable `PREPARED` checkpoint. Recovery reuses that
+checkpoint without charging again, and no-affordable-action termination is explicit.
+
+Skeptic and Critic decisions are also bound to the packet context version as well as run and step
+identifiers. Controller-local advances are single-writer, provider calls have enforced deadlines,
+and production scientific handlers run in killable subprocesses. Candidate-producing tools write
+to per-action staging and publish artifacts only after an on-time, validated result; timed-out or
+cancelled work is terminated and its staging is discarded. Stale responses cannot prepare or
+execute an action.
 
 Do not expand this milestone into more model roles until the live Skeptic/Critic path and its
 failure policy pass. Afterward, an Observer or Signal role is a valid P1 addition only when a test

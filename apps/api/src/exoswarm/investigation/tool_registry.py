@@ -11,7 +11,7 @@ from exoswarm.science.bls import search_bls
 from exoswarm.science.candidate_artifact import CandidateArtifactRuntimeInputs
 from exoswarm.science.centroid import localize_centroid
 from exoswarm.science.contamination import ContaminationRuntimeInputs, screen_contamination
-from exoswarm.science.contracts import NoParameters, ScientificToolSpec
+from exoswarm.science.contracts import ExecutionIsolation, NoParameters, ScientificToolSpec
 from exoswarm.science.harmonic import test_harmonics
 from exoswarm.science.io import load_cached_lightcurve, load_cached_tpf
 from exoswarm.science.odd_even import compare_odd_even
@@ -157,8 +157,8 @@ def scaffold_tool_registry() -> ScientificToolRegistry:
         "odd_even": {"mandatory_test": "odd_even", "order": 20},
         "secondary_eclipse": {"mandatory_test": "secondary_eclipse", "order": 30},
         "contamination_screening": {"mandatory_test": "contamination", "order": 40},
-        "harmonic_test": {"adaptive": True, "order": 50},
-        "centroid_localization": {"adaptive": True, "order": 60},
+        "harmonic_test": {"adaptive": True, "cost_units": 1, "order": 50},
+        "centroid_localization": {"adaptive": True, "cost_units": 2, "order": 60},
     }
     parameter_schemas = {
         "preprocess": PreprocessingParameters,
@@ -177,6 +177,7 @@ def scaffold_tool_registry() -> ScientificToolRegistry:
             handler=handler,
             parameter_schema=parameter_schemas.get(name, NoParameters),
             runtime_input_schema=runtime_schemas.get(name),
+            execution_isolation=ExecutionIsolation.SUBPROCESS,
             **metadata.get(name, {}),
         )
         for name, handler in handlers.items()

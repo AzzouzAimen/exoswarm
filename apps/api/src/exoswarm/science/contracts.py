@@ -21,6 +21,11 @@ class ApprovalRequirement(StrEnum):
     RUNTIME_POLICY = "RUNTIME_POLICY"
 
 
+class ExecutionIsolation(StrEnum):
+    THREAD = "THREAD"
+    SUBPROCESS = "SUBPROCESS"
+
+
 ToolHandler = Callable[[str, str, str, dict[str, Any]], ScientificToolResult]
 
 
@@ -39,13 +44,23 @@ class ScientificToolSpec:
     approval: ApprovalRequirement = ApprovalRequirement.RUNTIME_POLICY
     required_scopes: frozenset[str] = frozenset({"science:execute"})
     timeout_seconds: int = 60
+    execution_isolation: ExecutionIsolation = ExecutionIsolation.THREAD
     max_retries: int = 0
     idempotent: bool = True
     runtime_input_schema: type[BaseModel] | None = None
     mandatory_test: str | None = None
     adaptive: bool = False
+    cost_units: int = 0
     required_completed_tests: frozenset[str] = frozenset()
     order: int = 100
+
+    def __post_init__(self) -> None:
+        if isinstance(self.cost_units, bool) or not isinstance(self.cost_units, int):
+            raise TypeError("scientific tool cost_units must be an integer")
+        if self.cost_units < 0:
+            raise ValueError("scientific tool cost_units cannot be negative")
+        if self.adaptive and self.cost_units == 0:
+            raise ValueError("adaptive scientific tools must cost at least one unit")
 
 
 def not_implemented_result(

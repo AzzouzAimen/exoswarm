@@ -4,15 +4,20 @@ import asyncio
 import hashlib
 import json
 import logging
+import multiprocessing
+import shutil
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from secrets import token_hex
+from threading import Event
 from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import assemble_context
+from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
 from exoswarm.agents.inference_telemetry import (
     concise_inference_summary,
     derive_inference_summary,
@@ -23,6 +28,7 @@ from exoswarm.agents.model_client import (
     InferenceClient,
     UnconfiguredInferenceClient,
 )
+from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
 from exoswarm.config import Settings
 from exoswarm.domain.enums import (
     CriticVerdict,
@@ -62,7 +68,7 @@ from exoswarm.investigation.mandatory import missing_mandatory_tests
 from exoswarm.investigation.runtime_inputs import CandidateSourceResolver
 from exoswarm.investigation.state import validate_status_transition
 from exoswarm.investigation.tool_registry import ScientificToolRegistry, scaffold_tool_registry
-from exoswarm.science.contracts import ScientificToolSpec
+from exoswarm.science.contracts import ExecutionIsolation, ScientificToolSpec
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
@@ -82,6 +88,28 @@ _WEAK_PLANETARY_INTERPRETATIONS = frozenset(
     {"SECONDARY_ECLIPSE_DETECTED", "CONTAMINATION_POSSIBLE", "HARMONIC_ALIAS_PREFERRED"}
 )
 _LOGGER = logging.getLogger(__name__)
+
+
+def _subprocess_tool_entry(
+    sender: Any,
+    handler: Any,
+    run_id: str,
+    action_id: str,
+    target_id: str,
+    parameters: dict[str, Any],
+) -> None:
+    """Execute one importable scientific handler without exposing raw exception text."""
+
+    try:
+        sender.send(("result", handler(run_id, action_id, target_id, parameters)))
+    except BaseException as exc:
+        sender.send(("error", type(exc).__name__[:100]))
+    finally:
+        sender.close()
+
+
+class _SubprocessToolError(RuntimeError):
+    pass
 
 
 class _HarnessAbort(Exception):
@@ -129,6 +157,7 @@ class InvestigationController:
         self.granted_scopes = frozenset(granted_scopes)
         self._states: dict[str, InvestigationState] = {}
         self._events: dict[str, list[InvestigationEvent]] = {}
+        self._advance_locks: dict[str, asyncio.Lock] = {}
 
     def create(self, opaque_target_id: str) -> InvestigationState:
         run_id = f"run_{token_hex(8)}"
@@ -138,6 +167,8 @@ class InvestigationController:
             available_tests=list(self.registry.names),
             max_steps=self.settings.max_steps,
             max_adaptive_experiments=self.settings.max_adaptive_experiments,
+            max_adaptive_cost_units=self.settings.max_adaptive_cost_units,
+            adaptive_cost_units_remaining=self.settings.max_adaptive_cost_units,
             max_model_calls=self.settings.max_model_calls,
             max_tool_calls=self.settings.max_tool_calls,
             max_model_retries=self.settings.max_model_retries,
@@ -180,8 +211,8 @@ class InvestigationController:
         updated, receipt = self.result_lock.lock(state)
         event = self._event(updated, "result.locked", {"sha256": receipt.sha256})
         self._states[run_id] = updated
-        self._events[run_id].append(event)
         self.artifacts.append_trace(updated, event)
+        self._events[run_id].append(event)
         return receipt
 
     def reveal(self, run_id: str) -> RevealResult:
@@ -230,7 +261,7 @@ class InvestigationController:
 
         state = self.get(run_id)
         self._assert_science_admission_open(state)
-        _, validated_parameters = self.registry.validate_parameters(
+        spec, validated_parameters = self.registry.validate_parameters(
             result.tool_name,
             parameters=result.parameters,
         )
@@ -238,6 +269,11 @@ class InvestigationController:
             raise ValueError("tool result identifiers do not match the durable investigation")
         if state.tool_call_count >= state.max_tool_calls:
             raise ValueError("tool-call budget is exhausted")
+        if spec.adaptive:
+            if state.adaptive_experiments_used >= state.max_adaptive_experiments:
+                raise ValueError("adaptive-experiment count budget is exhausted")
+            if spec.cost_units > state.adaptive_cost_units_remaining:
+                raise ValueError("adaptive cost-unit budget is exhausted")
         signature = self._action_signature(result.tool_name, validated_parameters)
         if any(item.action_signature == signature for item in state.tool_executions):
             raise ValueError("identical action has already been recorded")
@@ -248,10 +284,27 @@ class InvestigationController:
             parameters=validated_parameters,
             action_signature=signature,
             status=ToolExecutionStatus.PREPARED,
+            adaptive=spec.adaptive,
+            adaptive_cost_units=spec.cost_units if spec.adaptive else 0,
         )
         state = self._replace(
             state,
             tool_call_count=state.tool_call_count + 1,
+            adaptive_experiments_used=(
+                state.adaptive_experiments_used + 1
+                if spec.adaptive
+                else state.adaptive_experiments_used
+            ),
+            adaptive_cost_units_used=(
+                state.adaptive_cost_units_used + spec.cost_units
+                if spec.adaptive
+                else state.adaptive_cost_units_used
+            ),
+            adaptive_cost_units_remaining=(
+                state.adaptive_cost_units_remaining - spec.cost_units
+                if spec.adaptive
+                else state.adaptive_cost_units_remaining
+            ),
             tool_executions=[*state.tool_executions, execution],
         )
         self._commit_result(state, result)
@@ -259,6 +312,13 @@ class InvestigationController:
 
     async def advance(self, run_id: str) -> InvestigationState:
         """Advance one durable, bounded controller cycle and return its checkpointed state."""
+
+        lock = self._advance_locks.setdefault(run_id, asyncio.Lock())
+        async with lock:
+            return await self._advance_locked(run_id)
+
+    async def _advance_locked(self, run_id: str) -> InvestigationState:
+        """Advance while holding the controller-local single-writer guard."""
 
         state = self.get(run_id)
         if self._cannot_advance(state):
@@ -289,11 +349,18 @@ class InvestigationController:
                     recoverable=False,
                 )
             if state.adaptive_experiments_used >= state.max_adaptive_experiments:
-                return self._finalize(state, "ADAPTIVE_EXPERIMENT_BUDGET_REACHED")
+                return self._finalize(state, "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED")
+            if state.adaptive_cost_units_remaining == 0:
+                return self._finalize(state, "ADAPTIVE_COST_BUDGET_EXHAUSTED")
 
             available = self._available_adaptive_actions(state)
             if not available:
-                return self._finalize(state, "NO_AVAILABLE_ADAPTIVE_ACTION")
+                reason = (
+                    "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT"
+                    if self._has_unaffordable_adaptive_action(state)
+                    else "NO_AVAILABLE_ADAPTIVE_ACTION"
+                )
+                return self._finalize(state, reason)
             state = self._replace(
                 state,
                 status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
@@ -403,6 +470,10 @@ class InvestigationController:
             self.artifacts.read_evidence(state),
             role=role,  # type: ignore[arg-type]
             available_experiments=available,
+            adaptive_experiment_costs={
+                name: self.registry.resolve(name).cost_units for name in available
+            },
+            experiment_specs=self.registry.specs,
             proposed_decision=proposed_decision,
         )
         attempt_kind: AttemptKind = "primary"
@@ -424,9 +495,15 @@ class InvestigationController:
 
             if outcome.error is None and outcome.decision is not None:
                 try:
+                    current = self.get(state.run_id)
+                    if current.context_version != context.context_version:
+                        raise _HarnessAbort(
+                            HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                            f"{role} response was produced from an obsolete context version",
+                        )
                     decision = schema.model_validate(outcome.decision, strict=True)
                     self._validate_inference_decision(
-                        state,
+                        current,
                         role=role,
                         decision=decision,
                         available=available,
@@ -585,19 +662,6 @@ class InvestigationController:
                 "fallback": fallback_used,
             },
         )
-        decide_attempt = getattr(client, "decide_attempt", None)
-        if callable(decide_attempt):
-            return await decide_attempt(
-                role=role,
-                context=context,
-                output_schema=schema,
-                attempt_kind=attempt_kind,
-                validation_error_code=(
-                    str(validation_error_code) if validation_error_code is not None else None
-                ),
-                fallback_used=fallback_used,
-            )
-
         started = perf_counter()
         common = {
             "call_id": f"call_{token_hex(12)}",
@@ -606,12 +670,50 @@ class InvestigationController:
             "role": role,
             "provider": str(getattr(client, "provider", "legacy")),
             "model_identity": str(getattr(client, "model_identity", type(client).__name__)),
+            "output_schema": schema.__name__,
             "attempt_kind": attempt_kind,
             "context_version": str(getattr(context, "context_version", "unknown")),
+            "context_fingerprint": str(
+                getattr(context, "context_fingerprint", "0" * 64)
+            ),
+            "prompt_version": (
+                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            ),
             "fallback_used": fallback_used,
         }
+        decide_attempt = getattr(client, "decide_attempt", None)
+        if callable(decide_attempt):
+            try:
+                return await asyncio.wait_for(
+                    decide_attempt(
+                        role=role,
+                        context=context,
+                        output_schema=schema,
+                        attempt_kind=attempt_kind,
+                        validation_error_code=(
+                            str(validation_error_code)
+                            if validation_error_code is not None
+                            else None
+                        ),
+                        fallback_used=fallback_used,
+                    ),
+                    timeout=self.settings.inference_timeout_seconds,
+                )
+            except TimeoutError as exc:
+                call = InferenceTraceRecord(
+                    **common,
+                    output_schema=schema.__name__,
+                    latency_ms=max(0, round((perf_counter() - started) * 1000)),
+                    status="TIMEOUT",
+                    schema_valid=False,
+                    timeout=True,
+                )
+                return InferenceAttemptOutcome(call=call, error=exc)
         try:
-            decision = await client.decide(role=role, context=context, output_schema=schema)
+            decision = await asyncio.wait_for(
+                client.decide(role=role, context=context, output_schema=schema),
+                timeout=self.settings.inference_timeout_seconds,
+            )
         except (ModelProviderTimeoutError, TimeoutError) as exc:
             call = InferenceTraceRecord(
                 **common,
@@ -692,9 +794,15 @@ class InvestigationController:
             self._record_inference_attempt(state, outcome.call)
             raise failure
         try:
+            current = self.get(state.run_id)
+            if current.context_version != context.context_version:
+                raise _HarnessAbort(
+                    HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                    f"{role} fallback response was produced from an obsolete context version",
+                )
             decision = schema.model_validate(outcome.decision, strict=True)
             self._validate_inference_decision(
-                state,
+                current,
                 role=role,
                 decision=decision,
                 available=available,
@@ -725,6 +833,7 @@ class InvestigationController:
         if role == "skeptic":
             skeptic = SkepticDecision.model_validate(decision, strict=True)
             self._validate_skeptic_identity(state, skeptic)
+            self._validate_skeptic_budget_declaration(state, skeptic)
             self._validate_inferred_action(
                 state, skeptic.requested_experiment, skeptic.parameters, available
             )
@@ -801,6 +910,13 @@ class InvestigationController:
                 HarnessFailureKind.UNAVAILABLE_ACTION,
                 f"adaptive action is not currently available: {tool_name}",
             )
+        if spec.cost_units > state.adaptive_cost_units_remaining:
+            raise _HarnessAbort(
+                HarnessFailureKind.BUDGET_EXHAUSTED,
+                f"adaptive action is unaffordable: {tool_name}",
+                status=InvestigationStatus.BUDGET_EXHAUSTED,
+                recoverable=False,
+            )
         if missing_mandatory_tests(set(state.completed_tests)):
             raise _HarnessAbort(
                 HarnessFailureKind.PRECONDITION_FAILED,
@@ -862,8 +978,24 @@ class InvestigationController:
             spec.name
             for spec in self.registry.specs
             if spec.adaptive
+            and spec.cost_units <= state.adaptive_cost_units_remaining
             and spec.required_completed_tests.issubset(completed)
             and self._action_signature(spec.name, {}) not in executed
+        )
+
+    def _has_unaffordable_adaptive_action(self, state: InvestigationState) -> bool:
+        completed = set(state.completed_tests)
+        executed = {
+            item.action_signature
+            for item in state.tool_executions
+            if item.status in {ToolExecutionStatus.PREPARED, ToolExecutionStatus.COMPLETED}
+        }
+        return any(
+            spec.adaptive
+            and spec.cost_units > state.adaptive_cost_units_remaining
+            and spec.required_completed_tests.issubset(completed)
+            and self._action_signature(spec.name, {}) not in executed
+            for spec in self.registry.specs
         )
 
     def _validate_skeptic_identity(
@@ -880,6 +1012,32 @@ class InvestigationController:
                 HarnessFailureKind.INVALID_MODEL_OUTPUT,
                 "Skeptic step identifier is stale or mismatched",
             )
+        if decision.context_version != state.context_version:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Skeptic context version is stale or mismatched",
+            )
+
+    def _validate_skeptic_budget_declaration(
+        self, state: InvestigationState, decision: SkepticDecision
+    ) -> None:
+        if decision.budget_units_remaining != state.adaptive_cost_units_remaining:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Skeptic adaptive budget declaration is stale or mismatched",
+            )
+        try:
+            spec = self.registry.resolve(decision.requested_experiment)
+        except UnknownToolError:
+            return
+        if not spec.adaptive:
+            return
+        cost_units = spec.cost_units
+        if decision.cost_of_selected_experiment != cost_units:
+            raise _HarnessAbort(
+                HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                "Skeptic declared cost does not match the authoritative tool registry",
+            )
 
     def _validate_critic_identity(
         self,
@@ -891,11 +1049,12 @@ class InvestigationController:
             critic.role != "critic"
             or critic.run_id != state.run_id
             or critic.step_id != skeptic.step_id
+            or critic.context_version != state.context_version
             or critic.skeptic_decision_id != skeptic.decision_id
         ):
             raise _HarnessAbort(
                 HarnessFailureKind.INVALID_MODEL_OUTPUT,
-                "Critic role, run, step, or proposal identifier does not match",
+                "Critic role, run, step, context, or proposal identifier does not match",
             )
 
     async def _execute_action(
@@ -939,6 +1098,13 @@ class InvestigationController:
             raise _HarnessAbort(HarnessFailureKind.UNAUTHORIZED_ACTION, str(exc)) from exc
         except ActionValidationError as exc:
             raise _HarnessAbort(HarnessFailureKind.MALFORMED_PARAMETERS, str(exc)) from exc
+        if adaptive and spec.cost_units > state.adaptive_cost_units_remaining:
+            raise _HarnessAbort(
+                HarnessFailureKind.BUDGET_EXHAUSTED,
+                f"adaptive action cost exceeds remaining budget: {tool_name}",
+                status=InvestigationStatus.BUDGET_EXHAUSTED,
+                recoverable=False,
+            )
 
         signature = self._action_signature(tool_name, validated_parameters)
         if any(
@@ -975,7 +1141,7 @@ class InvestigationController:
             )
 
         action_id = f"action_{token_hex(8)}"
-        runtime_inputs = self._runtime_inputs_for_action(state, spec)
+        runtime_inputs = self._runtime_inputs_for_action(state, spec, action_id)
         try:
             validated_runtime_inputs = self.registry.validate_runtime_inputs(
                 spec, runtime_inputs
@@ -1000,6 +1166,7 @@ class InvestigationController:
             action_signature=signature,
             status=ToolExecutionStatus.PREPARED,
             adaptive=adaptive,
+            adaptive_cost_units=spec.cost_units if adaptive else 0,
             agent_decision_id=agent_decision_id,
             critic_decision_id=critic_decision_id,
         )
@@ -1012,6 +1179,16 @@ class InvestigationController:
                 if adaptive
                 else state.adaptive_experiments_used
             ),
+            adaptive_cost_units_used=(
+                state.adaptive_cost_units_used + spec.cost_units
+                if adaptive
+                else state.adaptive_cost_units_used
+            ),
+            adaptive_cost_units_remaining=(
+                state.adaptive_cost_units_remaining - spec.cost_units
+                if adaptive
+                else state.adaptive_cost_units_remaining
+            ),
             tool_executions=[*state.tool_executions, execution],
         )
         self._emit(
@@ -1022,17 +1199,25 @@ class InvestigationController:
                 "action_id": action_id,
                 "parameters": validated_parameters,
                 "adaptive": adaptive,
+                "cost_units": spec.cost_units if adaptive else 0,
+                "adaptive_cost_units_remaining": state.adaptive_cost_units_remaining,
             },
             action_id=action_id,
         )
         try:
-            result = await asyncio.to_thread(
-                spec.handler,
-                state.run_id,
+            result = await self._invoke_tool_handler(
+                state,
+                spec,
                 action_id,
-                state.opaque_target_id,
                 invocation_parameters,
             )
+        except TimeoutError as exc:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_TIMEOUT,
+                f"tool execution timed out for {tool_name}",
+                recoverable=False,
+                action_id=action_id,
+            ) from exc
         except Exception as exc:
             raise _HarnessAbort(
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
@@ -1046,6 +1231,7 @@ class InvestigationController:
             or result.action_id != action_id
             or result.target_id != state.opaque_target_id
         ):
+            self._discard_staged_artifacts(state, spec, action_id)
             raise _HarnessAbort(
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool result identifiers do not match invocation for {tool_name}",
@@ -1058,6 +1244,7 @@ class InvestigationController:
                 parameters=result.parameters,
             )
         except (ActionValidationError, ToolPermissionError, UnknownToolError) as exc:
+            self._discard_staged_artifacts(state, spec, action_id)
             raise _HarnessAbort(
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool result validation failed for {tool_name}",
@@ -1065,18 +1252,213 @@ class InvestigationController:
                 action_id=action_id,
             ) from exc
         if result_parameters != validated_parameters:
+            self._discard_staged_artifacts(state, spec, action_id)
             raise _HarnessAbort(
                 HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                 f"tool result parameters do not match invocation for {tool_name}",
                 recoverable=False,
                 action_id=action_id,
             )
+        try:
+            self._promote_staged_artifacts(state, spec, action_id)
+        except Exception as exc:
+            self._discard_staged_artifacts(state, spec, action_id)
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                f"tool artifact publication failed for {tool_name}: {type(exc).__name__}",
+                recoverable=False,
+                action_id=action_id,
+            ) from exc
         return self._commit_result(state, result)
+
+    async def _invoke_tool_handler(
+        self,
+        state: InvestigationState,
+        spec: ScientificToolSpec,
+        action_id: str,
+        invocation_parameters: dict[str, Any],
+    ) -> ScientificToolResult:
+        """Run a synchronous tool behind a deadline and isolate late artifact writes."""
+
+        if spec.execution_isolation == ExecutionIsolation.SUBPROCESS:
+            return await self._invoke_subprocess_tool_handler(
+                state, spec, action_id, invocation_parameters
+            )
+
+        abandoned = Event()
+        stage_root = self._tool_stage_root(state, spec, action_id)
+
+        def invoke() -> ScientificToolResult:
+            try:
+                return spec.handler(
+                    state.run_id,
+                    action_id,
+                    state.opaque_target_id,
+                    invocation_parameters,
+                )
+            finally:
+                if abandoned.is_set():
+                    self._discard_staged_artifacts(state, spec, action_id)
+
+        future = asyncio.get_running_loop().run_in_executor(None, invoke)
+
+        def consume_abandoned_result(done: asyncio.Future[ScientificToolResult]) -> None:
+            if not abandoned.is_set():
+                return
+            if not done.cancelled():
+                done.exception()
+            if stage_root is not None:
+                self._discard_staged_artifacts(state, spec, action_id)
+
+        future.add_done_callback(consume_abandoned_result)
+        try:
+            return await asyncio.wait_for(
+                asyncio.shield(future), timeout=spec.timeout_seconds
+            )
+        except asyncio.CancelledError:
+            abandoned.set()
+            if future.done() and stage_root is not None:
+                self._discard_staged_artifacts(state, spec, action_id)
+            raise
+        except Exception:
+            abandoned.set()
+            if future.done() and stage_root is not None:
+                self._discard_staged_artifacts(state, spec, action_id)
+            raise
+
+    async def _invoke_subprocess_tool_handler(
+        self,
+        state: InvestigationState,
+        spec: ScientificToolSpec,
+        action_id: str,
+        invocation_parameters: dict[str, Any],
+    ) -> ScientificToolResult:
+        context = multiprocessing.get_context("spawn")
+        receiver, sender = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_subprocess_tool_entry,
+            args=(
+                sender,
+                spec.handler,
+                state.run_id,
+                action_id,
+                state.opaque_target_id,
+                invocation_parameters,
+            ),
+            name=f"exoswarm-tool:{spec.name}:{action_id}",
+            daemon=True,
+        )
+        message: tuple[str, Any] | None = None
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + spec.timeout_seconds
+        try:
+            process.start()
+            sender.close()
+            while loop.time() < deadline:
+                if receiver.poll():
+                    message = receiver.recv()
+                    break
+                if not process.is_alive():
+                    break
+                await asyncio.sleep(0.005)
+            if message is None and receiver.poll():
+                message = receiver.recv()
+            if message is None:
+                if process.is_alive():
+                    self._terminate_tool_process(process)
+                    raise TimeoutError(f"subprocess tool deadline reached: {spec.name}")
+                raise _SubprocessToolError(
+                    f"subprocess tool exited without a result: {spec.name}"
+                )
+            while process.is_alive() and loop.time() < deadline:
+                await asyncio.sleep(0.005)
+            if process.is_alive():
+                self._terminate_tool_process(process)
+                raise TimeoutError(f"subprocess tool did not exit by deadline: {spec.name}")
+            process.join()
+            kind, payload = message
+            if kind == "error":
+                raise _SubprocessToolError(
+                    f"subprocess tool failed with {str(payload)[:100]}"
+                )
+            if kind != "result" or not isinstance(payload, ScientificToolResult):
+                raise _SubprocessToolError("subprocess tool returned an invalid envelope")
+            return payload
+        except asyncio.CancelledError:
+            if process.is_alive():
+                self._terminate_tool_process(process)
+            raise
+        finally:
+            receiver.close()
+            sender.close()
+            if process.is_alive():
+                self._terminate_tool_process(process)
+            process.close()
+
+    @staticmethod
+    def _terminate_tool_process(process: multiprocessing.Process) -> None:
+        process.terminate()
+        process.join(timeout=1)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=1)
+
+    def _tool_stage_root(
+        self, state: InvestigationState, spec: ScientificToolSpec, action_id: str
+    ) -> Path | None:
+        if spec.name != "search_bls":
+            return None
+        run_dir = self.artifacts.run_dir(state.opaque_target_id, state.run_id).resolve()
+        return run_dir / ".tool-staging" / action_id
+
+    def _promote_staged_artifacts(
+        self, state: InvestigationState, spec: ScientificToolSpec, action_id: str
+    ) -> None:
+        stage_root = self._tool_stage_root(state, spec, action_id)
+        if stage_root is None:
+            return
+        staged_artifacts = stage_root / "artifacts"
+        if not staged_artifacts.exists():
+            return
+        entries = list(staged_artifacts.iterdir())
+        expected_name = f"{action_id}.candidate-search.json"
+        if any(not item.is_file() or item.name != expected_name for item in entries):
+            raise RuntimeError("candidate tool produced an unexpected staged artifact")
+        destination_dir = (
+            self.artifacts.run_dir(state.opaque_target_id, state.run_id) / "artifacts"
+        )
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        for staged in entries:
+            destination = destination_dir / staged.name
+            if destination.exists():
+                if destination.read_bytes() != staged.read_bytes():
+                    raise RuntimeError("candidate artifact conflicts with durable output")
+                staged.unlink()
+            else:
+                staged.replace(destination)
+        self._discard_staged_artifacts(state, spec, action_id)
+
+    def _discard_staged_artifacts(
+        self, state: InvestigationState, spec: ScientificToolSpec, action_id: str
+    ) -> None:
+        stage_root = self._tool_stage_root(state, spec, action_id)
+        if stage_root is None:
+            return
+        run_dir = self.artifacts.run_dir(state.opaque_target_id, state.run_id).resolve()
+        stage_parent = (run_dir / ".tool-staging").resolve()
+        resolved = stage_root.resolve()
+        if resolved.parent != stage_parent:
+            raise RuntimeError("tool staging path escaped the run boundary")
+        if resolved.exists():
+            shutil.rmtree(resolved, ignore_errors=True)
+        with suppress(OSError):
+            stage_parent.rmdir()
 
     def _runtime_inputs_for_action(
         self,
         state: InvestigationState,
         spec: ScientificToolSpec,
+        action_id: str,
     ) -> dict[str, Any]:
         if spec.runtime_input_schema is None:
             return {}
@@ -1110,10 +1492,11 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=True,
             ) from exc
-        run_dir = self.artifacts.run_dir(state.opaque_target_id, state.run_id)
+        stage_root = self._tool_stage_root(state, spec, action_id)
+        assert stage_root is not None
         return {
             "cached_path": source.cached_path,
-            "artifact_dir": run_dir / "artifacts",
+            "artifact_dir": stage_root / "artifacts",
             "ledger_path": self.artifacts.evidence_path(state),
             "step_id": f"step_{state.step_count:04d}",
             "write_evidence": False,
@@ -1504,7 +1887,9 @@ class InvestigationController:
                         action_id=execution.action_id,
                     )
                 try:
-                    runtime_inputs = self._runtime_inputs_for_action(state, spec)
+                    runtime_inputs = self._runtime_inputs_for_action(
+                        state, spec, execution.action_id
+                    )
                     validated_runtime_inputs = self.registry.validate_runtime_inputs(
                         spec, runtime_inputs
                     )
@@ -1513,13 +1898,19 @@ class InvestigationController:
                         validated_parameters=recovered_parameters,
                         validated_runtime_inputs=validated_runtime_inputs,
                     )
-                    result = await asyncio.to_thread(
-                        spec.handler,
-                        state.run_id,
+                    result = await self._invoke_tool_handler(
+                        state,
+                        spec,
                         execution.action_id,
-                        state.opaque_target_id,
                         invocation_parameters,
                     )
+                except TimeoutError as exc:
+                    raise _HarnessAbort(
+                        HarnessFailureKind.TOOL_TIMEOUT,
+                        f"tool execution timed out while recovering {execution.tool_name}",
+                        recoverable=False,
+                        action_id=execution.action_id,
+                    ) from exc
                 except _HarnessAbort as exc:
                     raise _HarnessAbort(
                         exc.kind,
@@ -1542,6 +1933,9 @@ class InvestigationController:
                     or result.action_id != execution.action_id
                     or result.target_id != state.opaque_target_id
                 ):
+                    self._discard_staged_artifacts(
+                        state, spec, execution.action_id
+                    )
                     raise _HarnessAbort(
                         HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                         "tool result identifiers do not match recovered invocation for "
@@ -1550,8 +1944,22 @@ class InvestigationController:
                         action_id=execution.action_id,
                     )
                 try:
+                    _, result_parameters = self.registry.validate_parameters(
+                        result.tool_name,
+                        parameters=result.parameters,
+                    )
+                    if result_parameters != recovered_parameters:
+                        raise ActionValidationError(
+                            "recovered tool result parameters do not match invocation"
+                        )
+                    self._promote_staged_artifacts(
+                        state, spec, execution.action_id
+                    )
                     self._commit_result(state, result)
-                except (ActionValidationError, ValueError) as exc:
+                except (ActionValidationError, RuntimeError, ValueError) as exc:
+                    self._discard_staged_artifacts(
+                        state, spec, execution.action_id
+                    )
                     raise _HarnessAbort(
                         HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
                         f"tool result validation failed while recovering {execution.tool_name}",
@@ -1735,8 +2143,8 @@ class InvestigationController:
         payload.update(changes)
         payload["updated_at"] = datetime.now(UTC)
         updated = InvestigationState.model_validate(payload)
-        self._states[state.run_id] = updated
         self.artifacts.save_state(updated)
+        self._states[state.run_id] = updated
         return updated
 
     def _emit(
@@ -1748,8 +2156,8 @@ class InvestigationController:
         action_id: str | None = None,
     ) -> None:
         event = self._event(state, event_type, payload, action_id=action_id)
-        self._events[state.run_id].append(event)
         self.artifacts.append_trace(state, event)
+        self._events[state.run_id].append(event)
 
     def _event(
         self,
@@ -1778,6 +2186,9 @@ class InvestigationController:
             "model_call_count": state.model_call_count,
             "tool_call_count": state.tool_call_count,
             "adaptive_experiments_used": state.adaptive_experiments_used,
+            "max_adaptive_cost_units": state.max_adaptive_cost_units,
+            "adaptive_cost_units_used": state.adaptive_cost_units_used,
+            "adaptive_cost_units_remaining": state.adaptive_cost_units_remaining,
             "critic_revision_count": state.critic_revision_count,
             "model_retry_count": state.model_retry_count,
         }

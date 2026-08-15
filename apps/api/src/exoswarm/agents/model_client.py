@@ -8,6 +8,8 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ValidationError
 
+from exoswarm.agents.critic import CRITIC_PROMPT_VERSION
+from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION, safe_repair_feedback
 from exoswarm.domain.errors import (
     InvalidModelOutputError,
     ModelNotConfiguredError,
@@ -109,7 +111,6 @@ class ScriptedInferenceClient:
         validation_error_code: str | None = None,
         fallback_used: bool = False,
     ) -> InferenceAttemptOutcome:
-        del validation_error_code
         started = perf_counter()
         queue = self._responses.get(role)
         self._role_counts[role] += 1
@@ -124,6 +125,17 @@ class ScriptedInferenceClient:
             "run_id": str(getattr(context, "run_id", "unknown")),
             "step_id": str(getattr(context, "step_id", "unknown")),
             "context_version": str(getattr(context, "context_version", "unknown")),
+            "context_fingerprint": str(
+                getattr(context, "context_fingerprint", "0" * 64)
+            ),
+            "prompt_version": (
+                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            ),
+            "validation_error_code": (
+                safe_repair_feedback(validation_error_code).code
+                if attempt_kind == "repair"
+                else None
+            ),
             "fallback_used": fallback_used,
         }
         if not queue:
@@ -210,12 +222,19 @@ class ScriptedInferenceClient:
         decision: BaseModel | None = None,
         error: Exception | None = None,
     ) -> InferenceAttemptOutcome:
-        call = InferenceTraceRecord(
+        trace_payload = {
             **common,
+            "validation_error_code": (
+                validation_error_code
+                if validation_error_code is not None
+                else common.get("validation_error_code")
+            ),
+        }
+        call = InferenceTraceRecord(
+            **trace_payload,
             latency_ms=max(0, round((perf_counter() - started) * 1000)),
             status=status,
             schema_valid=schema_valid,
-            validation_error_code=validation_error_code,
             timeout=timeout,
             provider_error_type=provider_error_type,
             error_type=error_type,

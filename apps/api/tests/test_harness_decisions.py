@@ -30,6 +30,7 @@ def request_policy(tool_name: str, parameters: dict | None = None):
             decision_id=f"decision_{packet.step_id}",
             run_id=packet.run_id,
             step_id=packet.step_id,
+            context_version=packet.context_version,
             hypothesis_under_test="bounded_fixture_alternative",
             requested_experiment=tool_name,
             parameters=parameters or {},
@@ -37,6 +38,9 @@ def request_policy(tool_name: str, parameters: dict | None = None):
             expected_discriminating_result="Exercise deterministic action validation.",
             expected_information_value=InformationValue.MEDIUM,
             priority=Priority.MEDIUM,
+            budget_units_remaining=packet.remaining_budgets.adaptive_cost_units,
+            cost_of_selected_experiment=packet.adaptive_experiment_costs.get(tool_name, 1),
+            why_cost_is_justified="The fixture requests a bounded discriminating action.",
             concise_reason="A concise fixture reason.",
         )
 
@@ -50,6 +54,7 @@ def approve_policy(context, _schema):
         decision_id=f"critic_{packet.step_id}",
         run_id=packet.run_id,
         step_id=packet.step_id,
+        context_version=packet.context_version,
         skeptic_decision_id=packet.proposed_decision.decision_id,
         verdict=CriticVerdict.APPROVE,
         reason_code="FIXTURE_APPROVE",
@@ -64,17 +69,25 @@ async def test_scripted_client_accepts_schema_valid_mapping_and_records_call_met
         opaque_target_id="TARGET-X17",
         step_count=1,
     )
-    context = assemble_context(state, available_experiments=("harmonic_test",))
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
     payload = {
         "decision_id": "decision_mapping",
         "run_id": state.run_id,
         "step_id": "step_0001",
+        "context_version": state.context_version,
         "hypothesis_under_test": "eclipsing_binary",
         "requested_experiment": "harmonic_test",
         "reason_code": "MAPPING_FIXTURE",
         "expected_discriminating_result": "Test a schema-valid queued mapping.",
         "expected_information_value": "medium",
         "priority": "high",
+        "budget_units_remaining": state.adaptive_cost_units_remaining,
+        "cost_of_selected_experiment": 1,
+        "why_cost_is_justified": "The bounded fixture action costs one unit.",
         "concise_reason": "The mapping follows the strict decision schema.",
     }
     client = ScriptedInferenceClient({"skeptic": [payload]}, model_identity="mock:mapping")

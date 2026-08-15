@@ -98,6 +98,7 @@ class SkepticDecision(StrictModel):
     decision_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str = Field(min_length=1)
+    context_version: str = Field(min_length=1)
     hypothesis_under_test: str = Field(min_length=1)
     requested_experiment: str = Field(min_length=1)
     parameters: dict[str, Any] = Field(default_factory=dict)
@@ -107,6 +108,9 @@ class SkepticDecision(StrictModel):
     expected_information_value: InformationValue
     stop_if: str | None = Field(default=None, max_length=300)
     priority: Priority
+    budget_units_remaining: int = Field(ge=0)
+    cost_of_selected_experiment: int = Field(ge=1)
+    why_cost_is_justified: str = Field(min_length=1, max_length=300)
     concise_reason: str = Field(min_length=1, max_length=300)
 
 
@@ -115,6 +119,7 @@ class CriticDecision(StrictModel):
     decision_id: str = Field(min_length=1)
     run_id: str = Field(min_length=1)
     step_id: str = Field(min_length=1)
+    context_version: str = Field(min_length=1)
     skeptic_decision_id: str = Field(min_length=1)
     verdict: CriticVerdict
     reason_code: str = Field(min_length=1)
@@ -126,8 +131,12 @@ class CriticDecision(StrictModel):
     def revision_matches_verdict(self) -> CriticDecision:
         if self.verdict == CriticVerdict.REVISE and not self.revised_experiment:
             raise ValueError("REVISE requires revised_experiment")
-        if self.verdict != CriticVerdict.REVISE and self.revised_experiment is not None:
-            raise ValueError("only REVISE may provide revised_experiment")
+        if self.verdict == CriticVerdict.REVISE and self.revised_parameters is None:
+            raise ValueError("REVISE requires revised_parameters")
+        if self.verdict != CriticVerdict.REVISE and (
+            self.revised_experiment is not None or self.revised_parameters is not None
+        ):
+            raise ValueError("only REVISE may provide revision fields")
         return self
 
 
@@ -139,6 +148,7 @@ class ToolExecutionRecord(StrictModel):
     action_signature: str = Field(min_length=1)
     status: ToolExecutionStatus
     adaptive: bool = False
+    adaptive_cost_units: int = Field(default=0, ge=0)
     agent_decision_id: str | None = None
     critic_decision_id: str | None = None
     result_status: ToolStatus | None = None
@@ -148,6 +158,8 @@ class ToolExecutionRecord(StrictModel):
 
     @model_validator(mode="after")
     def lifecycle_fields_match_status(self) -> ToolExecutionRecord:
+        if not self.adaptive and self.adaptive_cost_units != 0:
+            raise ValueError("non-adaptive execution cannot consume adaptive cost units")
         if self.status == ToolExecutionStatus.PREPARED:
             if any(
                 value is not None
@@ -186,9 +198,11 @@ class InferenceTraceRecord(StrictModel):
     role: Literal["skeptic", "critic"]
     provider: str = Field(min_length=1)
     model_identity: str = Field(min_length=1)
-    output_schema: str | None = Field(default=None, min_length=1)
+    output_schema: str = Field(min_length=1)
     attempt_kind: Literal["primary", "repair"]
     context_version: str = Field(min_length=1)
+    context_fingerprint: str = Field(default="0" * 64, pattern=r"^[0-9a-f]{64}$")
+    prompt_version: str = Field(default="legacy-v1", min_length=1, max_length=100)
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     latency_ms: int | None = Field(default=None, ge=0)
@@ -256,10 +270,13 @@ class InvestigationState(StrictModel):
     model_call_count: int = Field(default=0, ge=0)
     tool_call_count: int = Field(default=0, ge=0)
     adaptive_experiments_used: int = Field(default=0, ge=0)
+    adaptive_cost_units_used: int = Field(default=0, ge=0)
+    adaptive_cost_units_remaining: int = Field(default=4, ge=0)
     critic_revision_count: int = Field(default=0, ge=0)
     model_retry_count: int = Field(default=0, ge=0)
     max_steps: int = Field(default=12, ge=1)
     max_adaptive_experiments: int = Field(default=4, ge=0)
+    max_adaptive_cost_units: int = Field(default=4, ge=0)
     max_model_calls: int = Field(default=16, ge=0)
     max_tool_calls: int = Field(default=8, ge=0)
     max_model_retries: int = Field(default=1, ge=0)
@@ -274,10 +291,29 @@ class InvestigationState(StrictModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
+    @model_validator(mode="before")
+    @classmethod
+    def default_remaining_adaptive_cost(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "adaptive_cost_units_remaining" not in value:
+            payload = dict(value)
+            maximum = payload.get("max_adaptive_cost_units", 4)
+            used = payload.get("adaptive_cost_units_used", 0)
+            payload["adaptive_cost_units_remaining"] = maximum - used
+            return payload
+        return value
+
     @model_validator(mode="after")
     def terminal_state_has_reason(self) -> InvestigationState:
         if self.status in TERMINAL_STATUSES and not self.terminal_reason:
             raise ValueError("terminal investigation status requires terminal_reason")
+        if self.adaptive_cost_units_used > self.max_adaptive_cost_units:
+            raise ValueError("used adaptive cost units cannot exceed the configured maximum")
+        expected_remaining = self.max_adaptive_cost_units - self.adaptive_cost_units_used
+        if self.adaptive_cost_units_remaining != expected_remaining:
+            raise ValueError("remaining adaptive cost units must equal maximum minus used")
+        prepared_cost = sum(item.adaptive_cost_units for item in self.tool_executions)
+        if prepared_cost != self.adaptive_cost_units_used:
+            raise ValueError("adaptive cost units must match durably prepared executions")
         return self
 
 

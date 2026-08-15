@@ -171,6 +171,7 @@ EXOSWARM_RUNS_DIR=./runs
 EXOSWARM_DATA_DIR=./data
 EXOSWARM_MAX_STEPS=12
 EXOSWARM_MAX_ADAPTIVE_EXPERIMENTS=4
+EXOSWARM_MAX_ADAPTIVE_COST_UNITS=4
 ```
 
 Do not put secrets or real credentials in the repository. The public OpenAI-compatible Featherless

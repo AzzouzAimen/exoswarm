@@ -119,11 +119,14 @@ async def test_restart_recovers_ledger_committed_prepared_action_without_reexecu
         action_signature=first._action_signature("harmonic_test", parameters),  # noqa: SLF001
         status=ToolExecutionStatus.PREPARED,
         adaptive=True,
+        adaptive_cost_units=1,
     )
     state = first._replace(  # noqa: SLF001
         state,
         tool_call_count=state.tool_call_count + 1,
         adaptive_experiments_used=state.adaptive_experiments_used + 1,
+        adaptive_cost_units_used=state.adaptive_cost_units_used + 1,
+        adaptive_cost_units_remaining=state.adaptive_cost_units_remaining - 1,
         tool_executions=[*state.tool_executions, execution],
     )
     result = fixture_result(
@@ -159,6 +162,8 @@ async def test_restart_recovers_ledger_committed_prepared_action_without_reexecu
     )
     assert recovered_execution.status == ToolExecutionStatus.COMPLETED
     assert recovered_execution.evidence_ref == record.evidence_id
+    assert recovered.adaptive_cost_units_used == 1
+    assert recovered.adaptive_cost_units_remaining == 3
     assert any(event.type == "recovery.completed" for event in restarted.events(state.run_id))
 
 
@@ -169,6 +174,9 @@ def test_persisted_snapshot_contains_decisions_reviews_invocations_and_budgets(t
     payload = path.read_text(encoding="utf-8")
     assert '"max_model_calls"' in payload
     assert '"max_tool_calls"' in payload
+    assert '"max_adaptive_cost_units"' in payload
+    assert '"adaptive_cost_units_used"' in payload
+    assert '"adaptive_cost_units_remaining"' in payload
     assert '"accepted_decisions"' in payload
     assert '"critic_decisions"' in payload
     assert '"tool_executions"' in payload
@@ -220,11 +228,14 @@ async def test_interrupted_prepared_idempotent_action_is_reexecuted_once(tmp_pat
         action_signature=first._action_signature("harmonic_test", parameters),  # noqa: SLF001
         status=ToolExecutionStatus.PREPARED,
         adaptive=True,
+        adaptive_cost_units=1,
     )
     first._replace(  # noqa: SLF001
         state,
         tool_call_count=state.tool_call_count + 1,
         adaptive_experiments_used=state.adaptive_experiments_used + 1,
+        adaptive_cost_units_used=state.adaptive_cost_units_used + 1,
+        adaptive_cost_units_remaining=state.adaptive_cost_units_remaining - 1,
         tool_executions=[*state.tool_executions, execution],
     )
 
@@ -237,6 +248,8 @@ async def test_interrupted_prepared_idempotent_action_is_reexecuted_once(tmp_pat
         item for item in recovered.tool_executions if item.action_id == execution.action_id
     )
     assert restored_execution.status == ToolExecutionStatus.COMPLETED
+    assert recovered.adaptive_cost_units_used == 1
+    assert recovered.adaptive_cost_units_remaining == 3
     assert len(restarted.evidence(state.run_id)) == 5
 
 

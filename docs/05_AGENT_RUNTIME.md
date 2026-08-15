@@ -99,10 +99,10 @@ why_cost_is_justified: >-
 concise_reason: Nearby-source evidence makes spatial localization the most discriminating unused test.
 ```
 
-The three cost fields are the final-stretch target contract and are not implemented in the current
-scaffold schema. Add them with the state/registry budget implementation, not as prose-only values.
-The controller is authoritative for the actual remaining budget and action cost; reject stale or
-mismatched model values.
+The three cost fields are required by the runtime schema and are validated against durable state
+and the deterministic registry. The controller is authoritative for the actual remaining budget
+and action cost; stale or mismatched model values are rejected before a decision can prepare an
+action.
 
 `expected_information_value` is a decision-quality signal, not a calibrated planet probability.
 

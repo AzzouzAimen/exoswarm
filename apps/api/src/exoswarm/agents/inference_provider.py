@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from secrets import token_hex
 from time import perf_counter
 from typing import Any
@@ -8,17 +7,27 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from exoswarm.agents.context import AgentContextPacket, assert_agent_safe_context
+from exoswarm.agents.critic import CRITIC_PROMPT_VERSION, build_critic_messages
 from exoswarm.agents.model_client import AttemptKind, InferenceAttemptOutcome
+from exoswarm.agents.skeptic import (
+    SKEPTIC_PROMPT_VERSION,
+    build_skeptic_messages,
+    safe_repair_feedback,
+)
 from exoswarm.domain.errors import (
     InvalidModelOutputError,
     ModelProviderError,
     ModelProviderTimeoutError,
 )
-from exoswarm.domain.models import InferenceTraceRecord
+from exoswarm.domain.models import CriticDecision, InferenceTraceRecord, SkepticDecision
 
 FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1"
 FEATHERLESS_PROVIDER = "featherless"
 ALLOWED_ROLES = frozenset({"skeptic", "critic"})
+ROLE_OUTPUT_SCHEMAS: dict[str, type[BaseModel]] = {
+    "skeptic": SkepticDecision,
+    "critic": CriticDecision,
+}
 
 
 def _attribute(value: Any, name: str, default: Any = None) -> Any:
@@ -104,6 +113,10 @@ class FeatherlessInferenceClient:
         if role not in ALLOWED_ROLES:
             raise ValueError(f"Featherless inference role is not allowed: {role}")
         packet = AgentContextPacket.model_validate(context, strict=True)
+        if packet.role != role:
+            raise ValueError("inference role does not match the sanitized context role")
+        if output_schema is not ROLE_OUTPUT_SCHEMAS[role]:
+            raise ValueError("requested output schema is not allowed for the inference role")
         assert_agent_safe_context(packet)
         call_id = f"call_{token_hex(12)}"
         common = {
@@ -115,6 +128,11 @@ class FeatherlessInferenceClient:
             "model_identity": self.model_identity,
             "attempt_kind": attempt_kind,
             "context_version": packet.context_version,
+            "context_fingerprint": packet.context_fingerprint,
+            "prompt_version": (
+                SKEPTIC_PROMPT_VERSION if role == "skeptic" else CRITIC_PROMPT_VERSION
+            ),
+            "output_schema": output_schema.__name__,
             "fallback_used": fallback_used,
         }
         messages = self._messages(
@@ -202,31 +220,17 @@ class FeatherlessInferenceClient:
         attempt_kind: AttemptKind,
         validation_error_code: str | None,
     ) -> list[dict[str, str]]:
-        repair = ""
-        if attempt_kind == "repair":
-            repair = (
-                " This is the single repair attempt. The previous response failed validation "
-                f"with code {validation_error_code or 'INVALID_MODEL_OUTPUT'}."
-            )
-        system = (
-            f"You are the ExoSwarm {role}. Select or review only bounded scientific actions. "
-            "Deterministic Python is authoritative for every measurement and action. "
-            "Return exactly one JSON object matching the supplied schema, with no markdown, "
-            "commentary, hidden reasoning, or additional keys." + repair
+        feedback = (
+            safe_repair_feedback(validation_error_code) if attempt_kind == "repair" else None
         )
-        user_payload = {
-            "objective": (
-                "Select the most discriminating allowed experiment."
-                if role == "skeptic"
-                else "Review the Skeptic proposal with APPROVE, REVISE, or VETO."
-            ),
-            "context": context.model_dump(mode="json"),
-            "output_schema": output_schema.model_json_schema(),
-        }
-        return [
-            {"role": "system", "content": system},
-            {
-                "role": "user",
-                "content": json.dumps(user_payload, separators=(",", ":"), sort_keys=True),
-            },
-        ]
+        if role == "skeptic":
+            return build_skeptic_messages(
+                context=context,
+                output_schema=output_schema,
+                repair_feedback=feedback,
+            )
+        return build_critic_messages(
+            context=context,
+            output_schema=output_schema,
+            repair_feedback=feedback,
+        )
