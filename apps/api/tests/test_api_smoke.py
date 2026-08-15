@@ -1,13 +1,24 @@
+import asyncio
 import json
 import time
 
 from fastapi.testclient import TestClient
-from harness_support import make_controller, make_registry, policy_client
+from harness_support import (
+    critic_policy,
+    make_controller,
+    make_registry,
+    policy_client,
+    seed_baseline,
+    skeptic_policy,
+)
 
 from exoswarm.agents.inference_provider import FeatherlessInferenceClient
+from exoswarm.agents.model_client import ScriptedInferenceClient
 from exoswarm.api.app import create_app
 from exoswarm.config import Settings
 from exoswarm.security.blinding import FORBIDDEN_AGENT_FIELDS
+from exoswarm.security.catalog_gate import CatalogGate
+from exoswarm.services.nasa_reveal import CachedCatalogRevealProvider
 from exoswarm.services.target_registry import TargetRegistry
 
 
@@ -139,3 +150,80 @@ def test_app_composes_live_inference_only_when_configured(tmp_path, monkeypatch)
     injected = policy_client()
     explicit = create_app(settings, inference=injected)
     assert explicit.state.controller.inference is injected
+
+
+def test_api_artifacts_reveal_success_and_tampered_hash_failure(tmp_path) -> None:
+    settings = Settings(runs_dir=tmp_path / "runs", data_dir=tmp_path / "data")
+    catalog_path = settings.data_dir / "ground_truth/catalog_reveal.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "targets": [
+                    {
+                        "opaque_target_id": "TARGET-X17",
+                        "target_name": "Backend-only fixture identity",
+                        "tic_id": "123456789",
+                        "catalog_disposition": "TEST_FIXTURE",
+                        "catalog_source": "NASA Exoplanet Archive test fixture",
+                        "catalog_source_url": "https://exoplanetarchive.ipac.caltech.edu/",
+                        "known_values": {"period_days": 3.2},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient(
+            {
+                "skeptic": [skeptic_policy, skeptic_policy],
+                "critic": [critic_policy, critic_policy],
+            }
+        ),
+        make_registry("clean"),
+    )
+    controller.catalog_gate = CatalogGate(
+        controller.artifacts, CachedCatalogRevealProvider(catalog_path)
+    )
+    ready_runs = []
+    for _ in range(2):
+        state = controller.create("TARGET-X17")
+        seed_baseline(controller, state.run_id, "clean")
+        ready_runs.append(asyncio.run(controller.advance(state.run_id)).run_id)
+
+    targets = TargetRegistry(
+        settings.data_dir / "targets/source_manifest.json",
+        data_dir=settings.data_dir,
+    )
+    with TestClient(
+        create_app(settings, controller=controller, target_registry=targets)
+    ) as client:
+        successful_run, tampered_run = ready_runs
+        artifacts_before_lock = client.get(
+            f"/api/investigations/{successful_run}/artifacts"
+        )
+        assert artifacts_before_lock.status_code == 200
+        listed = artifacts_before_lock.json()["artifacts"]
+        assert listed
+        assert {item["relative_path"] for item in listed}.issuperset(
+            {"evidence.jsonl", "trace.jsonl", "inference_summary.json"}
+        )
+        assert str(tmp_path) not in artifacts_before_lock.text
+
+        locked = client.post(f"/api/investigations/{successful_run}/lock")
+        assert locked.status_code == 200
+        revealed = client.post(f"/api/investigations/{successful_run}/reveal")
+        assert revealed.status_code == 200
+        assert revealed.json()["locked_result_sha256"] == locked.json()["sha256"]
+
+        tampered_lock = client.post(f"/api/investigations/{tampered_run}/lock")
+        assert tampered_lock.status_code == 200
+        tampered_state = controller.get(tampered_run)
+        controller.artifacts.write_bytes(tampered_state, "result.json", b"{}")
+        rejected = client.post(f"/api/investigations/{tampered_run}/reveal")
+        assert rejected.status_code == 403
+        assert rejected.json()["code"] == "RESULT_NOT_LOCKED"
+        assert "hash verification failed" in rejected.json()["message"]

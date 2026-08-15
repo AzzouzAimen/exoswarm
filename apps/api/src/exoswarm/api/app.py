@@ -27,7 +27,7 @@ from exoswarm.investigation.tool_registry import ScientificToolRegistry
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
-from exoswarm.services.nasa_reveal import UnconfiguredCatalogRevealProvider
+from exoswarm.services.nasa_reveal import CachedCatalogRevealProvider
 from exoswarm.services.target_registry import (
     TargetMappingNotFoundError,
     TargetRegistry,
@@ -65,7 +65,12 @@ def create_app(
             settings=runtime_settings,
             artifacts=artifacts,
             result_lock=ResultLockService(artifacts),
-            catalog_gate=CatalogGate(artifacts, UnconfiguredCatalogRevealProvider()),
+            catalog_gate=CatalogGate(
+                artifacts,
+                CachedCatalogRevealProvider(
+                    runtime_settings.data_dir / "ground_truth/catalog_reveal.json"
+                ),
+            ),
             inference=runtime_inference,
             fallback_inference=fallback_inference,
             registry=science_registry,

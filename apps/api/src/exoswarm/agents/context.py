@@ -164,6 +164,8 @@ class CompactEvidence(_FrozenPacket):
     status: str
     measurements: dict[str, ContextMeasurement]
     interpretation_code: str | None
+    failure_reason_code: str | None = None
+    suggested_alternatives: tuple[str, ...] = ()
     method: str
     code_version: str
 
@@ -338,7 +340,16 @@ def build_experiment_options(
     return tuple(options)
 
 
-def _compact_evidence(record: EvidenceRecord) -> CompactEvidence:
+def _compact_evidence(
+    record: EvidenceRecord, available_actions: frozenset[str]
+) -> CompactEvidence:
+    failure_reason_code = None
+    if str(record.tool_status) == "PRECONDITION_FAILED":
+        candidate = record.result.diagnostics.get("reason_code")
+        if isinstance(candidate, str) and re.fullmatch(r"[A-Z0-9_]{1,80}", candidate):
+            failure_reason_code = candidate
+        else:
+            failure_reason_code = "PRECONDITION_FAILED"
     return CompactEvidence(
         evidence_id=record.evidence_id,
         tool_name=record.tool_name,
@@ -348,6 +359,14 @@ def _compact_evidence(record: EvidenceRecord) -> CompactEvidence:
             for name, measurement in sorted(record.result.measurements.items())
         },
         interpretation_code=record.interpretation_code,
+        failure_reason_code=failure_reason_code,
+        suggested_alternatives=tuple(
+            dict.fromkeys(
+                alternative
+                for alternative in record.result.suggested_alternatives
+                if alternative in available_actions
+            )
+        ),
         method=record.result.method,
         code_version=record.result.provenance.code_version,
     )
@@ -508,7 +527,9 @@ def assemble_context(
     def payload_for(
         selected: Sequence[EvidenceRecord], hypotheses: Sequence[str]
     ) -> dict[str, Any]:
-        compact = tuple(_compact_evidence(record) for record in selected)
+        compact = tuple(
+            _compact_evidence(record, frozenset(available_names)) for record in selected
+        )
         selected_refs = tuple(record.evidence_id for record in selected)
         return {
             "role": role,

@@ -14,7 +14,9 @@ from harness_support import (
     seed_baseline,
     skeptic_policy,
 )
+from pydantic import BaseModel
 
+from exoswarm.agents.context import AgentContextPacket
 from exoswarm.agents.model_client import ScriptedInferenceClient
 from exoswarm.domain.enums import (
     CriticVerdict,
@@ -156,17 +158,47 @@ async def test_model_timeout_retries_once_then_recovers(tmp_path) -> None:
 async def test_scientific_precondition_and_tool_infrastructure_failures_are_distinct(
     tmp_path,
 ) -> None:
+    def alternate_after_precondition(
+        context: BaseModel, schema: type[BaseModel]
+    ):
+        packet = AgentContextPacket.model_validate(context)
+        latest = packet.recent_evidence[-1]
+        assert latest.failure_reason_code == "PRECONDITION_FAILED"
+        assert latest.suggested_alternatives == ("alternate_detrend",)
+        return skeptic_policy(context, schema).model_copy(
+            update={
+                "requested_experiment": "alternate_detrend",
+                "parameters": {"window_days": 1.5},
+                "cost_of_selected_experiment": 1,
+            }
+        )
+
     precondition = make_controller(
         tmp_path / "precondition",
-        policy_client(),
-        make_registry("eclipsing_binary", adaptive_status=ToolStatus.PRECONDITION_FAILED),
+        ScriptedInferenceClient(
+            {
+                "skeptic": [skeptic_policy, alternate_after_precondition],
+                "critic": [critic_policy, critic_policy],
+            }
+        ),
+        make_registry(
+            "eclipsing_binary",
+            adaptive_statuses={"harmonic_test": ToolStatus.PRECONDITION_FAILED},
+            adaptive_alternatives={"harmonic_test": ["alternate_detrend"]},
+        ),
     )
     state = precondition.create("TARGET-X17")
     seed_baseline(precondition, state.run_id, "eclipsing_binary")
     state = await precondition.advance(state.run_id)
-    assert state.status == InvestigationStatus.INSUFFICIENT_EVIDENCE
+    assert state.status == InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT
     assert state.failures[-1].kind == HarnessFailureKind.PRECONDITION_FAILED
     assert precondition.evidence(state.run_id)[-1].tool_status == ToolStatus.PRECONDITION_FAILED
+    state = await precondition.advance(state.run_id)
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    assert [item.tool_name for item in state.tool_executions if item.adaptive] == [
+        "harmonic_test",
+        "alternate_detrend",
+    ]
 
     infrastructure = make_controller(
         tmp_path / "infrastructure",
@@ -184,6 +216,114 @@ async def test_scientific_precondition_and_tool_infrastructure_failures_are_dist
         == HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE
     )
     assert "RuntimeError" in (failed.tool_executions[-1].failure_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_two_adaptive_experiments_rebuild_context_and_branch_on_new_evidence(
+    tmp_path,
+) -> None:
+    def alternate_after_harmonic(context: BaseModel, schema: type[BaseModel]):
+        packet = AgentContextPacket.model_validate(context)
+        assert packet.step_id == "step_0002"
+        assert any(item.tool_name == "harmonic_test" for item in packet.recent_evidence)
+        return skeptic_policy(context, schema).model_copy(
+            update={
+                "requested_experiment": "alternate_detrend",
+                "parameters": {"window_days": 1.5},
+                "cost_of_selected_experiment": 1,
+            }
+        )
+
+    client = ScriptedInferenceClient(
+        {
+            "skeptic": [skeptic_policy, alternate_after_harmonic],
+            "critic": [critic_policy, critic_policy],
+        }
+    )
+    controller = make_controller(
+        tmp_path,
+        client,
+        make_registry(
+            "eclipsing_binary",
+            adaptive_interpretations={
+                "harmonic_test": None,
+                "alternate_detrend": "ODD_EVEN_MISMATCH",
+            },
+        ),
+    )
+    state = controller.create("TARGET-X17")
+    for index, tool_name in enumerate(
+        ("search_bls", "odd_even", "secondary_eclipse", "contamination_screening"),
+        1,
+    ):
+        controller.record_tool_result(
+            state.run_id,
+            fixture_result(
+                tool_name=tool_name,
+                run_id=state.run_id,
+                action_id=f"fixture_multicycle_{index}",
+                target_id=state.opaque_target_id,
+                scenario="eclipsing_binary",
+            ),
+        )
+
+    state = await controller.advance(state.run_id)
+    assert state.status == InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT
+    assert state.adaptive_experiments_used == 1
+
+    state = await controller.advance(state.run_id)
+
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    assert state.disposition == Disposition.PLANETARY_INTERPRETATION_REJECTED
+    assert [item.tool_name for item in state.tool_executions if item.adaptive] == [
+        "harmonic_test",
+        "alternate_detrend",
+    ]
+    assert state.adaptive_cost_units_used == 2
+    assert state.model_call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_skeptic_can_select_explicit_zero_cost_stop(tmp_path) -> None:
+    def stop_policy(context: BaseModel, schema: type[BaseModel]):
+        return skeptic_policy(context, schema).model_copy(
+            update={
+                "requested_experiment": "stop",
+                "parameters": {},
+                "cost_of_selected_experiment": 0,
+                "reason_code": "NO_ADDITIONAL_INFORMATION_VALUE",
+            }
+        )
+
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient(
+            {"skeptic": [stop_policy], "critic": [critic_policy]}
+        ),
+        make_registry("eclipsing_binary"),
+    )
+    state = controller.create("TARGET-X17")
+    for index, tool_name in enumerate(
+        ("search_bls", "odd_even", "secondary_eclipse", "contamination_screening"),
+        1,
+    ):
+        controller.record_tool_result(
+            state.run_id,
+            fixture_result(
+                tool_name=tool_name,
+                run_id=state.run_id,
+                action_id=f"fixture_stop_{index}",
+                target_id=state.opaque_target_id,
+                scenario="eclipsing_binary",
+            ),
+        )
+
+    state = await controller.advance(state.run_id)
+
+    assert state.status == InvestigationStatus.READY_TO_LOCK
+    assert state.terminal_reason == "AGENT_STOP:NO_ADDITIONAL_INFORMATION_VALUE"
+    assert state.adaptive_experiments_used == 0
+    assert not [item for item in state.tool_executions if item.adaptive]
 
 
 @pytest.mark.asyncio

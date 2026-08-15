@@ -76,8 +76,25 @@ def test_skeptic_and_critic_receive_distinct_operational_instructions() -> None:
         "discriminate",
     ):
         assert required_check in critic[0]["content"]
-    assert json.loads(skeptic[1]["content"])["prompt_version"] == SKEPTIC_PROMPT_VERSION
-    assert json.loads(critic[1]["content"])["prompt_version"] == CRITIC_PROMPT_VERSION
+    skeptic_payload = json.loads(skeptic[1]["content"])
+    critic_payload = json.loads(critic[1]["content"])
+    assert skeptic_payload["prompt_version"] == SKEPTIC_PROMPT_VERSION
+    assert critic_payload["prompt_version"] == CRITIC_PROMPT_VERSION
+    assert skeptic_payload["exact_output_bindings"] == {
+        "run_id": skeptic_context.run_id,
+        "step_id": skeptic_context.step_id,
+        "context_version": skeptic_context.context_version,
+    }
+    assert critic_payload["exact_output_bindings"] == {
+        "run_id": critic_context.run_id,
+        "step_id": critic_context.step_id,
+        "context_version": critic_context.context_version,
+        "skeptic_decision_id": critic_context.proposed_decision.decision_id,
+    }
+    assert "byte-for-byte" in skeptic[0]["content"]
+    assert "byte-for-byte" in critic[0]["content"]
+    assert "why_cost_is_justified and concise_reason" in skeptic[0]["content"]
+    assert "concise_reason at or below 300 characters" in critic[0]["content"]
 
 
 def test_repair_message_uses_only_bounded_safe_feedback() -> None:

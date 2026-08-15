@@ -1,14 +1,31 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import mimetypes
 import re
 from pathlib import Path
 
 from exoswarm.domain.events import InvestigationEvent
-from exoswarm.domain.models import EvidenceRecord, InferenceSummary, InvestigationState
+from exoswarm.domain.models import (
+    ArtifactMetadata,
+    EvidenceRecord,
+    InferenceSummary,
+    InvestigationState,
+)
 from exoswarm.investigation.evidence import JsonlEvidenceLedger
 
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_-]+$")
+_PUBLIC_ROOT_ARTIFACTS = frozenset(
+    {
+        "evidence.jsonl",
+        "inference_summary.json",
+        "result.json",
+        "result.json.sha256",
+        "reveal.json",
+        "trace.jsonl",
+    }
+)
 
 
 def _validate_component(value: str) -> str:
@@ -100,6 +117,48 @@ class FileSystemRunArtifactStore:
             for line in path.read_text(encoding="utf-8").splitlines()
             if line
         ]
+
+    def list_artifacts(self, state: InvestigationState) -> list[ArtifactMetadata]:
+        run_dir = self.run_dir(state.opaque_target_id, state.run_id).resolve()
+        science_dir = (run_dir / "artifacts").resolve()
+        metadata: list[ArtifactMetadata] = []
+        for path in sorted(run_dir.rglob("*")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            resolved = path.resolve()
+            try:
+                relative = resolved.relative_to(run_dir)
+            except ValueError:
+                continue
+            if len(relative.parts) == 1:
+                if relative.name not in _PUBLIC_ROOT_ARTIFACTS:
+                    continue
+                kind = "authority" if relative.name in {
+                    "result.json",
+                    "result.json.sha256",
+                    "reveal.json",
+                } else "audit"
+            elif resolved.is_relative_to(science_dir):
+                kind = "science"
+            else:
+                continue
+            relative_path = relative.as_posix()
+            content = resolved.read_bytes()
+            digest = hashlib.sha256(content).hexdigest()
+            media_type = mimetypes.guess_type(relative.name)[0] or "application/octet-stream"
+            if relative.suffix == ".jsonl":
+                media_type = "application/x-ndjson"
+            metadata.append(
+                ArtifactMetadata(
+                    artifact_id=f"artifact_{hashlib.sha256(relative_path.encode()).hexdigest()[:16]}",
+                    relative_path=relative_path,
+                    kind=kind,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    sha256=digest,
+                )
+            )
+        return metadata
 
     @staticmethod
     def _write_json_atomic(path: Path, payload: object) -> None:

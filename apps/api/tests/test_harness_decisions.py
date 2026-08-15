@@ -20,7 +20,9 @@ from exoswarm.domain.enums import (
 )
 from exoswarm.domain.errors import ModelProviderError, ModelProviderTimeoutError
 from exoswarm.domain.models import CriticDecision, InvestigationState, SkepticDecision
+from exoswarm.investigation.mandatory import MANDATORY_TESTS
 from exoswarm.investigation.state import validate_status_transition
+from exoswarm.investigation.tool_registry import scaffold_tool_registry
 
 
 def request_policy(tool_name: str, parameters: dict | None = None):
@@ -45,6 +47,22 @@ def request_policy(tool_name: str, parameters: dict | None = None):
         )
 
     return decide
+
+
+def test_production_availability_excludes_unimplemented_centroid(tmp_path) -> None:
+    controller = make_controller(
+        tmp_path,
+        ScriptedInferenceClient({}),
+        scaffold_tool_registry(),
+    )
+    state = controller.create("TARGET-X17")
+    state = controller._replace(state, completed_tests=sorted(MANDATORY_TESTS))
+
+    available = controller._available_adaptive_actions(state)
+
+    assert "harmonic_test" in available
+    assert "stop" in available
+    assert "centroid_localization" not in available
 
 
 def approve_policy(context, _schema):

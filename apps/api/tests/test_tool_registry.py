@@ -45,9 +45,7 @@ def test_every_production_tool_has_an_explicit_strict_parameter_schema() -> None
 
     assert all(spec.parameter_schema is not None for spec in registry.specs)
     for tool_name in {
-        "load_cached_lightcurve",
-        "load_cached_tpf",
-        "measure_transit",
+        "search_bls",
         "odd_even",
         "secondary_eclipse",
         "harmonic_test",
@@ -60,6 +58,13 @@ def test_every_production_tool_has_an_explicit_strict_parameter_schema() -> None
                 parameters={"unexpected": True},
                 granted_scopes={"science:execute"},
             )
+
+    assert not {
+        "load_cached_lightcurve",
+        "load_cached_tpf",
+        "preprocess",
+        "measure_transit",
+    }.intersection(registry.names)
 
 
 @pytest.mark.parametrize(

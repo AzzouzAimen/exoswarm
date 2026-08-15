@@ -97,9 +97,11 @@ real provider canary is credential-gated and never runs as part of ordinary offl
 
 ## Final-stretch delta
 
-The submission inference path is implemented. Next work should exercise the credential-gated live
-canary, connect the mission-control UI to real SSE/state, add a contrasting cached target, and build
-trajectory evaluations. The deterministic controller remains the Scientific Director authority.
+The submission backend path is implemented and verified by the credential-gated 20-decision
+canary, a live agent-involving FastAPI/SSE gate, the three-target cached regression, and the locked
+24-scenario harness suite. The deterministic controller remains the Scientific Director authority.
+The remaining product work is mission-control UI integration and the separately gated pixel/centroid
+P1 path.
 
 Adaptive limits enforce both an experiment-count ceiling and deterministic cost units. Registry
 specifications own action prices; durable state records configured, used, and remaining cost units;
@@ -107,6 +109,10 @@ and each `SkepticDecision` declares its observed remaining budget, selected cost
 justification. The controller validates those declarations, applies a Critic revision's actual
 registry price, and consumes units only in the durable `PREPARED` checkpoint. Recovery reuses that
 checkpoint without charging again, and no-affordable-action termination is explicit.
+An explicit zero-cost STOP is model-selectable while other valid adaptive actions remain. A
+non-decisive adaptive result can start another bounded decision cycle with rebuilt durable context.
+Adaptive `PRECONDITION_FAILED` evidence is retained and replanned with only sanitized registered
+alternatives. Unimplemented or target-unsupported actions are omitted before inference.
 
 Skeptic and Critic decisions are also bound to the packet context version as well as run and step
 identifiers. Controller-local advances are single-writer, provider calls have enforced deadlines,
@@ -115,7 +121,6 @@ to per-action staging and publish artifacts only after an on-time, validated res
 cancelled work is terminated and its staging is discarded. Stale responses cannot prepare or
 execute an action.
 
-Do not expand this milestone into more model roles until the live Skeptic/Critic path and its
-failure policy pass. Afterward, an Observer or Signal role is a valid P1 addition only when a test
-shows that its bounded decision changes the scientific trajectory. Multi-model routing,
-fixed-policy ablation, and `pass^3` remain out of scope.
+Do not expand this milestone into more model roles. An Observer or Signal role is a valid P1
+addition only when a test shows that its bounded decision changes the scientific trajectory.
+Multi-model routing, fixed-policy ablation, and `pass^3` remain out of scope.

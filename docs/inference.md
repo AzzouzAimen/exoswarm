@@ -26,6 +26,11 @@ retries, and an optional explicitly injected fallback. Every attempt emits a san
 `inference.attempt` record; terminal runs derive and persist `inference_summary.json`. A blank API
 key means unconfigured rather than attempting a broken client startup.
 
+DeepSeek V4 requests explicitly disable thinking with
+`chat_template_kwargs={"thinking": false}` and request JSON mode with
+`response_format={"type":"json_object"}`. The configured output ceiling is 16,000 tokens; a
+provider `finish_reason=length` is classified as `OUTPUT_TRUNCATED`, not generic invalid output.
+
 ## Call policy
 
 The controller may call the model only with:
@@ -73,9 +78,11 @@ context_version: "..."
 input_tokens: <integer|null>
 output_tokens: <integer|null>
 latency_ms: <integer>
-status: SUCCESS | INVALID | TIMEOUT | PROVIDER_ERROR
+status: SUCCESS | INVALID | OUTPUT_TRUNCATED | TIMEOUT | PROVIDER_ERROR
 schema_valid: true
 validation_error_code: null
+finish_reason: stop | length | null
+error_type: <safe schema error type and field|null>
 fallback_used: false
 ```
 
@@ -108,9 +115,13 @@ concise summary at run completion and expose the same data to the API/UI so the 
 
 ## Provider canary and acceptance
 
-Before enabling the provider in the judged path, run the credential-gated real canary repeatedly
-(target: 20
-calls if time/provider budget allows) against safe fixed contexts. Accept the integration when:
+Run the credential-gated canary against safe fixed contexts with:
+
+```bash
+uv run --project apps/api python scripts/run_featherless_canary.py --repeats 10 --output evals/featherless_canary.json
+```
+
+This produces 20 decisions across five evidence states. Accept the integration when:
 
 - model identity and usage/latency metadata are captured where available,
 - every response is validated before state mutation,
@@ -119,4 +130,8 @@ calls if time/provider budget allows) against safe fixed contexts. Accept the in
 - no secret, target identity, catalog truth, local path, or raw sample reaches the request,
 - a scripted/offline fallback keeps the failure path demonstrable without being mislabeled live.
 
-The canary results are integration evidence, not a scientific accuracy claim.
+The 2026-08-15 acceptance run recorded 20/20 first-attempt schema and semantic successes, zero
+repairs, zero provider errors/timeouts, and zero raw light-curve samples sent. The canary results
+are integration evidence, not a scientific accuracy claim. The
+separate `scripts/run_live_backend_gate.py` command exercises a cached scientific target through
+FastAPI, SSE, live agents, locking, artifact listing, and hash-verified reveal.

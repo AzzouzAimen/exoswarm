@@ -99,7 +99,12 @@ Examples:
 - investigation orchestration -> `orchestrate-investigation`
 - mission-control frontend -> `build-mission-control-ui`
 - cross-layer verification -> `verify-integration`
-- bug diagnosis -> `debug-systematically`
+- bug diagnosis -> `debugging-wizard`
+- Harbor eval tasks, benchmark cases, or verifier design -> `eval-engineering`
+- prompt design or structured model-output schemas -> `prompt-engineer`
+- Python typing, async patterns, robust errors, or Python test tooling -> `python-pro`
+- LangGraph code -> `langgraph-fundamentals`
+- devil's-advocate review, pre-mortem, or red-team analysis -> `the-fool`
 - demo reliability after core works -> `harden-demo`
 - broad feature with no narrower owner -> `implement-feature`
 - agent evals -> `evaluate-agent-system`

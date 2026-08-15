@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from exoswarm.agents.context import AgentContextPacket
 
-SKEPTIC_PROMPT_VERSION = "skeptic-decision-v1"
+SKEPTIC_PROMPT_VERSION = "skeptic-decision-v3"
 
 RepairCategory = Literal[
     "structure",
@@ -21,6 +21,7 @@ RepairCategory = Literal[
 
 _SAFE_REPAIR_CODES: dict[str, RepairCategory] = {
     "INVALID_MODEL_OUTPUT": "structure",
+    "OUTPUT_TRUNCATED": "structure",
     "UNKNOWN_ACTION": "action",
     "UNAVAILABLE_ACTION": "action",
     "MALFORMED_PARAMETERS": "parameters",
@@ -36,6 +37,7 @@ class SafeRepairFeedback(BaseModel):
 
     code: Literal[
         "INVALID_MODEL_OUTPUT",
+        "OUTPUT_TRUNCATED",
         "UNKNOWN_ACTION",
         "UNAVAILABLE_ACTION",
         "MALFORMED_PARAMETERS",
@@ -73,7 +75,10 @@ def build_skeptic_messages(
         "directly discriminates it from the planetary hypothesis. Use only supplied evidence "
         "and experiment metadata. Deterministic Python owns measurements, costs, permissions, "
         "and execution. Never calculate or invent measurements. Return one JSON object exactly "
-        "matching the schema: no markdown, extra keys, hidden reasoning, or confidence percent."
+        "matching the schema: no markdown, extra keys, hidden reasoning, or confidence percent. "
+        "Keep why_cost_is_justified and concise_reason at or below 300 characters each. "
+        "Copy every exact_output_binding into the same-named output field byte-for-byte. Do not "
+        "substitute context_schema_version, provenance_version, or prompt_version for any binding."
     )
     if repair_feedback is not None:
         system += " This is the single repair attempt; use only the bounded repair feedback."
@@ -83,6 +88,11 @@ def build_skeptic_messages(
             "select_only_when": "availability_reason is null and already_executed is false",
             "rank_by": "discrimination of strongest_unresolved_alternative per deterministic cost",
             "reasoning_output": "concise_reason and bounded reason fields only",
+        },
+        "exact_output_bindings": {
+            "run_id": context.run_id,
+            "step_id": context.step_id,
+            "context_version": context.context_version,
         },
         "context": context.model_dump(mode="json"),
         "output_schema": output_schema.model_json_schema(),

@@ -51,6 +51,8 @@ class ScientificToolSpec:
     mandatory_test: str | None = None
     adaptive: bool = False
     cost_units: int = 0
+    implemented: bool = True
+    required_target_capabilities: frozenset[str] = frozenset()
     required_completed_tests: frozenset[str] = frozenset()
     order: int = 100
 

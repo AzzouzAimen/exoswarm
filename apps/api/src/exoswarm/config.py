@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         ),
     )
     inference_timeout_seconds: float = Field(default=30.0, gt=0)
-    inference_max_output_tokens: int = Field(default=900, ge=1)
+    inference_max_output_tokens: int = Field(default=16_000, ge=1)
     agent_fallback_enabled: bool = False
     runs_dir: Path = Path("runs")
     data_dir: Path = Path("data")
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     max_adaptive_cost_units: int = Field(default=4, ge=0)
     max_model_calls: int = Field(default=16, ge=0)
     max_tool_calls: int = Field(default=8, ge=0)
-    max_model_retries: int = Field(default=1, ge=0)
+    max_model_retries: int = Field(default=3, ge=0)
     max_critic_revisions: int = Field(default=1, ge=0)
     run_timeout_seconds: float = Field(default=300.0, gt=0)
     sse_poll_interval_seconds: float = Field(default=0.05, gt=0, le=5)

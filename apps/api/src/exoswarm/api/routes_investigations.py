@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from exoswarm.api.dependencies import get_controller
 from exoswarm.api.sse import encode_sse
-from exoswarm.domain.models import InvestigationState, LockReceipt, RevealResult
+from exoswarm.domain.models import ArtifactMetadata, InvestigationState, LockReceipt, RevealResult
 from exoswarm.investigation.controller import InvestigationController
 from exoswarm.investigation.runner import InvestigationRunService, RunExecutionSnapshot
 from exoswarm.security.blinding import agent_safe_state
@@ -49,6 +49,12 @@ class CreateInvestigationResponse(BaseModel):
     lock_state: str
     event_stream_url: str
     execution: RunExecutionSnapshot
+
+
+class ArtifactListResponse(BaseModel):
+    run_id: str
+    opaque_target_id: str
+    artifacts: list[ArtifactMetadata]
 
 
 def _runner(request: Request) -> InvestigationRunService:
@@ -161,7 +167,13 @@ def reveal_investigation(run_id: str, controller: Controller) -> RevealResult:
     return controller.reveal(run_id)
 
 
-@router.get("/investigations/{run_id}/artifacts")
-def artifact_metadata(run_id: str, controller: Controller) -> dict[str, object]:
+@router.get("/investigations/{run_id}/artifacts", response_model=ArtifactListResponse)
+def artifact_metadata(run_id: str, controller: Controller) -> ArtifactListResponse:
     state: InvestigationState = controller.get(run_id)
-    return {"run_id": run_id, "opaque_target_id": state.opaque_target_id, "artifacts": []}
+    payload = ArtifactListResponse(
+        run_id=run_id,
+        opaque_target_id=state.opaque_target_id,
+        artifacts=controller.artifacts.list_artifacts(state),
+    )
+    _assert_public_payload(payload.model_dump(mode="json"))
+    return payload

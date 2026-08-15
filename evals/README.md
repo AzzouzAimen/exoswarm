@@ -20,9 +20,13 @@ The real Featherless canary is a separate, opt-in command and never participates
 
 ```console
 $env:FEATHERLESS_API_KEY = "..."
-uv run --project apps/api --extra agents python scripts/run_featherless_canary.py --repeats 10
+uv run --project apps/api --extra agents python scripts/run_featherless_canary.py --repeats 10 --output evals/featherless_canary.json
 ```
 
 Each repeat checks both the Skeptic and Critic schemas (20 primary decisions at the default), makes
 at most one repair after an invalid response, and reports measured validity, repairs, usage, and
 latency. Without `FEATHERLESS_API_KEY` it exits successfully with an explicit `SKIPPED` report.
+
+After that canary passes, `scripts/run_live_backend_gate.py` runs TARGET-P21 with live Featherless
+through FastAPI and SSE, then verifies artifacts, lock, and reveal. Its sanitized summary is written
+to `evals/live_backend_gate.json`.

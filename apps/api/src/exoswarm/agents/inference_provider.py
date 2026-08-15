@@ -16,6 +16,7 @@ from exoswarm.agents.skeptic import (
 )
 from exoswarm.domain.errors import (
     InvalidModelOutputError,
+    ModelOutputTruncatedError,
     ModelProviderError,
     ModelProviderTimeoutError,
 )
@@ -149,6 +150,8 @@ class FeatherlessInferenceClient:
                 messages=messages,
                 temperature=0,
                 max_tokens=self.max_output_tokens,
+                response_format={"type": "json_object"},
+                extra_body={"chat_template_kwargs": {"thinking": False}},
             )
         except Exception as exc:  # SDK types vary across injected and installed transports.
             latency_ms = max(0, round((perf_counter() - started) * 1000))
@@ -180,14 +183,41 @@ class FeatherlessInferenceClient:
         usage = _attribute(response, "usage")
         input_tokens = _attribute(usage, "prompt_tokens") if usage is not None else None
         output_tokens = _attribute(usage, "completion_tokens") if usage is not None else None
+        choices = _attribute(response, "choices", [])
+        finish_reason = None
+        if choices:
+            candidate_finish_reason = _attribute(choices[0], "finish_reason")
+            if candidate_finish_reason is not None:
+                finish_reason = str(candidate_finish_reason)[:100]
+        if finish_reason == "length":
+            error = ModelOutputTruncatedError(
+                f"Featherless {role} response reached the configured output-token limit"
+            )
+            call = InferenceTraceRecord(
+                **common,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                latency_ms=latency_ms,
+                status="OUTPUT_TRUNCATED",
+                schema_valid=False,
+                validation_error_code=error.code,
+                finish_reason=finish_reason,
+            )
+            return InferenceAttemptOutcome(call=call, error=error)
         try:
-            choices = _attribute(response, "choices", [])
             message = _attribute(choices[0], "message")
             content = _attribute(message, "content")
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("empty completion content")
             decision = output_schema.model_validate_json(content, strict=True)
-        except (IndexError, TypeError, ValueError, ValidationError):
+        except ValidationError as validation_error:
+            first_error = validation_error.errors(
+                include_url=False, include_context=False, include_input=False
+            )[0]
+            location = ".".join(str(part) for part in first_error.get("loc", ()))
+            error_type = str(first_error.get("type", "validation_error"))
+            if location:
+                error_type = f"{error_type}@{location}"
             error = InvalidModelOutputError(
                 f"Featherless {role} response failed {output_schema.__name__} validation"
             )
@@ -199,6 +229,24 @@ class FeatherlessInferenceClient:
                 status="INVALID",
                 schema_valid=False,
                 validation_error_code=error.code,
+                finish_reason=finish_reason,
+                error_type=error_type[:100],
+            )
+            return InferenceAttemptOutcome(call=call, error=error)
+        except (IndexError, TypeError, ValueError) as parse_error:
+            error = InvalidModelOutputError(
+                f"Featherless {role} response failed {output_schema.__name__} validation"
+            )
+            call = InferenceTraceRecord(
+                **common,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                latency_ms=latency_ms,
+                status="INVALID",
+                schema_valid=False,
+                validation_error_code=error.code,
+                finish_reason=finish_reason,
+                error_type=type(parse_error).__name__,
             )
             return InferenceAttemptOutcome(call=call, error=error)
         call = InferenceTraceRecord(
@@ -208,6 +256,7 @@ class FeatherlessInferenceClient:
             latency_ms=latency_ms,
             status="SUCCESS",
             schema_valid=True,
+            finish_reason=finish_reason,
         )
         return InferenceAttemptOutcome(call=call, decision=decision)
 

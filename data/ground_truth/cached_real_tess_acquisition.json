@@ -1,0 +1,90 @@
+{
+  "acquisition": {
+    "acquired_at_utc": "2026-08-15T11:33:49.605683+00:00",
+    "method": "MAST official direct product URL; no API key",
+    "redistribution_notes": "Unmodified public NASA/STScI TESS SPOC product. Retain MAST/TESS attribution and the official product URI.",
+    "reproduction_command": "uv run --project apps/api --extra science python scripts/acquire_cached_tess.py --source-url 'https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018234235059-s0002-0000000100100827-0121-s_lc.fits' --mast-product-uri mast:TESS/product/tess2018234235059-s0002-0000000100100827-0121-s_lc.fits --mast-observation-id 60867790 --official-product-filename tess2018234235059-s0002-0000000100100827-0121-s_lc.fits --output data/cached/lightcurves/TARGET-X17-sector-2-lc.fits --provenance-output data/ground_truth/cached_real_tess_acquisition.json --opaque-target-id TARGET-X17 --real-target-name 'WASP-18 b' --tic-id 100100827 --sector 2 --cadence-seconds 120 --expected-period-days 0.94145223 --expected-duration-hours 2.21 --expected-depth-percent 1.041 --expected-values-source-url 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_orbper%2Cpl_orbpererr1%2Cpl_orbpererr2%2Cpl_trandur%2Cpl_trandurerr1%2Cpl_trandurerr2%2Cpl_trandep%2Cpl_trandeperr1%2Cpl_trandeperr2+from+pscomppars+where+pl_name%3D%27WASP-18+b%27&format=json' --expected-values-source-description 'NASA Exoplanet Archive Planetary Systems Composite Parameters table'"
+  },
+  "cache": {
+    "cadence_seconds": 120.0,
+    "fits_checksums": [
+      {
+        "checksum": "5adCAWZ97abAAWZ9",
+        "checksum_valid": true,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 0
+      },
+      {
+        "checksum": "KlDmMiAlKiAlKiAl",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 1
+      },
+      {
+        "checksum": "a8nBd7l9a7lAa7l7",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 2
+      }
+    ],
+    "integrity_warnings": [
+      "HDU 1 preserves an embedded CHECKSUM that Astropy does not validate",
+      "HDU 2 preserves an embedded CHECKSUM that Astropy does not validate"
+    ],
+    "path": "data/cached/lightcurves/TARGET-X17-sector-2-lc.fits",
+    "release_metadata": {
+      "CREATOR": "26880 LightCurveExporterPipelineModule",
+      "DATA_REL": 42,
+      "DATE": "2020-09-18",
+      "FILEVER": "1.0",
+      "INSTRUME": "TESS Photometer",
+      "ORIGIN": "NASA/Ames",
+      "PROCVER": "spoc-5.0.11-20200915",
+      "TELESCOP": "TESS",
+      "TIMVERSN": "OGIP/93-003"
+    },
+    "required_columns": [
+      "PDCSAP_FLUX",
+      "PDCSAP_FLUX_ERR",
+      "QUALITY",
+      "TIME"
+    ],
+    "sector": 2,
+    "sha256": "9e83d10406a7ee0274409cd19f39857abbadfbe907e0a1f033d18c00136b0c7b",
+    "size_bytes": 2004480,
+    "time_convention": "BTJD = BJD(TDB) - 2457000.0",
+    "time_system": "TDB"
+  },
+  "expected_values": {
+    "depth_percent": 1.041,
+    "duration_hours": 2.21,
+    "period_days": 0.94145223,
+    "recorded_before_pipeline_evaluation": true,
+    "source_description": "NASA Exoplanet Archive Planetary Systems Composite Parameters table",
+    "source_url": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+pl_orbper%2Cpl_orbpererr1%2Cpl_orbpererr2%2Cpl_trandur%2Cpl_trandurerr1%2Cpl_trandurerr2%2Cpl_trandep%2Cpl_trandeperr1%2Cpl_trandeperr2+from+pscomppars+where+pl_name%3D%27WASP-18+b%27&format=json"
+  },
+  "forbidden_agent_visible_values": [
+    "WASP-18 b",
+    "TIC 100100827",
+    "100100827",
+    "tess2018234235059-s0002-0000000100100827-0121-s_lc.fits",
+    "confirmed planet"
+  ],
+  "mast": {
+    "observation_id": "60867790",
+    "official_product_filename": "tess2018234235059-s0002-0000000100100827-0121-s_lc.fits",
+    "product_type": "SPOC calibrated light curve (LC), science, level 3",
+    "product_uri": "mast:TESS/product/tess2018234235059-s0002-0000000100100827-0121-s_lc.fits",
+    "public_data": true,
+    "source_url": "https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018234235059-s0002-0000000100100827-0121-s_lc.fits"
+  },
+  "opaque_target_id": "TARGET-X17",
+  "real_target_identity": {
+    "target_name": "WASP-18 b",
+    "tic_id": "100100827"
+  },
+  "schema_version": "1"
+}

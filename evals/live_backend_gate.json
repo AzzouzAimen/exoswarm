@@ -1,0 +1,72 @@
+{
+  "adaptive_actions": [
+    "harmonic_test"
+  ],
+  "artifact_count": 6,
+  "artifact_paths": [
+    "artifacts/action_1475433da49bc697.candidate-search.json",
+    "evidence.jsonl",
+    "inference_summary.json",
+    "result.json",
+    "result.json.sha256",
+    "trace.jsonl"
+  ],
+  "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+  "completed_tests": [
+    "signal_quality",
+    "odd_even",
+    "secondary_eclipse",
+    "contamination"
+  ],
+  "disposition": "PLANETARY_INTERPRETATION_WEAK",
+  "event_count": 36,
+  "event_types": [
+    "agent.decision",
+    "agent.started",
+    "budget.updated",
+    "critic.review",
+    "director.route",
+    "evidence.appended",
+    "inference.attempt",
+    "inference.summary",
+    "investigation.created",
+    "tool.completed",
+    "tool.started"
+  ],
+  "inference": {
+    "agent_calls": 3,
+    "fallbacks": {
+      "denominator": 2,
+      "numerator": 0,
+      "rate": 0.0
+    },
+    "first_attempt_schema_valid": {
+      "denominator": 2,
+      "numerator": 1,
+      "rate": 0.5
+    },
+    "input_tokens": 11207,
+    "max_input_tokens": 3778,
+    "median_input_tokens": 3731.0,
+    "median_latency_ms": 4667.0,
+    "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "output_tokens": 636,
+    "provider": "featherless",
+    "provider_errors_timeouts": 0,
+    "raw_light_curve_samples_sent": 0,
+    "repairs": {
+      "denominator": 1,
+      "numerator": 1,
+      "rate": 1.0
+    }
+  },
+  "locked_sha256": "f28c30bdd0c1e37bb0c5bf73d323588b9b15f385bfa79fff9eb3882f63fb1c51",
+  "model_calls": 3,
+  "opaque_target_id": "TARGET-P21",
+  "reveal_hash_verified": true,
+  "run_status_before_lock": "READY_TO_LOCK",
+  "schema_version": "1",
+  "status": "PASS",
+  "terminal_reason": "NO_AVAILABLE_ADAPTIVE_ACTION",
+  "tool_calls": 5
+}

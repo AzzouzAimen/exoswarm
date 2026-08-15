@@ -46,6 +46,7 @@ class DirectorStateView:
     skeptic_decision_id: str | None
     critic_decision_id: str | None
     critic_verdict: CriticVerdict | None
+    approved_action_is_stop: bool = False
     critic_requires_resolution: bool = False
     fresh_cycle_route: FreshCycleRoute | None = None
 
@@ -65,6 +66,8 @@ def determine_director_route(view: DirectorStateView) -> DirectorRoute:
         if view.critic_requires_resolution:
             return DirectorRoute.RESUME_CRITIC
         if view.critic_verdict == CriticVerdict.VETO:
+            return DirectorRoute.FINALIZE
+        if view.approved_action_is_stop:
             return DirectorRoute.FINALIZE
         return DirectorRoute.EXECUTE_APPROVED_ACTION
     if view.fresh_cycle_route is None:

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1",
+  "targets": [
+    {
+      "opaque_target_id": "TARGET-X17",
+      "target_name": "WASP-18 b",
+      "tic_id": "100100827",
+      "catalog_disposition": "CONFIRMED_PLANET",
+      "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+      "catalog_source_url": "https://exoplanetarchive.ipac.caltech.edu/overview/WASP-18%20b",
+      "known_values": {
+        "period_days": 0.94145223,
+        "duration_hours": 2.21,
+        "depth_percent": 1.041
+      }
+    },
+    {
+      "opaque_target_id": "TARGET-P21",
+      "target_name": "HAT-P-7 b",
+      "tic_id": "424865156",
+      "catalog_disposition": "CONFIRMED_PLANET",
+      "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+      "catalog_source_url": "https://exoplanetarchive.ipac.caltech.edu/overview/HAT-P-7%20b",
+      "known_values": {
+        "period_days": 2.20474,
+        "duration_hours": 3.88216,
+        "depth_percent": 0.6
+      }
+    },
+    {
+      "opaque_target_id": "TARGET-D31",
+      "target_name": "TOI-270 b",
+      "tic_id": "259377017",
+      "catalog_disposition": "CONFIRMED_PLANET",
+      "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+      "catalog_source_url": "https://exoplanetarchive.ipac.caltech.edu/overview/TOI-270%20b",
+      "known_values": {
+        "period_days": 3.35992,
+        "duration_hours": 1.294,
+        "depth_percent": 0.09766941
+      }
+    }
+  ]
+}

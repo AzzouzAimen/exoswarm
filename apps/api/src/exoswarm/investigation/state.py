@@ -1,4 +1,4 @@
-from exoswarm.domain.enums import TERMINAL_STATUSES, InvestigationStatus
+from exoswarm.domain.enums import InvestigationStatus
 from exoswarm.domain.models import InvestigationState
 
 _FAILURE_TRANSITIONS = frozenset(
@@ -72,7 +72,7 @@ def validate_status_transition(
 ) -> None:
     if current == requested:
         return
-    if current in TERMINAL_STATUSES or requested not in ALLOWED_STATUS_TRANSITIONS[current]:
+    if requested not in ALLOWED_STATUS_TRANSITIONS[current]:
         raise ValueError(f"invalid investigation status transition: {current} -> {requested}")
 
 

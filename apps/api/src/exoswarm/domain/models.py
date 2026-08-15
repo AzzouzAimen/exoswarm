@@ -109,9 +109,18 @@ class SkepticDecision(StrictModel):
     stop_if: str | None = Field(default=None, max_length=300)
     priority: Priority
     budget_units_remaining: int = Field(ge=0)
-    cost_of_selected_experiment: int = Field(ge=1)
+    cost_of_selected_experiment: int = Field(ge=0)
     why_cost_is_justified: str = Field(min_length=1, max_length=300)
     concise_reason: str = Field(min_length=1, max_length=300)
+
+    @model_validator(mode="after")
+    def stop_has_zero_cost_and_no_parameters(self) -> SkepticDecision:
+        if self.requested_experiment == "stop":
+            if self.cost_of_selected_experiment != 0 or self.parameters:
+                raise ValueError("stop requires zero cost and empty parameters")
+        elif self.cost_of_selected_experiment < 1:
+            raise ValueError("scientific experiments must cost at least one unit")
+        return self
 
 
 class CriticDecision(StrictModel):
@@ -206,9 +215,12 @@ class InferenceTraceRecord(StrictModel):
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     latency_ms: int | None = Field(default=None, ge=0)
-    status: Literal["SUCCESS", "INVALID", "TIMEOUT", "PROVIDER_ERROR"]
+    status: Literal[
+        "SUCCESS", "INVALID", "OUTPUT_TRUNCATED", "TIMEOUT", "PROVIDER_ERROR"
+    ]
     schema_valid: bool
     validation_error_code: str | None = Field(default=None, min_length=1, max_length=100)
+    finish_reason: str | None = Field(default=None, min_length=1, max_length=100)
     fallback_used: bool = False
     timeout: bool = False
     provider_error_type: str | None = Field(default=None, min_length=1, max_length=100)
@@ -228,6 +240,11 @@ class InferenceTraceRecord(StrictModel):
             raise ValueError("provider error attempt requires provider_error_type")
         if self.status == "INVALID" and self.validation_error_code is None:
             raise ValueError("invalid inference attempt requires validation_error_code")
+        if self.status == "OUTPUT_TRUNCATED":
+            if self.validation_error_code != "OUTPUT_TRUNCATED":
+                raise ValueError("truncated inference attempt requires OUTPUT_TRUNCATED code")
+            if self.finish_reason != "length":
+                raise ValueError("truncated inference attempt requires finish_reason=length")
         return self
 
 
@@ -333,6 +350,15 @@ class LockReceipt(StrictModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     result_path: str
     locked_at: datetime
+
+
+class ArtifactMetadata(StrictModel):
+    artifact_id: str = Field(pattern=r"^artifact_[0-9a-f]{16}$")
+    relative_path: str = Field(min_length=1)
+    kind: Literal["audit", "science", "authority"]
+    media_type: str = Field(min_length=1)
+    size_bytes: int = Field(ge=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class RevealResult(StrictModel):

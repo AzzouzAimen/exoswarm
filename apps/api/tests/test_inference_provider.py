@@ -25,6 +25,7 @@ from exoswarm.agents.model_client import ScriptedInferenceClient
 from exoswarm.agents.skeptic import SKEPTIC_PROMPT_VERSION
 from exoswarm.config import Settings
 from exoswarm.domain.enums import HarnessFailureKind, InvestigationStatus
+from exoswarm.domain.errors import ModelOutputTruncatedError
 from exoswarm.domain.models import InferenceTraceRecord, InvestigationState, SkepticDecision
 
 
@@ -86,10 +87,21 @@ def test_partial_provider_usage_is_not_reported_as_a_complete_total() -> None:
     assert summary.median_latency_ms == "not_measured"
 
 
-def completion(content: str, *, prompt_tokens: int = 100, completion_tokens: int = 25) -> Any:
+def completion(
+    content: str,
+    *,
+    prompt_tokens: int = 100,
+    completion_tokens: int = 25,
+    finish_reason: str = "stop",
+) -> Any:
     return SimpleNamespace(
         model="deepseek-ai/DeepSeek-V4-Flash-0731",
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=content),
+                finish_reason=finish_reason,
+            )
+        ],
         usage=SimpleNamespace(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -166,6 +178,7 @@ async def test_featherless_adapter_uses_safe_openai_compatible_request_and_metad
     assert outcome.call.model_identity == "deepseek-ai/DeepSeek-V4-Flash-0731"
     assert outcome.call.input_tokens == 100
     assert outcome.call.output_tokens == 25
+    assert outcome.call.finish_reason == "stop"
     assert outcome.call.schema_valid is True
     assert outcome.call.output_schema == "SkepticDecision"
     assert outcome.call.prompt_version == SKEPTIC_PROMPT_VERSION
@@ -176,11 +189,43 @@ async def test_featherless_adapter_uses_safe_openai_compatible_request_and_metad
     assert '"content"' not in sanitized_trace
     request = transport.requests[0]
     assert request["model"] == "deepseek-ai/DeepSeek-V4-Flash-0731"
-    assert "response_format" not in request
+    assert request["extra_body"] == {"chat_template_kwargs": {"thinking": False}}
+    assert request["response_format"] == {"type": "json_object"}
     serialized_request = json.dumps(request)
     assert "secret-never-persist" not in serialized_request
     assert "raw_flux" not in serialized_request
     assert "local_path" not in serialized_request
+
+
+@pytest.mark.asyncio
+async def test_featherless_adapter_classifies_length_capped_output_separately() -> None:
+    state = InvestigationState(
+        run_id="run_truncated",
+        opaque_target_id="TARGET-X17",
+        step_count=1,
+    )
+    context = assemble_context(
+        state,
+        available_experiments=("harmonic_test",),
+        adaptive_experiment_costs={"harmonic_test": 1},
+    )
+    sdk, _ = fake_sdk(
+        [completion("", completion_tokens=900, finish_reason="length")]
+    )
+    client = FeatherlessInferenceClient(api_key="secret-never-persist", sdk=sdk)
+
+    outcome = await client.decide_attempt(
+        role="skeptic",
+        context=context,
+        output_schema=SkepticDecision,
+        attempt_kind="primary",
+    )
+
+    assert isinstance(outcome.error, ModelOutputTruncatedError)
+    assert outcome.call.status == "OUTPUT_TRUNCATED"
+    assert outcome.call.validation_error_code == "OUTPUT_TRUNCATED"
+    assert outcome.call.finish_reason == "length"
+    assert outcome.call.output_tokens == 900
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,90 @@
+{
+  "acquisition": {
+    "acquired_at_utc": "2026-08-15T16:05:12.083114+00:00",
+    "method": "MAST official direct product URL; no API key",
+    "redistribution_notes": "Unmodified public NASA/STScI TESS SPOC product. Retain MAST/TESS attribution and the official product URI.",
+    "reproduction_command": "uv run --project apps/api --extra science python scripts/acquire_cached_tess.py --source-url 'https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018263035959-s0003-0000000259377017-0123-s_lc.fits' --mast-product-uri mast:TESS/product/tess2018263035959-s0003-0000000259377017-0123-s_lc.fits --mast-observation-id tess2018263035959-s0003-0000000259377017-0123-s --official-product-filename tess2018263035959-s0003-0000000259377017-0123-s_lc.fits --output data/cached/lightcurves/TARGET-D31-sector-3-lc.fits --provenance-output data/ground_truth/TARGET-D31-acquisition.json --opaque-target-id TARGET-D31 --real-target-name 'TOI-270 b' --tic-id 259377017 --sector 3 --cadence-seconds 120 --expected-period-days 3.35992 --expected-duration-hours 1.294 --expected-depth-percent 0.09766941 --expected-values-source-url 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cpl_orbper%2Cpl_trandur%2Cpl_trandep%20from%20pscomppars%20where%20pl_name%3D%27TOI-270%20b%27&format=json' --expected-values-source-description 'NASA Exoplanet Archive Planetary Systems Composite Parameters table'"
+  },
+  "cache": {
+    "cadence_seconds": 120.0,
+    "fits_checksums": [
+      {
+        "checksum": "2on33nk32nk32nk3",
+        "checksum_valid": true,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 0
+      },
+      {
+        "checksum": "8SI49PI48PI48PI4",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 1
+      },
+      {
+        "checksum": "9C4BAA1B9A1BAA1B",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 2
+      }
+    ],
+    "integrity_warnings": [
+      "HDU 1 preserves an embedded CHECKSUM that Astropy does not validate",
+      "HDU 2 preserves an embedded CHECKSUM that Astropy does not validate"
+    ],
+    "path": "data/cached/lightcurves/TARGET-D31-sector-3-lc.fits",
+    "release_metadata": {
+      "CREATOR": "31863 LightCurveExporterPipelineModule",
+      "DATA_REL": 42,
+      "DATE": "2020-11-26",
+      "FILEVER": "1.0",
+      "INSTRUME": "TESS Photometer",
+      "ORIGIN": "NASA/Ames",
+      "PROCVER": "spoc-5.0.20-20201120",
+      "TELESCOP": "TESS",
+      "TIMVERSN": "OGIP/93-003"
+    },
+    "required_columns": [
+      "PDCSAP_FLUX",
+      "PDCSAP_FLUX_ERR",
+      "QUALITY",
+      "TIME"
+    ],
+    "sector": 3,
+    "sha256": "edaa0de029f6fde3d045352887ef1a2950bb9b38fc18075066c81d7638feb695",
+    "size_bytes": 1998720,
+    "time_convention": "BTJD = BJD(TDB) - 2457000.0",
+    "time_system": "TDB"
+  },
+  "expected_values": {
+    "depth_percent": 0.09766941,
+    "duration_hours": 1.294,
+    "period_days": 3.35992,
+    "recorded_before_pipeline_evaluation": true,
+    "source_description": "NASA Exoplanet Archive Planetary Systems Composite Parameters table",
+    "source_url": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cpl_orbper%2Cpl_trandur%2Cpl_trandep%20from%20pscomppars%20where%20pl_name%3D%27TOI-270%20b%27&format=json"
+  },
+  "forbidden_agent_visible_values": [
+    "TOI-270 b",
+    "TIC 259377017",
+    "259377017",
+    "tess2018263035959-s0003-0000000259377017-0123-s_lc.fits",
+    "confirmed planet"
+  ],
+  "mast": {
+    "observation_id": "tess2018263035959-s0003-0000000259377017-0123-s",
+    "official_product_filename": "tess2018263035959-s0003-0000000259377017-0123-s_lc.fits",
+    "product_type": "SPOC calibrated light curve (LC), science, level 3",
+    "product_uri": "mast:TESS/product/tess2018263035959-s0003-0000000259377017-0123-s_lc.fits",
+    "public_data": true,
+    "source_url": "https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2018263035959-s0003-0000000259377017-0123-s_lc.fits"
+  },
+  "opaque_target_id": "TARGET-D31",
+  "real_target_identity": {
+    "target_name": "TOI-270 b",
+    "tic_id": "259377017"
+  },
+  "schema_version": "1"
+}

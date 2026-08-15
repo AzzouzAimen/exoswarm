@@ -1,7 +1,10 @@
 import hashlib
 
+import pytest
+
 from exoswarm.domain.enums import Disposition, InvestigationStatus, LockState
 from exoswarm.domain.models import InvestigationState
+from exoswarm.investigation.state import validate_status_transition
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
 
@@ -29,3 +32,14 @@ def test_result_lock_writes_stable_hash_of_exact_bytes(tmp_path) -> None:
     assert updated.status == InvestigationStatus.RESULT_LOCKED
     assert updated.lock_state == LockState.RESULT_LOCKED
 
+
+def test_locked_result_can_transition_to_revealed_but_not_back_to_science() -> None:
+    validate_status_transition(
+        InvestigationStatus.RESULT_LOCKED, InvestigationStatus.REVEALED
+    )
+
+    with pytest.raises(ValueError, match="invalid investigation status transition"):
+        validate_status_transition(
+            InvestigationStatus.RESULT_LOCKED,
+            InvestigationStatus.UPDATING_EVIDENCE,
+        )

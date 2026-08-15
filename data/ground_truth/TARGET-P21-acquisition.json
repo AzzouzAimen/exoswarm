@@ -1,0 +1,90 @@
+{
+  "acquisition": {
+    "acquired_at_utc": "2026-08-15T16:05:06.665863+00:00",
+    "method": "MAST official direct product URL; no API key",
+    "redistribution_notes": "Unmodified public NASA/STScI TESS SPOC product. Retain MAST/TESS attribution and the official product URI.",
+    "reproduction_command": "uv run --project apps/api --extra science python scripts/acquire_cached_tess.py --source-url 'https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2019198215352-s0014-0000000424865156-0150-s_lc.fits' --mast-product-uri mast:TESS/product/tess2019198215352-s0014-0000000424865156-0150-s_lc.fits --mast-observation-id tess2019198215352-s0014-0000000424865156-0150-s --official-product-filename tess2019198215352-s0014-0000000424865156-0150-s_lc.fits --output data/cached/lightcurves/TARGET-P21-sector-14-lc.fits --provenance-output data/ground_truth/TARGET-P21-acquisition.json --opaque-target-id TARGET-P21 --real-target-name 'HAT-P-7 b' --tic-id 424865156 --sector 14 --cadence-seconds 120 --expected-period-days 2.20474 --expected-duration-hours 3.88216 --expected-depth-percent 0.6 --expected-values-source-url 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cpl_orbper%2Cpl_trandur%2Cpl_trandep%20from%20pscomppars%20where%20pl_name%3D%27HAT-P-7%20b%27&format=json' --expected-values-source-description 'NASA Exoplanet Archive Planetary Systems Composite Parameters table'"
+  },
+  "cache": {
+    "cadence_seconds": 120.0,
+    "fits_checksums": [
+      {
+        "checksum": "lLWnoLTnlLTnlLTn",
+        "checksum_valid": true,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 0
+      },
+      {
+        "checksum": "W6ega6efX6efa6ef",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 1
+      },
+      {
+        "checksum": "l5Aao54Wl5Aal53U",
+        "checksum_valid": false,
+        "datasum": null,
+        "datasum_valid": null,
+        "hdu_index": 2
+      }
+    ],
+    "integrity_warnings": [
+      "HDU 1 preserves an embedded CHECKSUM that Astropy does not validate",
+      "HDU 2 preserves an embedded CHECKSUM that Astropy does not validate"
+    ],
+    "path": "data/cached/lightcurves/TARGET-P21-sector-14-lc.fits",
+    "release_metadata": {
+      "CREATOR": "72925 LightCurveExporterPipelineModule",
+      "DATA_REL": 73,
+      "DATE": "2023-08-03",
+      "FILEVER": "1.0",
+      "INSTRUME": "TESS Photometer",
+      "ORIGIN": "NASA/Ames",
+      "PROCVER": "spoc-5.0.96-20230729",
+      "TELESCOP": "TESS",
+      "TIMVERSN": "OGIP/93-003"
+    },
+    "required_columns": [
+      "PDCSAP_FLUX",
+      "PDCSAP_FLUX_ERR",
+      "QUALITY",
+      "TIME"
+    ],
+    "sector": 14,
+    "sha256": "b6ae63d5bd3d66274c47d9f74236be2430a3c143b56468457c8c0cda195e3a89",
+    "size_bytes": 1964160,
+    "time_convention": "BTJD = BJD(TDB) - 2457000.0",
+    "time_system": "TDB"
+  },
+  "expected_values": {
+    "depth_percent": 0.6,
+    "duration_hours": 3.88216,
+    "period_days": 2.20474,
+    "recorded_before_pipeline_evaluation": true,
+    "source_description": "NASA Exoplanet Archive Planetary Systems Composite Parameters table",
+    "source_url": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cpl_orbper%2Cpl_trandur%2Cpl_trandep%20from%20pscomppars%20where%20pl_name%3D%27HAT-P-7%20b%27&format=json"
+  },
+  "forbidden_agent_visible_values": [
+    "HAT-P-7 b",
+    "TIC 424865156",
+    "424865156",
+    "tess2019198215352-s0014-0000000424865156-0150-s_lc.fits",
+    "confirmed planet"
+  ],
+  "mast": {
+    "observation_id": "tess2019198215352-s0014-0000000424865156-0150-s",
+    "official_product_filename": "tess2019198215352-s0014-0000000424865156-0150-s_lc.fits",
+    "product_type": "SPOC calibrated light curve (LC), science, level 3",
+    "product_uri": "mast:TESS/product/tess2019198215352-s0014-0000000424865156-0150-s_lc.fits",
+    "public_data": true,
+    "source_url": "https://mast.stsci.edu/api/v0.1/Download/file?uri=mast:TESS/product/tess2019198215352-s0014-0000000424865156-0150-s_lc.fits"
+  },
+  "opaque_target_id": "TARGET-P21",
+  "real_target_identity": {
+    "target_name": "HAT-P-7 b",
+    "tic_id": "424865156"
+  },
+  "schema_version": "1"
+}

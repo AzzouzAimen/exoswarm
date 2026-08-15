@@ -53,6 +53,7 @@ def fixture_result(
     status: ToolStatus = ToolStatus.SUCCESS,
     parameters: dict[str, Any] | None = None,
     interpretation_code: str | None = None,
+    suggested_alternatives: list[str] | None = None,
 ) -> ScientificToolResult:
     """Clearly labeled deterministic scientific fixture result; never production data."""
 
@@ -81,6 +82,7 @@ def fixture_result(
             code_version="test-fixture-v1",
             source_data_ref=f"fixture:curated-harness:{scenario}",
         ),
+        suggested_alternatives=suggested_alternatives or [],
         reason=(f"fixture status {status}" if status != ToolStatus.SUCCESS else None),
     )
 
@@ -99,6 +101,9 @@ def make_registry(
     *,
     calls: Counter[str] | None = None,
     adaptive_status: ToolStatus = ToolStatus.SUCCESS,
+    adaptive_statuses: dict[str, ToolStatus] | None = None,
+    adaptive_interpretations: dict[str, str | None] | None = None,
+    adaptive_alternatives: dict[str, list[str]] | None = None,
     raise_tool: str | None = None,
     mismatch_tool: str | None = None,
     malformed_result_tool: str | None = None,
@@ -116,17 +121,28 @@ def make_registry(
         result_parameters = dict(parameters)
         if tool_name == malformed_result_tool:
             result_parameters["unexpected_result_parameter"] = True
+        selected_status = (
+            (adaptive_statuses or {}).get(tool_name, adaptive_status)
+            if tool_name in ADAPTIVE_TOOLS
+            else ToolStatus.SUCCESS
+        )
+        selected_interpretation = (
+            (adaptive_interpretations or {}).get(
+                tool_name, interpretation_for(scenario)
+            )
+            if tool_name in ADAPTIVE_TOOLS
+            else None
+        )
         return fixture_result(
             tool_name=tool_name,
             run_id=run_id,
             action_id=(f"{action_id}_mismatch" if tool_name == mismatch_tool else action_id),
             target_id=target_id,
             scenario=scenario,
-            status=adaptive_status if tool_name in ADAPTIVE_TOOLS else ToolStatus.SUCCESS,
+            status=selected_status,
             parameters=result_parameters,
-            interpretation_code=(
-                interpretation_for(scenario) if tool_name in ADAPTIVE_TOOLS else None
-            ),
+            interpretation_code=selected_interpretation,
+            suggested_alternatives=(adaptive_alternatives or {}).get(tool_name),
         )
 
     def bound(tool_name: str):

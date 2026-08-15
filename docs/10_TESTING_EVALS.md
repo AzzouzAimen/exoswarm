@@ -95,11 +95,17 @@ Release repeatability below is operational demo hardening, not an inference-cons
 
 ## Provider and structured-output canary
 
-Before connecting Featherless to the main demo, run a small repeated canary against the real
-Skeptic schema (target: 20 calls if time/provider budget allows). Record model identity, latency,
-input/output tokens, first-attempt schema-valid count, repair count, fallback count, and errors. The
-canary is evidence for the integration; it must not mutate the locked three-case evaluator or use
-raw light-curve samples.
+Run 10 repetitions of the two-role canary (20 decisions total) across its five bounded evidence
+states. Record model identity, finish reasons, latency, input/output tokens, first-attempt schema
+and semantic validity, repairs, fallback count, and errors. Require at least 90% first-attempt
+validity and 100% validity after the one repair policy, with no provider error/timeout and no raw
+light-curve samples. The canary is integration evidence; it must not mutate the locked three-case
+evaluator.
+
+The credential-independent three-target gate is
+`apps/api/tests/test_cached_backend_gate.py`. The live scientific boundary gate is
+`scripts/run_live_backend_gate.py`; it must reach both agent roles through FastAPI, expose SSE and
+safe artifact metadata, lock the result, and verify the reveal against the exact locked hash.
 
 ## Release/demo gate
 

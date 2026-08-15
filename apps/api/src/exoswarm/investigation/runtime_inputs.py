@@ -18,6 +18,8 @@ class CachedCandidateSource(BaseModel):
 class CandidateSourceResolver(Protocol):
     def resolve(self, opaque_target_id: str) -> CachedCandidateSource: ...
 
+    def supports_capability(self, opaque_target_id: str, capability: str) -> bool: ...
+
 
 class MappingCandidateSourceResolver:
     """Small injectable opaque-ID mapping; callers retain ownership of local paths."""
@@ -32,6 +34,11 @@ class MappingCandidateSourceResolver:
             raise LookupError(
                 f"no backend-owned cached candidate source for {opaque_target_id}"
             ) from exc
+
+    def supports_capability(self, opaque_target_id: str, capability: str) -> bool:
+        if opaque_target_id not in self._sources:
+            return False
+        return capability == "cached_lightcurve"
 
 
 __all__ = [

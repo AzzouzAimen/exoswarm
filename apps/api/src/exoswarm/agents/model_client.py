@@ -213,7 +213,9 @@ class ScriptedInferenceClient:
         common: dict[str, Any],
         started: float,
         *,
-        status: Literal["SUCCESS", "INVALID", "TIMEOUT", "PROVIDER_ERROR"],
+        status: Literal[
+            "SUCCESS", "INVALID", "OUTPUT_TRUNCATED", "TIMEOUT", "PROVIDER_ERROR"
+        ],
         schema_valid: bool,
         validation_error_code: str | None = None,
         timeout: bool = False,

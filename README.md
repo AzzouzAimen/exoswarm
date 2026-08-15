@@ -152,19 +152,21 @@ runs/
         <action-id>.candidate-search.json
 ```
 
-`make reproduce` must become the submission-grade cached/no-network reproduction path and verify the
-result artifact hash. The current command reproduces the deterministic candidate-search slice; it
-does not yet reproduce the complete locked investigation.
+`make reproduce` is the cached/no-network reproduction path. It runs the complete TARGET-P21
+investigation under a declared scripted decision policy, locks the result, verifies the SHA-256 of
+the exact persisted bytes, performs the gated catalog reveal, and verifies that the reveal refers
+to the same hash.
 
 ## Project status and scope
 
 The default API now composes a versioned backend-only target mapping, bounded/resumable run service,
 the live Featherless adapter, strict primary/repair/fallback validation, per-attempt trace records,
 and a derived run-level inference summary. The production mandatory path runs cached TESS BLS,
-odd/even, secondary-eclipse, and contamination screening; harmonic analysis is an adaptive action.
-One cached-real opaque target is currently configured. A second contrasting target, a real
-pixel/centroid acceptance path, the mission-control integration, a live canary result, and the real
-catalog reveal provider remain unfinished.
+odd/even, secondary-eclipse, and contamination screening; bounded harmonic analysis and explicit
+zero-cost STOP are adaptive choices. Three cached-real opaque targets cover deterministic rejection,
+agent-reviewed planet-like evidence, and insufficient evidence. Safe artifact metadata and a
+backend-only, post-lock cached NASA comparison provider are implemented. Pixel/centroid science and
+the mission-control integration remain deferred.
 
 ## Scaffold quick start
 
@@ -178,9 +180,10 @@ make lint
 make build
 ```
 
-For local development, run `make dev-api` and `make dev-web` in separate terminals. With the ignored
-cached-real FITS present, `make reproduce` reruns the deterministic local candidate analysis and
-never contacts an astronomy-data service or generates placeholder science.
+For local development, run `make dev-api` and `make dev-web` in separate terminals. `make reproduce`
+uses the committed cached-real FITS inputs, never contacts an astronomy-data service, and never
+generates placeholder science. With a Featherless key configured, run the live gates documented in
+[`docs/inference.md`](docs/inference.md).
 
 Do not invent capabilities or fake demo values while completing the ranked final-stretch work. See:
 

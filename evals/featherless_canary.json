@@ -1,0 +1,46 @@
+{
+  "acceptance": {
+    "minimum_first_attempt_valid_rate": 0.9,
+    "passed": true,
+    "semantic_identity_action_parameters_budget_validated": true
+  },
+  "attempts": 20,
+  "decisions": 20,
+  "finish_reasons": {
+    "stop": 20
+  },
+  "first_attempt_schema_valid": {
+    "denominator": 20,
+    "numerator": 20,
+    "rate": 1.0
+  },
+  "first_attempt_semantic_valid": {
+    "denominator": 20,
+    "numerator": 20,
+    "rate": 1.0
+  },
+  "latency_ms": {
+    "maximum": 10177,
+    "median": 3094.5
+  },
+  "model_identities": [
+    "deepseek-ai/DeepSeek-V4-Flash-0731"
+  ],
+  "provider_errors_timeouts": 0,
+  "raw_light_curve_samples_sent": 0,
+  "repairs": 0,
+  "requested_repeats": 10,
+  "schema_valid_after_repair_policy": {
+    "denominator": 20,
+    "numerator": 20,
+    "rate": 1.0
+  },
+  "schema_version": "1",
+  "status": "COMPLETED",
+  "usage": {
+    "input_tokens": 27610,
+    "output_tokens": 3829
+  },
+  "validation_failures": {},
+  "varied_evidence_states": 5
+}

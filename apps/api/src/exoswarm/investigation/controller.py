@@ -50,6 +50,7 @@ from exoswarm.domain.errors import (
     ActionValidationError,
     InvalidModelOutputError,
     ModelNotConfiguredError,
+    ModelOutputTruncatedError,
     ModelProviderError,
     ModelProviderTimeoutError,
     RunNotFoundError,
@@ -71,10 +72,23 @@ from exoswarm.domain.models import (
     SkepticDecision,
     ToolExecutionRecord,
 )
+from exoswarm.investigation.hypotheses import (
+    decisive_interpretation,
+    has_weak_planetary_interpretation,
+    updated_hypotheses,
+)
 from exoswarm.investigation.mandatory import missing_mandatory_tests
 from exoswarm.investigation.runtime_inputs import CandidateSourceResolver
 from exoswarm.investigation.state import validate_status_transition
-from exoswarm.investigation.tool_registry import ScientificToolRegistry, scaffold_tool_registry
+from exoswarm.investigation.stopping import (
+    adaptive_budget_terminal_reason,
+    availability_terminal_reason,
+)
+from exoswarm.investigation.tool_registry import (
+    STOP_ACTION,
+    ScientificToolRegistry,
+    scaffold_tool_registry,
+)
 from exoswarm.science.contracts import ExecutionIsolation, ScientificToolSpec
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
@@ -82,17 +96,6 @@ from exoswarm.services.artifacts import FileSystemRunArtifactStore
 
 _SUCCESSFUL_TEST_STATUSES = frozenset(
     {ToolStatus.SUCCESS, ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
-)
-_DECISIVE_INTERPRETATIONS = frozenset(
-    {
-        "CLEAN_PLANET_LIKE",
-        "ODD_EVEN_MISMATCH",
-        "CONTAMINATION_LIKELY",
-        "WEAK_NOISY",
-    }
-)
-_WEAK_PLANETARY_INTERPRETATIONS = frozenset(
-    {"SECONDARY_ECLIPSE_DETECTED", "CONTAMINATION_POSSIBLE", "HARMONIC_ALIAS_PREFERRED"}
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -369,15 +372,29 @@ class InvestigationController:
         """Reload durable state and ask the deterministic Director for the next node."""
 
         state = self.get(run_id)
-        skeptic = self._current_skeptic(state)
-        critic = self._current_critic(state, skeptic)
-        persisted_revisions = sum(
-            item.verdict == CriticVerdict.REVISE for item in state.critic_decisions
-        )
         prepared = any(
             item.status == ToolExecutionStatus.PREPARED for item in state.tool_executions
         )
         pending_evaluation = self._has_pending_evaluation(state)
+        if (
+            not self._cannot_advance(state)
+            and not prepared
+            and not pending_evaluation
+            and self._cycle_requires_begin(state)
+        ):
+            state = self.begin_cycle(run_id)
+        skeptic = self._current_skeptic(state)
+        critic = self._current_critic(state, skeptic)
+        selected_action = None
+        if skeptic is not None and critic is not None and critic.verdict != CriticVerdict.VETO:
+            selected_action = (
+                critic.revised_experiment
+                if critic.verdict == CriticVerdict.REVISE
+                else skeptic.requested_experiment
+            )
+        persisted_revisions = sum(
+            item.verdict == CriticVerdict.REVISE for item in state.critic_decisions
+        )
         if self._cannot_advance(state) or prepared or pending_evaluation or skeptic is not None:
             return determine_director_route(
                 DirectorStateView(
@@ -388,6 +405,7 @@ class InvestigationController:
                     skeptic_decision_id=skeptic.decision_id if skeptic else None,
                     critic_decision_id=critic.decision_id if critic else None,
                     critic_verdict=critic.verdict if critic else None,
+                    approved_action_is_stop=selected_action == STOP_ACTION,
                     critic_requires_resolution=(
                         critic is not None
                         and critic.verdict == CriticVerdict.REVISE
@@ -575,6 +593,13 @@ class InvestigationController:
                     "durable Critic revision counter exceeds persisted reviews",
                     recoverable=False,
                 )
+        selected_action = (
+            critic.revised_experiment
+            if critic.verdict == CriticVerdict.REVISE
+            else skeptic.requested_experiment
+        )
+        if selected_action == STOP_ACTION:
+            return DirectorRoute.FINALIZE
         return DirectorRoute.EXECUTE_APPROVED_ACTION
 
     async def run_adaptive_cycle(self, run_id: str) -> InvestigationGraphUpdate:
@@ -594,6 +619,12 @@ class InvestigationController:
         if critic.verdict == CriticVerdict.REVISE:
             tool_name = critic.revised_experiment or ""
             parameters = critic.revised_parameters or {}
+        if tool_name == STOP_ACTION:
+            raise _HarnessAbort(
+                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                "stop decisions must route directly to finalization",
+                recoverable=False,
+            )
         await self._execute_action(
             state,
             tool_name,
@@ -628,22 +659,22 @@ class InvestigationController:
         critic = self._current_critic(state, skeptic)
         if critic is not None and critic.verdict == CriticVerdict.VETO:
             reason = f"CRITIC_VETO:{critic.reason_code}"
-        elif state.adaptive_experiments_used >= state.max_adaptive_experiments:
-            reason = "ADAPTIVE_EXPERIMENT_COUNT_BUDGET_REACHED"
-        elif state.adaptive_cost_units_remaining == 0:
-            reason = "ADAPTIVE_COST_BUDGET_EXHAUSTED"
-        elif not self._available_adaptive_actions(state):
-            reason = (
-                "NO_AFFORDABLE_VALID_ADAPTIVE_EXPERIMENT"
-                if self._has_unaffordable_adaptive_action(state)
-                else "NO_AVAILABLE_ADAPTIVE_ACTION"
-            )
+        elif skeptic is not None and critic is not None and (
+            skeptic.requested_experiment == STOP_ACTION
+            or critic.revised_experiment == STOP_ACTION
+        ):
+            reason = f"AGENT_STOP:{skeptic.reason_code}"
         else:
-            raise _HarnessAbort(
-                HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
-                "finalize route has no durable stopping reason",
-                recoverable=False,
+            reason = adaptive_budget_terminal_reason(state) or availability_terminal_reason(
+                has_available=bool(self._available_adaptive_actions(state)),
+                has_unaffordable=self._has_unaffordable_adaptive_action(state),
             )
+            if reason is None:
+                raise _HarnessAbort(
+                    HarnessFailureKind.TOOL_INFRASTRUCTURE_FAILURE,
+                    "finalize route has no durable stopping reason",
+                    recoverable=False,
+                )
         self._finalize(state, reason)
         return {}
 
@@ -789,7 +820,7 @@ class InvestigationController:
             role=role,  # type: ignore[arg-type]
             available_experiments=available,
             adaptive_experiment_costs={
-                name: self.registry.resolve(name).cost_units for name in available
+                name: self._adaptive_action_cost(name) for name in available
             },
             experiment_specs=self.registry.specs,
             proposed_decision=proposed_decision,
@@ -884,6 +915,25 @@ class InvestigationController:
 
             self._record_inference_attempt(state, outcome.call)
             error = outcome.error
+            if isinstance(error, ModelOutputTruncatedError):
+                truncated = _HarnessAbort(
+                    HarnessFailureKind.OUTPUT_TRUNCATED,
+                    f"{role} inference reached the configured output-token limit",
+                )
+                if first_validation_failure is None:
+                    first_validation_failure = truncated
+                if attempt_kind == "primary":
+                    attempt_kind = "repair"
+                    continue
+                return await self._fallback_or_abort(
+                    state,
+                    role=role,
+                    context=context,
+                    schema=schema,
+                    available=available,
+                    proposed_decision=proposed_decision,
+                    failure=first_validation_failure,
+                )
             if isinstance(error, (ModelProviderTimeoutError, TimeoutError)):
                 kind = HarnessFailureKind.MODEL_TIMEOUT
                 reason = f"{role} inference timed out"
@@ -1020,7 +1070,6 @@ class InvestigationController:
             except TimeoutError as exc:
                 call = InferenceTraceRecord(
                     **common,
-                    output_schema=schema.__name__,
                     latency_ms=max(0, round((perf_counter() - started) * 1000)),
                     status="TIMEOUT",
                     schema_valid=False,
@@ -1185,6 +1234,13 @@ class InvestigationController:
         parameters: dict[str, Any],
         available: tuple[str, ...],
     ) -> None:
+        if tool_name == STOP_ACTION:
+            if tool_name not in available or parameters:
+                raise _HarnessAbort(
+                    HarnessFailureKind.UNAVAILABLE_ACTION,
+                    "stop is not currently available or has invalid parameters",
+                )
+            return
         if state.tool_call_count >= state.max_tool_calls:
             raise _HarnessAbort(
                 HarnessFailureKind.BUDGET_EXHAUSTED,
@@ -1267,14 +1323,16 @@ class InvestigationController:
             for item in state.tool_executions
             if item.status in {ToolExecutionStatus.PREPARED, ToolExecutionStatus.COMPLETED}
         }
-        return tuple(
+        actions = tuple(
             spec.name
             for spec in self.registry.specs
             if spec.adaptive
+            and self._spec_supported_for_target(state, spec)
             and spec.cost_units <= state.adaptive_cost_units_remaining
             and spec.required_completed_tests.issubset(completed)
             and self._action_signature(spec.name, {}) not in executed
         )
+        return (*actions, STOP_ACTION) if actions else ()
 
     def _has_unaffordable_adaptive_action(self, state: InvestigationState) -> bool:
         completed = set(state.completed_tests)
@@ -1285,6 +1343,7 @@ class InvestigationController:
         }
         return any(
             spec.adaptive
+            and self._spec_supported_for_target(state, spec)
             and spec.cost_units > state.adaptive_cost_units_remaining
             and spec.required_completed_tests.issubset(completed)
             and self._action_signature(spec.name, {}) not in executed
@@ -1319,6 +1378,13 @@ class InvestigationController:
                 HarnessFailureKind.INVALID_MODEL_OUTPUT,
                 "Skeptic adaptive budget declaration is stale or mismatched",
             )
+        if decision.requested_experiment == STOP_ACTION:
+            if decision.cost_of_selected_experiment != 0:
+                raise _HarnessAbort(
+                    HarnessFailureKind.INVALID_MODEL_OUTPUT,
+                    "Skeptic declared a nonzero cost for stop",
+                )
+            return
         try:
             spec = self.registry.resolve(decision.requested_experiment)
         except UnknownToolError:
@@ -1331,6 +1397,24 @@ class InvestigationController:
                 HarnessFailureKind.INVALID_MODEL_OUTPUT,
                 "Skeptic declared cost does not match the authoritative tool registry",
             )
+
+    def _adaptive_action_cost(self, action_name: str) -> int:
+        return 0 if action_name == STOP_ACTION else self.registry.resolve(action_name).cost_units
+
+    def _spec_supported_for_target(
+        self, state: InvestigationState, spec: ScientificToolSpec
+    ) -> bool:
+        if not spec.implemented:
+            return False
+        if not spec.required_target_capabilities:
+            return True
+        supports = getattr(self.candidate_sources, "supports_capability", None)
+        if not callable(supports):
+            return False
+        return all(
+            bool(supports(state.opaque_target_id, capability))
+            for capability in spec.required_target_capabilities
+        )
 
     def _validate_critic_identity(
         self,
@@ -1887,7 +1971,7 @@ class InvestigationController:
         ):
             completed.append(spec.mandatory_test)
         candidates = self._updated_candidates(state, result, evidence_id)
-        hypotheses, strongest = self._updated_hypotheses(state, interpretation_code)
+        hypotheses, strongest = updated_hypotheses(state, interpretation_code)
         executions = [
             item.model_copy(
                 update={
@@ -1953,6 +2037,9 @@ class InvestigationController:
     def _after_result(
         self, state: InvestigationState, result: ScientificToolResult
     ) -> InvestigationState:
+        execution = next(
+            (item for item in state.tool_executions if item.action_id == result.action_id), None
+        )
         if result.status == ToolStatus.FAILED:
             return self._terminate(
                 state,
@@ -1962,6 +2049,43 @@ class InvestigationController:
                 action_id=result.action_id,
             )
         if result.status == ToolStatus.PRECONDITION_FAILED:
+            if execution is not None and execution.adaptive:
+                alternatives = tuple(
+                    dict.fromkeys(
+                        name
+                        for name in result.suggested_alternatives
+                        if name in self._available_adaptive_actions(state)
+                    )
+                )
+                failure = HarnessFailureRecord(
+                    step_id=f"step_{state.step_count:04d}",
+                    kind=HarnessFailureKind.PRECONDITION_FAILED,
+                    concise_reason=f"scientific precondition failed: {result.tool_name}",
+                    recoverable=True,
+                    retry_count=state.model_retry_count,
+                )
+                if self._available_adaptive_actions(state):
+                    state = self._replace(
+                        state,
+                        status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT,
+                        failures=[*state.failures, failure],
+                    )
+                    self._emit(
+                        state,
+                        "status.changed",
+                        {
+                            "status": state.status,
+                            "reason_code": HarnessFailureKind.PRECONDITION_FAILED,
+                            "failed_tool": result.tool_name,
+                            "suggested_alternatives": list(alternatives),
+                            "recoverable": True,
+                        },
+                    )
+                    return state
+                return self._finalize(
+                    self._replace(state, failures=[*state.failures, failure]),
+                    f"PRECONDITION_REPLAN_EXHAUSTED:{result.tool_name}",
+                )
             return self._terminate(
                 state,
                 HarnessFailureKind.PRECONDITION_FAILED,
@@ -1984,14 +2108,18 @@ class InvestigationController:
             for record in self.artifacts.read_evidence(state)
             if record.interpretation_code
         }
-        decisive = sorted(codes.intersection(_DECISIVE_INTERPRETATIONS))
-        if decisive:
-            return self._finalize(state, f"DETERMINISTIC_EVIDENCE:{decisive[0]}")
-        execution = next(
-            (item for item in state.tool_executions if item.action_id == result.action_id), None
-        )
+        decisive = decisive_interpretation(codes)
+        if decisive is not None:
+            return self._finalize(state, f"DETERMINISTIC_EVIDENCE:{decisive}")
         if execution is not None and execution.adaptive:
-            return self._finalize(state, f"ADAPTIVE_EVIDENCE:{result.tool_name}")
+            budget_reason = adaptive_budget_terminal_reason(state)
+            if budget_reason is not None:
+                return self._finalize(state, budget_reason)
+            if not self._available_adaptive_actions(state):
+                return self._finalize(state, "NO_AVAILABLE_ADAPTIVE_ACTION")
+            return self._replace(
+                state, status=InvestigationStatus.SELECTING_ADAPTIVE_EXPERIMENT
+            )
         if (
             result.status in {ToolStatus.NO_EVIDENCE, ToolStatus.INDETERMINATE}
             and state.adaptive_experiments_used >= state.max_adaptive_experiments
@@ -2023,7 +2151,7 @@ class InvestigationController:
                 status=InvestigationStatus.INSUFFICIENT_EVIDENCE,
                 recoverable=False,
             )
-        elif codes.intersection(_WEAK_PLANETARY_INTERPRETATIONS):
+        elif has_weak_planetary_interpretation(codes):
             disposition = Disposition.PLANETARY_INTERPRETATION_WEAK
         elif "CLEAN_PLANET_LIKE" in codes or state.candidate_signals:
             disposition = Disposition.PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING
@@ -2346,9 +2474,7 @@ class InvestigationController:
         evidence_refs = list(state.evidence_refs)
         if record.evidence_id not in evidence_refs:
             evidence_refs.append(record.evidence_id)
-        hypotheses, strongest = self._updated_hypotheses(
-            state, record.interpretation_code
-        )
+        hypotheses, strongest = updated_hypotheses(state, record.interpretation_code)
         state = self._replace(
             state,
             status=InvestigationStatus.UPDATING_EVIDENCE,
@@ -2394,21 +2520,6 @@ class InvestigationController:
                 measurements=measurements,
             )
         ]
-
-    @staticmethod
-    def _updated_hypotheses(
-        state: InvestigationState, interpretation_code: str | None
-    ) -> tuple[list[str], str | None]:
-        rules = {
-            "CLEAN_PLANET_LIKE": (["planetary_transit"], "eclipsing_binary"),
-            "ODD_EVEN_MISMATCH": (["eclipsing_binary"], "planetary_transit"),
-            "CONTAMINATION_LIKELY": (["background_contamination"], "planetary_transit"),
-            "WEAK_NOISY": (["instrumental_or_variable_noise"], "planetary_transit"),
-        }
-        return rules.get(
-            interpretation_code,
-            (state.active_hypotheses, state.strongest_unresolved_alternative),
-        )
 
     def _assert_numerical_provenance(self, state: InvestigationState) -> None:
         records = {record.evidence_id: record for record in self.artifacts.read_evidence(state)}

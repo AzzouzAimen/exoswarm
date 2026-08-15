@@ -10,13 +10,18 @@ The repository includes the supplied skills under `.agents/skills/<name>/SKILL.m
 | `engineer-agent-loop` | loop states, retries, budgets, termination, idempotency, resumability, repeated-action protection |
 | `engineer-agent-context` | context packets, JIT retrieval, trimming, provenance, context isolation, compaction/staleness |
 | `design-agent-tools` | tool names, schemas, permissions, result payloads, typed failures, side effects, token efficiency |
+| `langgraph-fundamentals` | writing any LangGraph code, including `StateGraph`, nodes, edges, `Command`, `Send`, invocation, streaming, or error handling |
 | `evaluate-agent-system` | scenario suites, trace metrics, deterministic graders, baselines, regression/release gates |
+| `eval-engineering` | Harbor tasks, agent evals, benchmark cases, verifier design, or controlled agent environments |
+| `prompt-engineer` | prompt design/refactoring, structured outputs, rubrics, few-shot examples, or prompt evaluation |
 | `orchestrate-investigation` | ExoSwarm investigation state, evidence-dependent branching, experiment selection, Critic review, stopping, catalog lock |
 | `implement-science-tool` | deterministic TESS/BLS/transit/odd-even/secondary/harmonic/centroid numerical implementation |
 | `validate-science` | scientific fixtures, tolerances, units, positive/negative cases, cached-real-data regression |
 | `build-mission-control-ui` | mission-control frontend, scientific plots, evidence board, timeline, lock/reveal UI |
 | `verify-integration` | cross-layer state/schema/unit/event/lock verification after a change |
-| `debug-systematically` | concrete failing test/build/runtime behavior; reproduce and fix root cause first |
+| `debugging-wizard` | concrete errors, stack traces, logs, crashes, or unexpected runtime behavior; isolate the root cause before fixing |
+| `python-pro` | Python 3.11+ implementation where typing, async behavior, robust errors, pytest, mypy, black, or ruff are central |
+| `the-fool` | devil's-advocate review, pre-mortems, red teaming, or audits of assumptions and proposals |
 | `harden-demo` | only after core works; repeatability, reset, cached/offline path, model failure, judged runtime |
 | `implement-feature` | a non-trivial feature not owned by a narrower ExoSwarm skill |
 
@@ -48,3 +53,5 @@ Across all skills:
 - traces should make behavior debuggable without hidden chain-of-thought,
 - tests should cover negative/failure paths, not only the happy path,
 - completion claims require verification evidence.
+
+`langgraph-fundamentals` is a code-specific skill and does not change ExoSwarm's architecture rule against introducing a second orchestration framework for the core path. Use it only when LangGraph code is explicitly in scope.

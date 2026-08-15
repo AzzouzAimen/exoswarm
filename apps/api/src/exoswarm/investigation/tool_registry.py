@@ -13,16 +13,14 @@ from exoswarm.science.centroid import localize_centroid
 from exoswarm.science.contamination import ContaminationRuntimeInputs, screen_contamination
 from exoswarm.science.contracts import ExecutionIsolation, NoParameters, ScientificToolSpec
 from exoswarm.science.harmonic import test_harmonics
-from exoswarm.science.io import load_cached_lightcurve, load_cached_tpf
 from exoswarm.science.odd_even import compare_odd_even
 from exoswarm.science.pipeline import (
     CandidateSearchParameters,
     CandidateSearchRuntimeInputs,
-    PreprocessingParameters,
 )
-from exoswarm.science.preprocessing import preprocess
 from exoswarm.science.secondary import search_secondary
-from exoswarm.science.transit import measure_transit
+
+STOP_ACTION = "stop"
 
 
 class ScientificToolRegistry:
@@ -141,11 +139,7 @@ class ScientificToolRegistry:
 
 def scaffold_tool_registry() -> ScientificToolRegistry:
     handlers = {
-        "load_cached_lightcurve": load_cached_lightcurve,
-        "load_cached_tpf": load_cached_tpf,
-        "preprocess": preprocess,
         "search_bls": search_bls,
-        "measure_transit": measure_transit,
         "odd_even": compare_odd_even,
         "secondary_eclipse": search_secondary,
         "harmonic_test": test_harmonics,
@@ -158,12 +152,15 @@ def scaffold_tool_registry() -> ScientificToolRegistry:
         "secondary_eclipse": {"mandatory_test": "secondary_eclipse", "order": 30},
         "contamination_screening": {"mandatory_test": "contamination", "order": 40},
         "harmonic_test": {"adaptive": True, "cost_units": 1, "order": 50},
-        "centroid_localization": {"adaptive": True, "cost_units": 2, "order": 60},
+        "centroid_localization": {
+            "adaptive": True,
+            "cost_units": 2,
+            "implemented": False,
+            "required_target_capabilities": frozenset({"cached_tpf"}),
+            "order": 60,
+        },
     }
-    parameter_schemas = {
-        "preprocess": PreprocessingParameters,
-        "search_bls": CandidateSearchParameters,
-    }
+    parameter_schemas = {"search_bls": CandidateSearchParameters}
     runtime_schemas = {
         "search_bls": CandidateSearchRuntimeInputs,
         "odd_even": CandidateArtifactRuntimeInputs,

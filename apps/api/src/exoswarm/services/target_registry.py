@@ -97,6 +97,17 @@ class TargetRegistry:
             )
         return CachedCandidateSource(cached_path=source_path)
 
+    def supports_capability(self, opaque_target_id: str, capability: str) -> bool:
+        entry = self._targets.get(opaque_target_id)
+        if entry is None:
+            return False
+        paths = {
+            "cached_lightcurve": entry.cached_lightcurve_path,
+            "cached_tpf": entry.cached_tpf_path,
+        }
+        value = paths.get(capability)
+        return bool(value and self._source_path(value).is_file())
+
     def list_agent_safe(self) -> list[dict[str, Any]]:
         return [
             {

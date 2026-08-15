@@ -17,11 +17,17 @@ runs/**
 data/cached/**
 !data/cached/lightcurves/
 !data/cached/lightcurves/.gitkeep
+!data/cached/lightcurves/TARGET-X17-sector-2-lc.fits
+!data/cached/lightcurves/TARGET-P21-sector-14-lc.fits
+!data/cached/lightcurves/TARGET-D31-sector-3-lc.fits
 !data/cached/tpf/
 !data/cached/tpf/.gitkeep
 data/ground_truth/*
 !data/ground_truth/README.md
+!data/ground_truth/cached_real_tess_acquisition.json
+!data/ground_truth/TARGET-P21-acquisition.json
+!data/ground_truth/TARGET-D31-acquisition.json
+!data/ground_truth/catalog_reveal.json
 
 .DS_Store
 Thumbs.db
-

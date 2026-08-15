@@ -34,6 +34,10 @@ class InvalidModelOutputError(ExoSwarmError):
     code = "INVALID_MODEL_OUTPUT"
 
 
+class ModelOutputTruncatedError(ExoSwarmError):
+    code = "OUTPUT_TRUNCATED"
+
+
 class ModelProviderTimeoutError(ExoSwarmError):
     code = "MODEL_TIMEOUT"
 
