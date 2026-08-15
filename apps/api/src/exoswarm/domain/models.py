@@ -27,8 +27,11 @@ class StrictModel(BaseModel):
 
 class Provenance(StrictModel):
     input_artifact_refs: list[str] = Field(default_factory=list)
+    output_artifact_refs: list[str] = Field(default_factory=list)
     code_version: str = Field(min_length=1)
     source_data_ref: str = Field(min_length=1)
+    source_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    library_versions: dict[str, str] = Field(default_factory=dict)
 
 
 class Measurement(StrictModel):

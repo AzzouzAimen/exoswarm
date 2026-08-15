@@ -13,10 +13,10 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --project apps/api --frozen
+      - run: uv sync --project apps/api --extra science --frozen
       - run: uv run --project apps/api ruff check apps/api/src apps/api/tests scripts
-      - run: uv run --project apps/api pytest apps/api/tests
-      - run: uv run --project apps/api python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
+      - run: uv run --project apps/api --extra science pytest apps/api/tests
+      - run: uv run --project apps/api --extra science python -c "from exoswarm.api.app import app; assert app.title == 'ExoSwarm API'"
 
   frontend:
     runs-on: ubuntu-latest
@@ -33,4 +33,3 @@ jobs:
       - run: pnpm --dir apps/web lint
       - run: pnpm --dir apps/web typecheck
       - run: pnpm --dir apps/web build
-

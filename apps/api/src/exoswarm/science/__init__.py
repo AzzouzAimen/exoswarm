@@ -1,2 +1,1 @@
-"""Deterministic science boundary; numerical implementations are intentionally absent."""
-
+"""Deterministic science boundary for cached observations and typed measurements."""

@@ -130,25 +130,26 @@ runs/
 
 ## Project status and scope
 
-Phase 0 now provides a runnable repository and agent-harness scaffold. It includes strict domain
-contracts, allowlisted science-tool stubs, durable state/traces, lock and reveal authority, REST/SSE
-adapters, an empty-state mission-control shell, and boundary tests. The astronomy algorithms,
-investigation loop, live inference, and catalog integration remain intentionally unimplemented.
+Phase 1 now includes the first deterministic vertical slice: a local cached TESS light-curve FITS
+product can be filtered, detrended, searched with Astropy BLS, phase-folded, measured, written as a
+provenance artifact, and appended to the Evidence Ledger. A cached real TESS acceptance artifact is
+still required. The remaining astronomy diagnostics, investigation loop, live inference, and catalog
+integration remain intentionally unimplemented.
 
 ## Scaffold quick start
 
 Requirements: Python 3.12 with `uv`, Node.js 24, and `pnpm` 11.
 
 ```bash
-uv sync --project apps/api
+uv sync --project apps/api --extra science
 pnpm install --frozen-lockfile
 make test
 make lint
 make build
 ```
 
-For local development, run `make dev-api` and `make dev-web` in separate terminals. `make
-reproduce` currently reports that the cached deterministic pipeline is not implemented and never
+For local development, run `make dev-api` and `make dev-web` in separate terminals. `make reproduce`
+remains a scaffold until the cached real TESS acceptance artifact and manifest are added; it never
 generates placeholder science.
 
 Do not silently expand the scaffold into a full astronomy pipeline or a polished demo. See:
