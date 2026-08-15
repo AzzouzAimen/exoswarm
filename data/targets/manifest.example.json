@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "targets": [
+    {
+      "opaque_target_id": "TARGET-DEMO-001",
+      "cached_lightcurve_available": false,
+      "cached_tpf_available": false
+    }
+  ]
+}
+

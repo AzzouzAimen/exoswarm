@@ -1,0 +1,6 @@
+packages:
+  - "apps/web"
+
+allowBuilds:
+  es5-ext: false
+  unrs-resolver: false

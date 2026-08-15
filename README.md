@@ -130,12 +130,34 @@ runs/
 
 ## Project status and scope
 
-The first coding-agent task is **repository scaffold only**. Do not silently expand the initial scaffold into a full astronomy pipeline or a polished demo. See:
+Phase 0 now provides a runnable repository and agent-harness scaffold. It includes strict domain
+contracts, allowlisted science-tool stubs, durable state/traces, lock and reveal authority, REST/SSE
+adapters, an empty-state mission-control shell, and boundary tests. The astronomy algorithms,
+investigation loop, live inference, and catalog integration remain intentionally unimplemented.
+
+## Scaffold quick start
+
+Requirements: Python 3.12 with `uv`, Node.js 24, and `pnpm` 11.
+
+```bash
+uv sync --project apps/api
+pnpm install --frozen-lockfile
+make test
+make lint
+make build
+```
+
+For local development, run `make dev-api` and `make dev-web` in separate terminals. `make
+reproduce` currently reports that the cached deterministic pipeline is not implemented and never
+generates placeholder science.
+
+Do not silently expand the scaffold into a full astronomy pipeline or a polished demo. See:
 
 - [`FIRST_AGENT_PROMPT.md`](FIRST_AGENT_PROMPT.md) - first prompt for the coding agent.
 - [`AGENTS.md`](AGENTS.md) - repository-wide coding-agent rules.
 - [`docs/00_SOURCE_OF_TRUTH.md`](docs/00_SOURCE_OF_TRUTH.md) - source-derived constraints vs scaffold conventions.
 - [`docs/11_48H_SCOPE_AND_BUILD_ORDER.md`](docs/11_48H_SCOPE_AND_BUILD_ORDER.md) - P0/P1/P2 priority and implementation order.
+- [`docs/13_HARNESS_SCAFFOLD.md`](docs/13_HARNESS_SCAFFOLD.md) - implemented harness boundary and authority classes.
 
 ## Scientific claim language
 

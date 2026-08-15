@@ -1,0 +1,5 @@
+{
+  "name": "exoswarm",
+  "private": true,
+  "packageManager": "pnpm@11.10.0"
+}

@@ -1,0 +1,2 @@
+"""Observer inference adapter placeholder."""
+
