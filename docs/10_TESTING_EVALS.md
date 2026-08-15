@@ -109,6 +109,24 @@ The credential-independent three-target gate is
 `scripts/run_live_backend_gate.py`; it must reach both agent roles through FastAPI, expose SSE and
 safe artifact metadata, lock the result, and verify the reveal against the exact locked hash.
 
+### Evaluator-integrity regression note
+
+Do not treat every low Critic score as a Critic or prompt defect. During the 2026-08-15 canary
+hardening, the Skeptic selected the expected action in 10/10 cases, but the initial aggregate
+decision-quality score was 12/20 because the canary supplied the Critic with a generic proposal
+whose purpose was only to exercise the response schema. The Critic correctly vetoed or revised
+that proposal because it was not tied to the state's strongest unresolved alternative. The fix was
+to make each evaluation proposal scientifically relevant to its evidence state, hypothesis, and
+expected discriminating result—not to weaken the Critic, its review prompt, or the acceptance
+rubric.
+
+Likewise, when the live gate selected unavailable `centroid_localization`, retain the controller's
+strict rejection. The structural fix was `agent-context-v3`, which omits unavailable and previously
+executed actions from model affordances while leaving the full registry in deterministic audit and
+enforcement code. Before changing prompts or agent policy after an eval failure, inspect the exact
+fixture proposal, model-visible action set, and deterministic expected outcome. Preserve the tests
+that require relevant Critic proposals and omission of unavailable actions.
+
 ## Release/demo gate
 
 After the core works, the judged path should complete from clean reset at least three consecutive times with:
