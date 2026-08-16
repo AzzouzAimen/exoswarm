@@ -2,6 +2,10 @@ import type { TimelineRecord } from "./presentation-state"
 
 export const TRACE_REVEAL_INTERVAL_MS = 300
 
+export function traceAutoScrollBehavior(shouldReduceMotion: boolean | null) {
+  return shouldReduceMotion ? "auto" as const : "smooth" as const
+}
+
 export interface TraceRevealQueue {
   visible: TimelineRecord[]
   pending: TimelineRecord[]

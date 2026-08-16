@@ -7,6 +7,7 @@ import {
   revealAllTraceRecords,
   revealNextTraceRecord,
   TRACE_REVEAL_INTERVAL_MS,
+  traceAutoScrollBehavior,
 } from "./trace-pacing"
 import type { TimelineRecord } from "./presentation-state"
 
@@ -70,6 +71,11 @@ describe("investigation trace pacing", () => {
 
     expect(revealed.visible.map((item) => item.id)).toEqual(["one", "two"])
     expect(revealed.pending).toEqual([])
+  })
+
+  it("keeps auto-scroll accessible when reduced motion is requested", () => {
+    expect(traceAutoScrollBehavior(false)).toBe("smooth")
+    expect(traceAutoScrollBehavior(true)).toBe("auto")
   })
 
   it("clears the timer identity when React cleans up the pacing effect", () => {

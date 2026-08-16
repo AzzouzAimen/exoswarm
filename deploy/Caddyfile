@@ -1,4 +1,4 @@
-exoswarm.duckdns.org {
+{$EXOSWARM_SITE_ADDRESS} {
 	encode zstd gzip
 
 	@backend path /api/* /health /docs /docs/* /redoc /openapi.json

@@ -207,9 +207,9 @@ The production Compose setup runs the FastAPI service, the optimized Next.js ser
 the HTTPS reverse proxy. Caddy obtains and renews the TLS certificate automatically. Run exactly one
 API container because ExoSwarm's durable run coordination is intentionally single-process.
 
-Before starting, set the DuckDNS `exoswarm` record to `84.235.226.37` in the DuckDNS dashboard and
-allow inbound TCP ports `80` and `443` on the VPS/firewall. Then install Docker Engine with the
-Compose plugin, clone the repository, and run:
+Before starting, set the DuckDNS `exoswarm` record to `84.235.226.37` in the DuckDNS dashboard. On a
+clean VPS, allow inbound TCP ports `80` and `443`, install Docker Engine with the Compose plugin,
+clone the repository, and run:
 
 ```bash
 cp .env.example .env
@@ -232,6 +232,20 @@ docker compose down
 
 `docker compose down` keeps the named volumes. Do not add `--volumes` unless you intentionally want
 to delete saved investigation runs and the cached TLS state.
+
+### Shared demo VPS
+
+The current demo VPS already uses ports `80` and `443` for other websites. Do not stop or replace
+that ingress. The VPS override runs ExoSwarm independently on HTTP port `8081`:
+
+```bash
+docker compose -f compose.yaml -f compose.vps.yaml up -d --build
+docker compose -f compose.yaml -f compose.vps.yaml ps
+```
+
+Allow inbound TCP port `8081` in both the Oracle Cloud ingress rules and the host firewall, then open
+<http://exoswarm.duckdns.org:8081>. This override changes the browser API URL, CORS origin, Caddy
+listener, and published port together so API requests and SSE remain same-origin.
 
 ## Reproducibility and verification
 

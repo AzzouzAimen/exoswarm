@@ -1,0 +1,17 @@
+# This host already runs a production ingress on ports 80 and 443.
+# Keep ExoSwarm isolated on an alternate HTTP port instead of touching it.
+services:
+  api:
+    environment:
+      EXOSWARM_CORS_ORIGINS: '["http://exoswarm.duckdns.org:8081"]'
+
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_EXOSWARM_API_URL: http://exoswarm.duckdns.org:8081
+
+  proxy:
+    environment:
+      EXOSWARM_SITE_ADDRESS: http://exoswarm.duckdns.org:8081
+    ports: !override
+      - "8081:8081"

@@ -31,6 +31,13 @@ RUN addgroup -S -g 10001 exoswarm \
 COPY --from=builder --chown=exoswarm:exoswarm /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=exoswarm:exoswarm /app/apps/web/.next/static ./apps/web/.next/static
 
+# Next's standalone tracer preserves pnpm's link to this package but omits
+# the package files. Copy the locked runtime helper into that exact target.
+COPY --from=builder --chown=exoswarm:exoswarm \
+    /app/node_modules/.pnpm/@swc+helpers@0.5.23/node_modules/@swc/helpers \
+    ./node_modules/.pnpm/@swc+helpers@0.5.23/node_modules/@swc/helpers
+RUN test -f ./node_modules/.pnpm/@swc+helpers@0.5.23/node_modules/@swc/helpers/esm/_interop_require_default.js
+
 USER exoswarm
 
 EXPOSE 3000

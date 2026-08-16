@@ -37,6 +37,8 @@ services:
 
   proxy:
     image: caddy:2-alpine
+    environment:
+      EXOSWARM_SITE_ADDRESS: ${EXOSWARM_SITE_ADDRESS:-exoswarm.duckdns.org}
     ports:
       - "80:80"
       - "443:443"

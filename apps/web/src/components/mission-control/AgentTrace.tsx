@@ -48,6 +48,7 @@ import {
   revealAllTraceRecords,
   revealNextTraceRecord,
   TRACE_REVEAL_INTERVAL_MS,
+  traceAutoScrollBehavior,
 } from "./model/trace-pacing"
 import { QuestionBot } from "./QuestionBot"
 
@@ -207,12 +208,14 @@ function TraceStep({
   state,
   currentStep,
   isActive,
+  isLatest,
   onSelect,
 }: {
   record: TimelineRecord
   state: InvestigationPresentationState
   currentStep: number
   isActive: boolean
+  isLatest: boolean
   onSelect: (step: number) => void
 }) {
   const Icon = EVENT_ICONS[record.eventType]
@@ -227,6 +230,7 @@ function TraceStep({
       className="agent-trace-step"
       data-tone={record.tone}
       data-current={record.sequence === currentStep}
+      data-trace-latest={isLatest}
       onClick={() => onSelect(record.sequence)}
       aria-label={`Go to step ${record.sequence}: ${record.headline}`}
     >
@@ -273,31 +277,22 @@ function AgentTraceStageView({
   stage,
   state,
   currentStep,
+  latestRecordId,
   onSelect,
 }: {
   stage: AgentTraceStage
   state: InvestigationPresentationState
   currentStep: number
+  latestRecordId?: string
   onSelect: (step: number) => void
 }) {
   const [open, setOpen] = useState(stage.status === "active")
-  const stageRef = useRef<HTMLDivElement>(null)
-  const shouldReduceMotion = useReducedMotion()
   const AgentIcon = AGENT_ICONS[stage.agent.id]
   const latestRecord = stage.records.at(-1)
   const statusLabel = activityLabel(stage, state)
 
-  useEffect(() => {
-    if (stage.status !== "active") return
-    stageRef.current?.scrollIntoView({
-      behavior: shouldReduceMotion ? "auto" : "smooth",
-      block: "nearest",
-    })
-  }, [shouldReduceMotion, stage.status])
-
   return (
     <Collapsible
-      ref={stageRef}
       className="agent-trace-stage"
       data-agent={stage.agent.id}
       data-status={stage.status}
@@ -355,6 +350,7 @@ function AgentTraceStageView({
               state={state}
               currentStep={currentStep}
               isActive={stage.status === "active"}
+              isLatest={record.id === latestRecordId}
               onSelect={onSelect}
             />
           ))}
@@ -373,6 +369,8 @@ export function AgentTrace({
   currentStep: number
   onSelect: (step: number) => void
 }) {
+  const traceRef = useRef<HTMLElement>(null)
+  const shouldReduceMotion = useReducedMotion()
   const { visible: visibleTimeline, pendingCount } = useProgressiveTimeline(state)
   const traceState = { ...state, timeline: visibleTimeline }
   const groupedStages = buildAgentTraceStages(traceState)
@@ -383,9 +381,23 @@ export function AgentTrace({
       }))
     : groupedStages
   const activeStage = stages.find((stage) => stage.status === "active")
+  const latestRecordId = visibleTimeline.at(-1)?.id
+
+  useEffect(() => {
+    if (!latestRecordId) return
+    const frame = window.requestAnimationFrame(() => {
+      traceRef.current
+        ?.querySelector<HTMLElement>('[data-trace-latest="true"]')
+        ?.scrollIntoView({
+          behavior: traceAutoScrollBehavior(shouldReduceMotion),
+          block: "nearest",
+        })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [latestRecordId, shouldReduceMotion])
 
   return (
-    <section className="agent-trace" aria-labelledby="agent-trace-title">
+    <section ref={traceRef} className="agent-trace" aria-labelledby="agent-trace-title">
       <header className="agent-trace-header">
         <div className="agent-trace-heading">
           <QuestionBot className="agent-trace-bot" />
@@ -423,6 +435,7 @@ export function AgentTrace({
                 stage={stage}
                 state={traceState}
                 currentStep={currentStep}
+                latestRecordId={latestRecordId}
                 onSelect={onSelect}
               />
             ))}
