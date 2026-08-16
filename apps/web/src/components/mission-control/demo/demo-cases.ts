@@ -83,6 +83,7 @@ function summaryInstrument(
   return {
     mode,
     label,
+    available: true,
     plot: {
       traces: [{ name: label, x, y, kind: mode === "raw" ? "markers" : "bar", tone: "science" }],
       xLabel: mode === "raw" ? "Display sample" : "Check",
@@ -189,7 +190,7 @@ const baseState = (
   instrument: InstrumentPresentation,
 ): InvestigationPresentationState => ({
   ...DEMO_INITIAL_STATE,
-  run: { id: `fixture_run_${id.slice(-3)}`, mode: "demo" },
+  run: { id: `fixture_run_${id.slice(-3)}`, mode: "fixture" },
   target: {
     id,
     sector: `Sector ${sector}`,

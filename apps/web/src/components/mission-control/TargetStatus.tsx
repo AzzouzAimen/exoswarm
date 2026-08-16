@@ -2,18 +2,21 @@
 
 import { EyeIcon } from "@heroicons/react/24/outline"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import type { ViewerTarget } from "@/lib/contracts"
 
 import type { InvestigationPresentationState } from "./model/presentation-state"
 
 interface TargetStatusProps {
   state: InvestigationPresentationState
-  officialIdentity?: string
+  viewerTarget?: ViewerTarget
+  source: "live" | "fixture"
   mobileDetails?: React.ReactNode
 }
 
 export function TargetStatus({
   state,
-  officialIdentity,
+  viewerTarget,
+  source,
   mobileDetails,
 }: TargetStatusProps) {
   return (
@@ -31,7 +34,7 @@ export function TargetStatus({
         <span className="telemetry">{state.target.id}</span>
         <span className="target-rule" aria-hidden="true" />
         <span>{state.target.sector}</span>
-        <span className="demo-flag">Fixture playback</span>
+        <span className="demo-flag">{source === "live" ? "API run" : "Recorded scenario"}</span>
       </div>
 
       <div className="mission-status">
@@ -43,11 +46,14 @@ export function TargetStatus({
           <TooltipTrigger asChild>
             <span className="official-readout" tabIndex={0}>
               <EyeIcon aria-hidden="true" />
-              <span>Official: {officialIdentity ?? "Not available"}</span>
+              <span>
+                <strong>{viewerTarget?.target_name ?? "Loading official reference"}</strong>
+                {viewerTarget ? <small>{viewerTarget.catalog_disposition.replaceAll("_", " ").toLowerCase()}</small> : null}
+              </span>
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            Visible to you for context. Agents receive only the opaque target ID and cannot see this identity.
+            {viewerTarget ? `Viewer reference: TIC ${viewerTarget.tic_id}. Agents receive only the opaque target ID and independent evidence.` : "Loading the separate viewer-only catalog reference."}
           </TooltipContent>
         </Tooltip>
         {mobileDetails}

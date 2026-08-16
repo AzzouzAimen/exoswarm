@@ -8,7 +8,7 @@ It analyzes real TESS observations using established deterministic astronomy alg
 
 ## One-line claim
 
-> ExoSwarm is an AI-orchestrated TESS investigation system that uses deterministic astronomy tools to test and falsify competing explanations for transit-like signals, adaptively chooses which scientific evidence to seek next, and locks its measurements before comparing them with NASA ground truth.
+> ExoSwarm is an AI-orchestrated TESS investigation system that uses deterministic astronomy tools to test and falsify competing explanations for transit-like signals, adaptively chooses which scientific evidence to seek next, and automatically compares its independent result with an official viewer-only reference.
 
 ## Key distinction
 
@@ -58,17 +58,19 @@ Use states such as:
 
 The exact enum may be refined, but the UI and reports must never imply that ExoSwarm photometric vetting itself confirms a planet.
 
-## Blind evaluation idea
+## Viewer-visible, agent-blind evaluation
 
-The runtime agent sees an opaque ID such as `TARGET-X17`. The backend privately maps that ID to the real TESS/TIC/TOI identity needed for deterministic data loading. Known catalog parameters and confirmation status stay unavailable to the agent until the result is locked.
+The runtime agent sees an opaque ID such as `TARGET-X17`. The backend privately maps that ID to the
+real TESS/TIC/TOI identity needed for deterministic data loading. A separate viewer endpoint may
+show the human the official identity, parameters, and catalog status immediately. Those values stay
+unavailable to agents for the entire run.
 
-After lock:
+At completion:
 
-1. write `result.json`,
-2. compute and persist `result.json.sha256`,
-3. unlock the ground-truth service,
-4. create `reveal.json`,
-5. compare the locked measurement with the external catalog.
+1. preserve the independent disposition and deterministic measurements,
+2. compare them with the already-visible viewer reference,
+3. show a plain verdict: match, partial match, mismatch, or insufficient evidence,
+4. keep evidence and technical audit detail expandable rather than blocking the result.
 
 The catalog is an evaluator, not an input to the investigation.
 
@@ -78,10 +80,10 @@ The immediate users are hackathon judges and engineers evaluating whether an age
 bounded, observable, reproducible, and useful—not professional astronomers validating every edge
 case. ExoSwarm demonstrates a reusable software pattern for any evidence-heavy domain: the model
 selects a bounded deterministic analysis under budget; typed tools perform it; an append-only ledger
-and trace make the trajectory auditable; and hidden reference answers remain gated until commitment.
+and trace make the trajectory auditable; and viewer reference answers remain isolated from agents.
 
 This framing does not relax scientific honesty. It explains why architecture legibility, failure
-handling, context isolation, measured inference behavior, and blind-lock integrity are the product's
+handling, context isolation, measured inference behavior, and viewer/agent separation are the product's
 primary value.
 
 ## Minimum proof for the hackathon
@@ -92,7 +94,8 @@ A credible P0 demonstration must show:
 - one false-positive/eclipsing-binary case,
 - visibly different evidence-driven agent paths,
 - a visible adaptive experiment decision,
-- result lock before reveal,
+- official viewer reference visible from the start but absent from all agent contexts,
+- automatic, understandable end-state comparison without manual commit/reveal clicks,
 - CI/test evidence that the blind protocol cannot be bypassed,
 - reproducible run artifacts,
 - a visible Featherless inference summary based on recorded—not estimated—metrics,

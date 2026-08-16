@@ -1,0 +1,663 @@
+{
+  "adaptive_actions": [
+    "harmonic_test"
+  ],
+  "agent_decisions": [
+    {
+      "context_version": "5",
+      "decision": {
+        "cited_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3"
+        ],
+        "context_version": "5",
+        "decision_id": "observer_assessment_step_0005",
+        "observation_limitations": "No additional limitation is supported.",
+        "preparation_concerns": [
+          "NONE"
+        ],
+        "quality_flags": [
+          "QUALITY_ACCEPTABLE"
+        ],
+        "questions_for_later_roles": [
+          "Does mandatory vetting reveal ambiguity?"
+        ],
+        "role": "observer",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "briefing",
+      "provider": "featherless",
+      "role": "observer"
+    },
+    {
+      "context_version": "5",
+      "decision": {
+        "alternative_hypothesis": "unresolved",
+        "ambiguity_flags": [],
+        "cited_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a"
+        ],
+        "concise_reason": "The candidate shows a strong periodic signal with consistent odd/even depths and no secondary eclipse, but the period may be aliased. Contamination is low, so the leading hypothesis is planetary_transit, but the alias remains unresolved.",
+        "context_version": "5",
+        "decision_id": "signal_assessment_candidate_1",
+        "leading_hypothesis": "planetary_transit",
+        "role": "signal",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005",
+        "vetting_questions": [
+          "Can a bounded harmonic test resolve the period alias?"
+        ]
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "briefing",
+      "provider": "featherless",
+      "role": "signal"
+    },
+    {
+      "context_version": "5",
+      "decision": {
+        "ambiguity_codes": [
+          "PERIOD_ALIAS"
+        ],
+        "cited_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a"
+        ],
+        "context_version": "5",
+        "decision_id": "transit_hunter_assessment_candidate_1",
+        "focus_candidate_id": "candidate_1",
+        "ranked_action_names": [
+          "harmonic_test",
+          "stop"
+        ],
+        "role": "transit_hunter",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005",
+        "strongest_vetting_question": "Does the allowed action resolve the period alias?",
+        "viability_code": "AMBIGUOUS"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "briefing",
+      "provider": "featherless",
+      "role": "transit_hunter"
+    },
+    {
+      "context_version": "5",
+      "decision": {
+        "authorized_route": "CALL_SKEPTIC",
+        "cited_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a"
+        ],
+        "conflict_codes": [
+          "EVIDENCE_AMBIGUITY"
+        ],
+        "context_version": "5",
+        "decision_id": "director_ratification_step_0005",
+        "deterministic_disposition": null,
+        "focus_hypothesis": "unresolved",
+        "mission_brief": "Ratify the unresolved alias and route to skeptic for evidence review; final critic handoff.",
+        "phase": "briefing",
+        "requested_handoffs": [
+          "skeptic",
+          "critic"
+        ],
+        "role": "director",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "briefing",
+      "provider": "featherless",
+      "role": "director"
+    },
+    {
+      "context_version": "5",
+      "decision": {
+        "budget_units_remaining": 4,
+        "concise_reason": "alias unresolved; harmonic test is decisive and affordable",
+        "context_version": "5",
+        "contradicting_evidence_refs": [],
+        "cost_of_selected_experiment": 1,
+        "decision_id": "director_ratification_step_0005",
+        "expected_discriminating_result": "harmonic test will reveal whether the signal is better explained by a doubled period, resolving the alias",
+        "expected_information_value": "high",
+        "hypothesis_under_test": "period alias",
+        "parameters": {},
+        "predicted_outcomes": {
+          "harmonic confirmed": "alias resolved",
+          "harmonic rejected": "alias persists"
+        },
+        "priority": "high",
+        "reason_code": "HARMONIC_ALIAS_UNRESOLVED",
+        "requested_experiment": "harmonic_test",
+        "role": "skeptic",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005",
+        "stop_if": "harmonic test resolves alias",
+        "supporting_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a"
+        ],
+        "why_cost_is_justified": "alias remains unresolved and test is affordable"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "decision",
+      "provider": "featherless",
+      "role": "skeptic"
+    },
+    {
+      "context_version": "5",
+      "decision": {
+        "concise_reason": "Proposal directly tests unresolved alias and is affordable.",
+        "context_version": "5",
+        "contradicting_evidence_refs": [],
+        "decision_id": "director_ratification_step_0005",
+        "reason_code": "PROPOSAL_RELEVANT",
+        "revised_experiment": null,
+        "revised_parameters": null,
+        "role": "critic",
+        "run_id": "run_c66a96115c19df22",
+        "skeptic_decision_id": "director_ratification_step_0005",
+        "step_id": "step_0005",
+        "supporting_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a"
+        ],
+        "verdict": "APPROVE"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "review",
+      "provider": "featherless",
+      "role": "critic"
+    },
+    {
+      "context_version": "6",
+      "decision": {
+        "authorized_route": "FINALIZE",
+        "cited_evidence_refs": [
+          "evidence_83e73eff02a08c348ca3",
+          "evidence_6c4418fcaaf8d1e02564",
+          "evidence_905ab9d1e8481dd9e754",
+          "evidence_25fddc747c263463ec5a",
+          "evidence_434eb34f60bce5811db8"
+        ],
+        "conflict_codes": [
+          "EVIDENCE_AMBIGUITY"
+        ],
+        "context_version": "6",
+        "decision_id": "director_final_ratification",
+        "deterministic_disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+        "focus_hypothesis": "unresolved",
+        "mission_brief": "Finalize the evaluation. The cited evidence set supports the predetermined disposition, and no further role handoff is required.",
+        "phase": "final",
+        "requested_handoffs": [],
+        "role": "director",
+        "run_id": "run_c66a96115c19df22",
+        "step_id": "step_0005"
+      },
+      "fallback_used": false,
+      "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "phase": "final",
+      "provider": "featherless",
+      "role": "director"
+    }
+  ],
+  "agent_starts": [
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 1,
+      "role": "observer",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false
+    },
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "signal",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false
+    },
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "transit_hunter",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false
+    },
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "director",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true
+    },
+    {
+      "advisory_roles": [
+        "director",
+        "transit_hunter"
+      ],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "skeptic",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false
+    },
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "5",
+      "evidence_count": 4,
+      "role": "critic",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false
+    },
+    {
+      "advisory_roles": [],
+      "attempt_kind": "primary",
+      "context_version": "6",
+      "evidence_count": 5,
+      "role": "director",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true
+    }
+  ],
+  "artifact_count": 7,
+  "artifact_paths": [
+    "agent_decisions.jsonl",
+    "artifacts/action_a102bbdfbda86651.candidate-search.json",
+    "evidence.jsonl",
+    "inference_summary.json",
+    "result.json",
+    "result.json.sha256",
+    "trace.jsonl"
+  ],
+  "attempt_counts_by_role": {
+    "critic": 1,
+    "director": 2,
+    "observer": 1,
+    "signal": 1,
+    "skeptic": 1,
+    "transit_hunter": 1
+  },
+  "branch_mode": "adaptive_multi_agent",
+  "catalog_source": "NASA Exoplanet Archive Planetary Systems Composite Parameters",
+  "checks": {
+    "first_attempt_schema_valid_at_least_90_percent": true,
+    "no_provider_errors_or_timeouts": true,
+    "no_role_skipped": true,
+    "promoted_advisory_handoff_visible": true,
+    "raw_samples_zero": true,
+    "required_role_phases_complete": true,
+    "required_role_phases_first_attempt_valid": true,
+    "reveal_hash_verified": true,
+    "role_outputs_auditable_and_grounded": true
+  },
+  "completed_tests": [
+    "signal_quality",
+    "odd_even",
+    "secondary_eclipse",
+    "contamination"
+  ],
+  "critic_verdicts": [
+    "APPROVE"
+  ],
+  "disposition": "PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING",
+  "elapsed_seconds": 64.898,
+  "event_count": 76,
+  "event_types": [
+    "agent.completed",
+    "agent.decision",
+    "agent.handoff",
+    "agent.queued",
+    "agent.started",
+    "budget.updated",
+    "critic.review",
+    "director.route",
+    "evidence.appended",
+    "hypothesis.updated",
+    "inference.attempt",
+    "inference.summary",
+    "investigation.created",
+    "status.changed",
+    "tool.completed",
+    "tool.started"
+  ],
+  "inference": {
+    "agent_calls": 7,
+    "fallbacks": {
+      "denominator": 7,
+      "numerator": 0,
+      "rate": 0.0
+    },
+    "first_attempt_schema_valid": {
+      "denominator": 7,
+      "numerator": 7,
+      "rate": 1.0
+    },
+    "input_tokens": 22190,
+    "max_input_tokens": 4639,
+    "median_input_tokens": 3772.0,
+    "median_latency_ms": 2786.0,
+    "model_identity": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "output_tokens": 4802,
+    "provider": "featherless",
+    "provider_errors_timeouts": 0,
+    "raw_light_curve_samples_sent": 0,
+    "repairs": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": "not_applicable"
+    }
+  },
+  "inference_attempts": [
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "f2418d67d671566b8333c3ffb28940aacc67edb4730fd3571b39ab6f45e348c7",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1162,
+      "latency_ms": 2482,
+      "output_tokens": 117,
+      "prompt_template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+      "prompt_version": "observer-assessment-v2",
+      "role": "observer",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "c2d6e8c43c2d6b791bf62cbb4f2d13080bffd0f84622d759de26e48f720f02b7",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 3772,
+      "latency_ms": 2786,
+      "output_tokens": 194,
+      "prompt_template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+      "prompt_version": "signal-assessment-v2",
+      "role": "signal",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "0ff03b030f0e37ca1c515ab5e4549b1ba25fdfa49a3a071f570d88950883a45d",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4214,
+      "latency_ms": 2704,
+      "output_tokens": 199,
+      "prompt_template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+      "prompt_version": "transit-hunter-brief-v2",
+      "role": "transit_hunter",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "f684e92725e9c6b34be95ee7c37a94c7435c6463ce2a780b0c146808f7624874",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 1978,
+      "latency_ms": 10261,
+      "output_tokens": 1047,
+      "prompt_template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+      "prompt_version": "director-ratification-v2",
+      "role": "director",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "b84949cd76471258dd4a9632b7fa577a2daa2ceee4ad06263146da45ca79fcba",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4639,
+      "latency_ms": 3863,
+      "output_tokens": 269,
+      "prompt_template_sha256": "612bf86aef04f7433d040cd532e433b4f4426528305aae7e16750039ed30787a",
+      "prompt_version": "skeptic-decision-v6",
+      "role": "skeptic",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "6f9020c14c5787aa7a0cc323445968de9108827b2b482684be2de6706f7d4d4b",
+      "context_version": "5",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 4404,
+      "latency_ms": 2594,
+      "output_tokens": 186,
+      "prompt_template_sha256": "0bf529152db51ded48d028053b509a089133e6f0702c90fe83496711398864ff",
+      "prompt_version": "critic-review-v5",
+      "role": "critic",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": false,
+      "thinking_mode": "off",
+      "thinking_requested": false,
+      "validation_error_code": null
+    },
+    {
+      "attempt_kind": "primary",
+      "context_fingerprint": "c62341fe446a3c7e82720d6179ec0a690d313614c2736ed3fddb95d1cedc7890",
+      "context_version": "6",
+      "error_type": null,
+      "finish_reason": "stop",
+      "input_tokens": 2021,
+      "latency_ms": 25406,
+      "output_tokens": 2790,
+      "prompt_template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+      "prompt_version": "director-ratification-v2",
+      "role": "director",
+      "schema_valid": true,
+      "status": "SUCCESS",
+      "thinking_confirmed": true,
+      "thinking_mode": "on",
+      "thinking_requested": true,
+      "validation_error_code": null
+    }
+  ],
+  "locked_sha256": "07450c49caf1841247477809fed82548f06ceece288c73bb2e5bc46b13276fa5",
+  "model_calls": 7,
+  "opaque_target_id": "TARGET-C11",
+  "proposed_adaptive_actions": [
+    "harmonic_test"
+  ],
+  "provenance": {
+    "configuration": {
+      "configured_max_input_tokens": 32000,
+      "configured_max_output_tokens": 20000,
+      "context_schema_version": "agent-context-v4",
+      "effective_role_max_output_tokens": {
+        "critic": 700,
+        "director": 20000,
+        "observer": 500,
+        "signal": 500,
+        "skeptic": 1200,
+        "transit_hunter": 500
+      },
+      "inference_model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "role_thinking_modes": {
+        "critic": "off",
+        "director": "on",
+        "observer": "off",
+        "signal": "off",
+        "skeptic": "off",
+        "transit_hunter": "off"
+      },
+      "specialist_advisory_enabled": true,
+      "target_id": "TARGET-C11",
+      "timeout_seconds": 240.0
+    },
+    "configuration_sha256": "2301f142b1b711653c2d4c51aba637d3a3e4d6eaaa72ab31e8eb8396c74ebb18",
+    "evaluation_id": "live-backend-gate-v2",
+    "generated_at_utc": "2026-08-16T17:47:38.829678+00:00",
+    "git_commit": "d30aa39d35c53bdd7fd2fb8d6fef17153e2125b2",
+    "git_worktree_dirty": true,
+    "prompt_versions": {
+      "critic": "critic-review-v5",
+      "skeptic": "skeptic-decision-v6"
+    },
+    "prompts": {
+      "critic": {
+        "example_set_version": "critic-examples-v1",
+        "template_sha256": "0bf529152db51ded48d028053b509a089133e6f0702c90fe83496711398864ff",
+        "version": "critic-review-v5"
+      },
+      "director": {
+        "example_set_version": "director-examples-v1",
+        "template_sha256": "13e07a1f9712bf0ff4033959afa3c72fb3d91c6d346b2d32e3b812a3a7dd0b9a",
+        "version": "director-ratification-v2"
+      },
+      "observer": {
+        "example_set_version": "observer-examples-v1",
+        "template_sha256": "e8201a59b616e6c74afafb483da51cb3e5e373744090766af4b21bd3456ce272",
+        "version": "observer-assessment-v2"
+      },
+      "signal": {
+        "example_set_version": "signal-examples-v1",
+        "template_sha256": "0e025645162fc469c3164d43574f1a31e53d4833c018b954a64c62f3b4916db4",
+        "version": "signal-assessment-v2"
+      },
+      "skeptic": {
+        "example_set_version": "skeptic-examples-v1",
+        "template_sha256": "612bf86aef04f7433d040cd532e433b4f4426528305aae7e16750039ed30787a",
+        "version": "skeptic-decision-v6"
+      },
+      "transit_hunter": {
+        "example_set_version": "transit-hunter-examples-v1",
+        "template_sha256": "6227182f7e7ebd85d58d2e1965899b5e1b4e40edf5212347d579d72c68f205aa",
+        "version": "transit-hunter-brief-v2"
+      }
+    }
+  },
+  "required_role_phases": [
+    "critic:review",
+    "director:briefing",
+    "director:final",
+    "observer:briefing",
+    "signal:briefing",
+    "skeptic:decision",
+    "transit_hunter:briefing"
+  ],
+  "reveal_hash_verified": true,
+  "role_checkpoints": [
+    {
+      "context_version": "5",
+      "decision_id": "observer_assessment_step_0005",
+      "phase": "briefing",
+      "role": "observer",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "signal_assessment_candidate_1",
+      "phase": "briefing",
+      "role": "signal",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "transit_hunter_assessment_candidate_1",
+      "phase": "briefing",
+      "role": "transit_hunter",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "director_ratification_step_0005",
+      "phase": "briefing",
+      "role": "director",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "director_ratification_step_0005",
+      "phase": "decision",
+      "role": "skeptic",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "5",
+      "decision_id": "director_ratification_step_0005",
+      "phase": "review",
+      "role": "critic",
+      "status": "COMPLETE"
+    },
+    {
+      "context_version": "6",
+      "decision_id": "director_final_ratification",
+      "phase": "final",
+      "role": "director",
+      "status": "COMPLETE"
+    }
+  ],
+  "run_status_before_lock": "READY_TO_LOCK",
+  "schema_version": "2",
+  "skipped_roles": [],
+  "status": "PASS",
+  "terminal_reason": "NO_AVAILABLE_ADAPTIVE_ACTION",
+  "tool_calls": 5
+}

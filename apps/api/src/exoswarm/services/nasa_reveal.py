@@ -40,6 +40,20 @@ class _CachedCatalogManifest(BaseModel):
     targets: list[_CachedCatalogEntry]
 
 
+class CatalogViewerTarget(BaseModel):
+    """Viewer-only catalog projection; never attach this to agent or run state."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    opaque_target_id: str = Field(pattern=r"^TARGET-[A-Z0-9-]+$")
+    target_name: str = Field(min_length=1)
+    tic_id: str = Field(pattern=r"^[0-9]+$")
+    catalog_disposition: str = Field(min_length=1)
+    catalog_source: str = Field(min_length=1)
+    catalog_source_url: str = Field(pattern=r"^https://")
+    known_values: dict[str, float | int | str]
+
+
 class CachedCatalogRevealProvider:
     """Backend-only reveal from a versioned cache of official catalog records."""
 
@@ -54,6 +68,17 @@ class CachedCatalogRevealProvider:
         self._entries = {entry.opaque_target_id: entry for entry in manifest.targets}
         if len(self._entries) != len(manifest.targets):
             raise ValueError("cached catalog reveal manifest contains duplicate targets")
+
+    def list_viewer_targets(self) -> list[CatalogViewerTarget]:
+        return [self._viewer_target(entry) for entry in self._entries.values()]
+
+    def viewer_target(self, opaque_target_id: str) -> CatalogViewerTarget | None:
+        entry = self._entries.get(opaque_target_id)
+        return None if entry is None else self._viewer_target(entry)
+
+    @staticmethod
+    def _viewer_target(entry: _CachedCatalogEntry) -> CatalogViewerTarget:
+        return CatalogViewerTarget.model_validate(entry.model_dump())
 
     def reveal(self, locked_result: LockedResult, locked_sha256: str) -> RevealResult:
         entry = self._entries.get(locked_result.opaque_target_id)

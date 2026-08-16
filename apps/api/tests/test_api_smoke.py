@@ -201,6 +201,18 @@ def test_api_artifacts_reveal_success_and_tampered_hash_failure(tmp_path) -> Non
     with TestClient(
         create_app(settings, controller=controller, target_registry=targets)
     ) as client:
+        public_paths = client.get("/openapi.json").json()["paths"]
+        assert "/api/investigations/{run_id}/lock" not in public_paths
+        assert "/api/investigations/{run_id}/reveal" not in public_paths
+        viewer_targets = client.get("/api/viewer/targets")
+        assert viewer_targets.status_code == 200
+        assert viewer_targets.json()[0]["target_name"] == "Backend-only fixture identity"
+        assert viewer_targets.json()[0]["catalog_disposition"] == "TEST_FIXTURE"
+        viewer_target = client.get("/api/viewer/targets/TARGET-X17")
+        assert viewer_target.status_code == 200
+        assert viewer_target.json()["known_values"] == {"period_days": 3.2}
+        assert client.get("/api/viewer/targets/TARGET-MISSING").status_code == 404
+
         successful_run, tampered_run = ready_runs
         artifacts_before_lock = client.get(
             f"/api/investigations/{successful_run}/artifacts"

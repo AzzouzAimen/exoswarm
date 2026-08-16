@@ -9,7 +9,7 @@ import type {
 } from "../model/presentation-state"
 
 /**
- * CACHED BACKEND-ALIGNED UI FIXTURE — NOT A LIVE BACKEND RUN.
+ * RECORDED BACKEND-ALIGNED UI SCENARIO FOR OFFLINE PRESENTATION.
  *
  * Values in this file exist only to exercise the presentation layer. They are
  * intentionally isolated so a future backend adapter can replace this event
@@ -102,7 +102,7 @@ function instrument(
   label: string,
   readouts: InstrumentPresentation["readouts"],
 ): InstrumentPresentation {
-  return { mode, label, plot: PLOTS[mode], readouts }
+  return { mode, label, available: true, plot: PLOTS[mode], readouts }
 }
 
 export const DEMO_INSTRUMENTS: Record<InstrumentMode, InstrumentPresentation> = {
@@ -200,7 +200,7 @@ export const DEMO_EVIDENCE: Record<string, EvidencePresentation> = {
 }
 
 export const DEMO_INITIAL_STATE: InvestigationPresentationState = {
-  run: { id: "fixture_run_C11", mode: "demo" },
+  run: { id: "fixture_run_C11", mode: "fixture" },
   target: {
     id: "TARGET-C11",
     sector: "Sector 2",

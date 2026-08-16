@@ -14,7 +14,17 @@ Returns application/service health only. No scientific fake data.
 
 `GET /api/targets`
 
-Returns only agent-safe, pre-reveal metadata, for example opaque IDs and data-availability flags. Do not expose real identity or known catalog disposition.
+Returns only agent-safe metadata, for example opaque IDs and data-availability flags. Do not expose real identity or known catalog disposition.
+
+### List viewer references
+
+`GET /api/viewer/targets`
+
+`GET /api/viewer/targets/{opaque_target_id}`
+
+Returns the human-viewer catalog projection: official identity, catalog disposition/source, and
+known values. This projection is available before a run and must remain isolated from controller
+state, agent context, SSE events, and scientific tools.
 
 ### Create investigation
 
@@ -54,13 +64,13 @@ recorded run-level inference summary or an explicit scripted/unavailable state.
 
 Content type: `text/event-stream`.
 
-### Lock result
+### Legacy audit lock (not used by the primary UI)
 
 `POST /api/investigations/{run_id}/lock`
 
 Allowed only when deterministic runtime policy says the run is lock-eligible. Returns locked artifact metadata/hash.
 
-### Reveal ground truth
+### Legacy reproduction reveal (not used by the primary UI)
 
 `POST /api/investigations/{run_id}/reveal`
 
@@ -70,7 +80,7 @@ Must return an authorization/lock error before `RESULT_LOCKED`. After lock, crea
 
 `GET /api/investigations/{run_id}/artifacts`
 
-Returns references/metadata, not hidden ground truth before reveal.
+Returns run artifact references/metadata; viewer catalog data uses the separate viewer route.
 
 ## SSE event envelope
 
@@ -140,7 +150,7 @@ inflating every subsequent inference context.
 - Every side-effecting action has an action ID.
 - Duplicate/replayed events must not create duplicate irreversible actions.
 - A reconnecting UI should be able to refetch current state and then continue the stream.
-- A frontend refresh must not unlock ground truth or alter scientific state.
+- A frontend refresh must not alter scientific state or merge viewer reference data into run state.
 
 ## Error payloads
 
@@ -159,4 +169,7 @@ Scientific negative results remain scientific tool results, not HTTP 500 errors.
 
 ## Frontend rule
 
-The frontend renders structured backend state/events. It does not calculate authoritative scientific measurements, invent progress, or infer the final disposition independently.
+The frontend renders structured backend state/events and the separate viewer projection. It does
+not calculate authoritative scientific measurements, invent progress, or infer the scientific
+disposition independently. A deterministic presentation adapter may compare the backend disposition
+with the catalog class to produce the plain viewer verdict.

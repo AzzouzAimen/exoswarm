@@ -3,16 +3,18 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from exoswarm.api.dependencies import get_controller
+from exoswarm.api.mission_control_models import MissionControlSnapshot, PlotView
 from exoswarm.api.sse import encode_sse
 from exoswarm.domain.models import ArtifactMetadata, InvestigationState, LockReceipt, RevealResult
 from exoswarm.investigation.controller import InvestigationController
 from exoswarm.investigation.runner import InvestigationRunService, RunExecutionSnapshot
 from exoswarm.security.blinding import agent_safe_state, assert_agent_safe_payload
+from exoswarm.services.nasa_reveal import CatalogViewerTarget
 
 router = APIRouter(prefix="/api", tags=["investigations"])
 Controller = Annotated[InvestigationController, Depends(get_controller)]
@@ -40,6 +42,10 @@ class ArtifactListResponse(BaseModel):
 
 def _runner(request: Request) -> InvestigationRunService:
     return request.app.state.run_service
+
+
+def _mission_control(request: Request):
+    return request.app.state.mission_control
 
 
 @router.get("/targets")
@@ -100,6 +106,46 @@ def read_investigation(
     return payload
 
 
+@router.get("/viewer/targets", response_model=list[CatalogViewerTarget], tags=["viewer"])
+def list_viewer_targets(request: Request) -> list[CatalogViewerTarget]:
+    """Catalog reference for the human-facing UI, isolated from investigation state."""
+    return request.app.state.viewer_catalog.list_viewer_targets()
+
+
+@router.get(
+    "/viewer/targets/{opaque_target_id}",
+    response_model=CatalogViewerTarget,
+    tags=["viewer"],
+)
+def viewer_target(opaque_target_id: str, request: Request) -> CatalogViewerTarget:
+    target = request.app.state.viewer_catalog.viewer_target(opaque_target_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="viewer catalog target not found")
+    return target
+
+
+@router.get(
+    "/investigations/{run_id}/mission-control",
+    response_model=MissionControlSnapshot,
+)
+def mission_control_snapshot(run_id: str, request: Request) -> MissionControlSnapshot:
+    snapshot = _mission_control(request).snapshot(run_id)
+    if snapshot.reveal is None:
+        assert_agent_safe_payload(snapshot.model_dump(mode="json"))
+    return snapshot
+
+
+@router.get(
+    "/investigations/{run_id}/mission-control/plots/{mode}",
+    response_model=PlotView,
+)
+def mission_control_plot(run_id: str, mode: str, request: Request) -> PlotView:
+    try:
+        return _mission_control(request).plot(run_id, mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.get("/investigations/{run_id}/events")
 def stream_events(
     run_id: str,
@@ -124,13 +170,23 @@ def stream_events(
     )
 
 
-@router.post("/investigations/{run_id}/lock", response_model=LockReceipt)
+@router.post(
+    "/investigations/{run_id}/lock",
+    response_model=LockReceipt,
+    include_in_schema=False,
+)
 def lock_investigation(run_id: str, controller: Controller) -> LockReceipt:
+    """Legacy reproduction endpoint; the viewer workflow does not call this."""
     return controller.lock(run_id)
 
 
-@router.post("/investigations/{run_id}/reveal", response_model=RevealResult)
+@router.post(
+    "/investigations/{run_id}/reveal",
+    response_model=RevealResult,
+    include_in_schema=False,
+)
 def reveal_investigation(run_id: str, controller: Controller) -> RevealResult:
+    """Legacy reproduction endpoint; the viewer workflow does not call this."""
     return controller.reveal(run_id)
 
 

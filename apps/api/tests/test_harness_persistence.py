@@ -190,6 +190,11 @@ async def test_restart_recovers_ledger_committed_prepared_action_without_reexecu
     assert recovered.adaptive_cost_units_used == 1
     assert recovered.adaptive_cost_units_remaining == 3
     assert any(event.type == "recovery.completed" for event in restarted.events(state.run_id))
+    hypothesis = [
+        event for event in restarted.events(state.run_id) if event.type == "hypothesis.updated"
+    ]
+    assert hypothesis[-1].payload["evidence_id"] == record.evidence_id
+    assert hypothesis[-1].payload["active_hypotheses"] == recovered.active_hypotheses
 
 
 def test_persisted_snapshot_contains_decisions_reviews_invocations_and_budgets(tmp_path) -> None:

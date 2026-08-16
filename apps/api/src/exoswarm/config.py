@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     max_critic_revisions: int = Field(default=1, ge=0)
     run_timeout_seconds: float = Field(default=600.0, gt=0)
     sse_poll_interval_seconds: float = Field(default=0.05, gt=0, le=5)
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     @field_validator("featherless_api_key", mode="before")
     @classmethod

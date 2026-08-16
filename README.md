@@ -1,269 +1,340 @@
+<div align="center">
+
 # ExoSwarm
 
-**AI Mission Control for Agent-Orchestrated Exoplanet Investigation**
+**Auditable AI investigation of candidate exoplanet signals in NASA TESS observations.**
 
-ExoSwarm is an AI-orchestrated TESS investigation system that uses deterministic astronomy tools to test and falsify competing explanations for transit-like signals, adaptively chooses which scientific evidence to seek next, and locks its measurements before comparing them with NASA ground truth.
+<!-- Replace "#demo" with the deployed demo URL when it is available. -->
+<a href="#demo"><img alt="View demo" src="https://img.shields.io/badge/▶_View_Demo-6D28D9?style=for-the-badge"></a>
+<a href="#try-the-reproducible-path"><img alt="Reproduce locally" src="https://img.shields.io/badge/Reproduce_Locally-0F766E?style=for-the-badge"></a>
 
-ExoSwarm is **not** an LLM planet detector. Numerical measurements belong to deterministic scientific code. The agent layer decides what evidence to seek next, which competing hypothesis deserves attention, and when the implemented evidence is sufficient to stop.
+[![CI](https://github.com/AzzouzAimen/exoswarm/actions/workflows/ci.yml/badge.svg)](https://github.com/AzzouzAimen/exoswarm/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 
-## Who it is for
+[Architecture](#system-architecture) · [Agent harness](#what-can-the-ai-control) · [Quick start](#quick-start-full-local-application) · [Verification](#reproducibility-and-verification) · [Documentation](#engineering-documentation)
 
-ExoSwarm is a reference implementation for engineers building auditable AI decision systems in
-science, finance, security, and other evidence-heavy domains. The reusable pattern is an LLM that
-chooses which bounded, potentially expensive deterministic analysis to run next while a typed
-ledger records what happened. Its blind-lock protocol also addresses benchmark contamination: a
-result on public data is more credible when the system can prove the decision layer could not see
-the answer before committing its result.
+</div>
 
-## Core architecture
+A planet crossing its star can cause a small, repeating dip in brightness. Other stars, stellar
+eclipses, and instrumental effects can produce convincing look-alikes, so finding a dip is only the
+start of an investigation. ExoSwarm searches cached TESS observations, runs a mandatory vetting
+baseline, and then lets bounded AI roles decide which approved test would be most informative next.
 
-The project deliberately combines a deterministic workflow with bounded agentic control:
+The architecture separates judgment from authority:
 
-- **Deterministic scientific layer:** TESS loading, preprocessing, BLS, phase folding, measurements, odd/even checks, secondary-eclipse checks, harmonic tests, contamination diagnostics, hypothesis-update rules, result locking, and catalog gating.
-- **Control layer:** deterministic orchestration owns phases, routes, budgets, permissions, retries, stopping, and dispositions. Six bounded Featherless roles provide specialist briefs and action review without gaining mutation authority.
-- **Mandatory baseline:** safety-critical vetting is code-enforced and cannot be skipped by the model.
-- **Adaptive layer:** the Skeptic selects a discriminating follow-up experiment from a bounded registry; the Critic returns APPROVE, REVISE, or VETO.
-- **Blind protocol:** agents see opaque target IDs; recognizable identity and NASA ground truth are unavailable until the result is locked.
-- **Evidence Ledger:** append-only structured scientific evidence powers agent context, auditability, UI storytelling, evaluation, and reproducibility.
+- **Models interpret and propose.** Six specialist roles receive compact, structured evidence—not
+  raw light curves, local files, recognizable target identities, or catalog answers.
+- **Application code authorizes.** A deterministic controller validates schemas, permissions,
+  preconditions, duplicate actions, and hard budgets before anything runs.
+- **Scientific tools measure.** Typed Python functions compute every period, depth, duration,
+  signal-to-noise value, and vetting diagnostic shown by the system.
+- **The viewer gets the answer key immediately; the agents never do.** A separate viewer-only API
+  shows the official identity and catalog reference from the start, while every agent packet,
+  run snapshot, and event remains opaque. The finished result is compared automatically.
 
-```mermaid
-flowchart LR
-    UI[Mission-control UI] -->|REST + SSE| API[FastAPI boundary]
-    API --> RUNNER[Bounded resumable runner]
-    RUNNER --> CONTROL[Deterministic investigation controller]
-    CONTROL --> CONTEXT[Compact agent-safe context]
-    CONTEXT --> SPECIALISTS[Observer + Signal]
-    SPECIALISTS --> TRANSIT[Transit Hunter]
-    TRANSIT --> DIRECTOR[Director briefing]
-    DIRECTOR --> SKEPTIC[Featherless Skeptic]
-    SKEPTIC --> CRITIC[Featherless Critic]
-    CRITIC -->|APPROVE / REVISE / VETO| CONTROL
-    CONTROL -->|validated allowlisted action| TOOLS[Deterministic tools]
-    TOOLS --> LEDGER[Append-only Evidence Ledger]
-    LEDGER --> CONTROL
-    CONTROL --> LOCK[Canonical result + SHA-256 lock]
-    LOCK -->|only after lock| CATALOG[Backend catalog reveal]
-    LEDGER --> API
-```
+This makes exoplanet vetting a concrete test case for a broader engineering question: how can an AI
+choose useful next actions without becoming the authority over execution, measurements, or the
+answer key?
 
-The important boundary is proposal versus authority: models select or review bounded actions, the
-controller validates and authorizes them, deterministic tools produce measurements, and durable
-state plus traces explain every branch without storing hidden chain-of-thought.
+## Demo
 
-## Inference layer
+The hosted demo link will be added here. Until then, the cached reproducible path below runs a
+complete investigation without a model key or astronomy-network access.
 
-Featherless.ai is the intended live inference provider, with `DeepSeek-V4-Flash-0731` as the single
-primary model. The API supports Observer, Signal, Transit Hunter, Director, Skeptic, and Critic
-through isolated structured contexts when
-`FEATHERLESS_API_KEY` is configured; offline tests inject a scripted client. Every run exposes
-measured call count, input/output tokens, schema-valid rate, repair rate, fallback rate, latency,
-and model identity. Raw light-curve samples sent to the model remain **zero**; models receive
-compact evidence packets with deterministic measurements and provenance references.
+## Try the reproducible path
 
-See [`docs/inference.md`](docs/inference.md) for the implementation and reporting contract. Never
-replace unavailable metrics with estimates in the README, UI, demo, or artifacts.
-
-## 48-hour stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| Icons | Heroicons |
-| Scientific charts | Plotly.js + react-plotly.js |
-| Central 3D scene | React Three Fiber, one mission-control scene only |
-| Backend | FastAPI + Uvicorn |
-| Realtime | Server-Sent Events (SSE) |
-| Agent orchestration | LangGraph |
-| Schemas | Pydantic v2 |
-| LLM client/provider | OpenAI Python SDK -> Featherless AI |
-| Primary model | DeepSeek-V4-Flash-0731 |
-| TESS/science | Lightkurve, Astropy, NumPy, SciPy, Pandas |
-| Reproducible plots | Matplotlib |
-| HTTP | httpx |
-| Python tooling | Python 3.12, uv, pytest, pytest-asyncio, Ruff |
-| JS tooling | pnpm, ESLint, TypeScript |
-| CI/deploy | GitHub Actions, Vercel, Railway, Docker |
-
-**Visualization rule:** use React Three Fiber only for the single central mission-control visualization. All scientific charts and diagnostics stay in Plotly.
-
-## Repository layout
-
-The intended scaffold is documented in [`docs/03_REPO_SCAFFOLD.md`](docs/03_REPO_SCAFFOLD.md). At a high level:
-
-```text
-apps/web/                    Next.js mission-control frontend
-apps/api/                    FastAPI + ExoSwarm Python package
-data/                        cached scientific inputs and target manifests
-runs/                        reproducible run artifacts
-evals/                       curated evaluation cases and reports
-scripts/                     reproducibility and utility entrypoints
-docs/                        architecture and implementation contracts
-.agents/skills/              coding-agent skill files
-```
-
-## Scientific path
-
-The shippable P0 scientific path is:
-
-```text
-cached TESS data
-  -> quality/preprocessing
-  -> BLS search
-  -> phase folding
-  -> period/depth/duration/SNR
-  -> odd/even test
-  -> secondary-eclipse test
-  -> basic contamination context
-  -> Skeptic/Critic-selected P/2-P-2P harmonic test when useful
-```
-
-A real pixel/centroid diagnostic is an optional P1 differentiator after architecture clarity,
-agent observability, documentation, and demo reliability are strong. Keep it only when a real
-cached TPF case passes a short acceptance check and it materially improves the visible demo. If it
-misses that checkpoint, ship honestly labeled neighbor/contamination context and do not imply
-pixel-level localization.
-
-All measurements must have explicit units, method/provenance, and explicit failure states. Where uncertainty is not available, report a declared tolerance rather than fake precision.
-
-## Investigation path
-
-```text
-observe
-  -> prepare signal
-  -> detect candidate
-  -> establish competing hypotheses
-  -> complete mandatory baseline vetting
-  -> Skeptic selects adaptive experiment
-  -> Critic reviews
-  -> deterministic tool executes
-  -> Evidence Ledger appends result
-  -> deterministic hypothesis update
-  -> continue or stop
-  -> lock result + SHA-256
-  -> unlock NASA reveal
-```
-
-A valid demo must show one planet-like case and one false-positive/eclipsing-binary case taking
-visibly different evidence-driven trajectories. A third inconclusive case belongs in the compact
-evaluation suite but need not consume the primary three-minute demo.
-
-## Blindness and result lock
-
-Before `RESULT_LOCKED`, agent-visible code paths must not expose:
-
-- recognizable target identity when avoidable,
-- known planetary parameters,
-- NASA confirmation status,
-- ground-truth catalog values,
-- a ground-truth lookup tool.
-
-The final result is serialized and hashed before any reveal. The catalog is an evaluator, not an input to the investigation.
-
-## Artifacts
-
-Conceptual run output:
-
-```text
-runs/
-  TARGET-X17/
-    <run-id>/
-      state.json
-      trace.jsonl
-      agent_decisions.jsonl
-      result.json
-      result.json.sha256
-      inference_summary.json
-      reveal.json             # only after lock + reveal
-      artifacts/
-        <action-id>.candidate-search.json
-```
-
-`make reproduce` is the cached/no-network reproduction path. It runs the complete TARGET-P21
-investigation under a declared scripted decision policy, locks the result, verifies the SHA-256 of
-the exact persisted bytes, performs the gated catalog reveal, and verifies that the reveal refers
-to the same hash.
-
-## Project status and scope
-
-The default API now composes a versioned backend-only target mapping, bounded/resumable run service,
-the live six-role Featherless adapter, strict primary/repair/fallback validation, role checkpoints,
-append-only agent decisions, per-attempt prompt/thinking provenance, and a derived run-level
-inference summary. Validated Transit Hunter and Director briefings are promoted into the Skeptic's
-bounded context while the Critic stays isolated. The exact configured DeepSeek model uses verified
-provider thinking for the non-authoritative Director only. The production mandatory path runs cached TESS BLS,
-odd/even, secondary-eclipse, and contamination screening; bounded harmonic analysis and explicit
-zero-cost STOP are adaptive choices. Five cached-real opaque targets now cover a clean confirmed
-planet that survives vetting, two hot-Jupiter evidence profiles, a cataloged eclipsing binary that
-is rejected, and an intentionally inconclusive shallow planet signal. A locked five-case evaluator
-checks period/harmonic recovery, dispositions, complete mandatory diagnostics, result/reveal hashes,
-and the zero-raw-sample agent-context invariant. Safe artifact metadata and backend-only post-lock
-catalog comparisons are implemented. Pixel/centroid science and the mission-control integration
-remain deferred.
-
-## Scaffold quick start
-
-Requirements: Python 3.12 with `uv`, Node.js 24, and `pnpm` 11.
-
-Copy `.env.example` to `.env`. Set `FEATHERLESS_API_KEY` for live six-role inference; leave it
-blank for deterministic offline tests and cached reproduction. The example already contains the
-supported model, provider URL, promoted Director thinking profile, bounded inference
-limits, run budgets, and local API URL. Rerun the exact-model preflight and reset the confirmed-role
-list before changing model identity. Do not put secrets in committed files.
+With Python 3.12 and [`uv`](https://docs.astral.sh/uv/) installed, this command runs a complete
+cached TESS investigation from the repository root:
 
 ```bash
-uv sync --project apps/api --extra science --extra agents
-pnpm install --frozen-lockfile
-make test
-make lint
-make build
-make eval-real-tess
+uv run --project apps/api --extra science python scripts/reproduce.py
 ```
 
-For local development, run `make dev-api` and `make dev-web` in separate terminals. `make reproduce`
-uses the committed cached-real FITS inputs, never contacts an astronomy-data service, and never
-generates placeholder science. With a Featherless key configured, run the live gates documented in
-[`docs/inference.md`](docs/inference.md).
+It requires no model API key and makes no astronomy-network request. A scripted decision client
+exercises the same controller boundary, while committed TESS FITS data supplies the scientific
+tools. The script verifies mandatory diagnostics, writes and hashes the canonical result in a
+temporary run directory, verifies the retained cryptographic audit artifacts, checks that the
+catalog comparison references the same hash, and prints a JSON `PASS` summary. On systems with GNU Make, `make reproduce` is the
+equivalent shortcut.
 
-Build the production backend container from the repository root so cached target inputs and the
-frozen backend lock plus the `science` and `agents` dependency groups are included:
+## System architecture
+
+The repository pairs a mission-control web interface with a FastAPI investigation service. The
+backend exposes REST run control, a UI-safe mission-control projection, bounded scientific plot
+projections, and ordered Server-Sent Events (SSE). The shell uses the API backend by default;
+deterministic fixture playback remains an explicit offline mode. LangGraph supplies the explicit
+backend routing topology, but JSON/JSONL run artifacts—not graph memory or a chat transcript—remain
+the durable source of truth.
+
+![ExoSwarm system architecture](assets/architecture.png)
+
+External systems are shown outside the deterministic authority boundary. Normal cached runs do not
+contact MAST or the NASA Exoplanet Archive; their source products and viewer-reference catalog records are
+versioned locally with provenance.
+
+## What can the AI control?
+
+ExoSwarm uses six roles because they have different evidence access and responsibilities—not to
+simulate an unconstrained group chat.
+
+| Role | Bounded responsibility | Authority |
+|---|---|---|
+| Observer | Summarize observation quality and limitations | Advisory only |
+| Signal | Interpret candidate-pattern evidence using a fixed vocabulary | Advisory only |
+| Transit Hunter | Rank candidate viability and currently allowed follow-ups | Advisory only |
+| Director | Echo the controller's binding route/disposition and provide a concise brief | Cannot change the route or result |
+| Skeptic | Select the strongest alternative explanation and one allowed discriminating action | Proposal only |
+| Critic | Return `APPROVE`, `REVISE`, or `VETO` for the exact proposal | Review only |
+
+The normal adaptive path uses the Director twice—once for a briefing and once at finalization—so six
+roles may produce seven calls. Each receives safe context from durable evidence; typed outputs return
+to the controller for validation, authorization, and stable-order commit.
+
+![ExoSwarm agent harness](assets/harness.png)
+
+In short: **the model proposes, the controller authorizes, and deterministic tools measure.** Model
+output never becomes a scientific measurement. Each accepted model decision is schema-validated,
+cited to evidence IDs, and recorded without storing hidden chain-of-thought.
+
+## How an investigation works
+
+1. **Load an opaque target.** The public run sees an ID such as `TARGET-P21`; the backend resolves
+   the committed TESS file without exposing its recognizable identity to agents.
+2. **Search for a repeating dip.** Deterministic preprocessing and Box Least Squares (BLS) estimate
+   the candidate period, epoch, duration, depth, and depth signal-to-noise ratio.
+3. **Run the mandatory baseline.** Code—not an LLM—requires signal-quality, odd/even transit,
+   secondary-eclipse, and contamination checks.
+4. **Investigate ambiguity.** If evidence remains unresolved, advisory roles brief the Skeptic. The
+   Skeptic may propose an available harmonic test or zero-cost stop; the Critic reviews it.
+5. **Validate and execute.** The controller checks the exact proposal against the typed tool
+   registry and remaining budgets, then executes approved science in an isolated subprocess.
+6. **Update durable evidence.** Measurements, units, warnings, provenance, decisions, budgets, and
+   transitions are persisted in state plus append-only JSONL records.
+7. **Finalize without the answer key.** Application rules map evidence codes to a cautious
+   disposition such as `PLANETARY_INTERPRETATION_SURVIVES_IMPLEMENTED_VETTING` or
+   `INCONCLUSIVE_ADDITIONAL_DATA_REQUIRED`.
+8. **Compare automatically.** The viewer-only catalog projection is shown throughout the demo, then
+   the completed independent disposition and measurements appear beside it with a clear match,
+   partial-match, mismatch, or insufficient-evidence verdict. Agents never receive that projection.
+
+This is photometric vetting, not planet confirmation. A result means that a planetary interpretation
+survived—or did not survive—the implemented tests. Any confirmed status shown in the viewer reference belongs
+to the external catalog.
+
+## Quick start: full local application
+
+### Prerequisites
+
+- Python **3.12** (the package supports `>=3.12,<3.14`; CI uses 3.12)
+- [`uv`](https://docs.astral.sh/uv/)
+- Node.js **24**
+- pnpm **11.10.0**
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/AzzouzAimen/exoswarm.git
+cd exoswarm
+uv sync --project apps/api --extra science --extra agents --frozen
+pnpm install --frozen-lockfile
+```
+
+### 2. Configure
+
+macOS/Linux:
+
+```bash
+cp .env.example .env
+```
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The defaults point the browser to `http://localhost:8000` and store local run artifacts under
+`runs/`. Leave `FEATHERLESS_API_KEY` blank for tests and the cached reproduction. To exercise the
+provider-backed six-role path, set it to a Featherless API key; the configured OpenAI-compatible endpoint and
+model are already declared in `.env.example`.
+
+Mission Control uses the API run mode by default. Set
+`NEXT_PUBLIC_EXOSWARM_DATA_MODE=fixture` before starting or building the web application only when
+you need the explicit offline presentation fallback. Set `EXOSWARM_CORS_ORIGINS` to the deployed
+frontend origin allowlist when it differs from the development default of
+`http://localhost:3000`.
+
+### 3. Start both services
+
+Terminal 1:
+
+```bash
+uv run --project apps/api --extra science --extra agents uvicorn exoswarm.api.app:app --reload --port 8000
+```
+
+Terminal 2:
+
+```bash
+pnpm --dir apps/web dev
+```
+
+Open:
+
+- Mission Control: <http://localhost:3000>
+- API documentation: <http://localhost:8000/docs>
+- Health check: <http://localhost:8000/health>
+
+On systems with GNU Make, `make dev-api` and `make dev-web` provide the same two start commands.
+Use one API process per runs directory: lifecycle leases and local artifact coordination are
+process-local/file-backed and are not designed for multiple Uvicorn workers sharing one directory.
+
+### Containerized backend
+
+Build from the repository root so the image includes the frozen backend dependencies and committed
+cached inputs:
 
 ```bash
 docker build -f apps/api/Dockerfile -t exoswarm-api .
 docker run --rm -p 8000:8000 --env-file .env exoswarm-api
 ```
 
-Run one API process per runs directory. The controller cache and JSON/JSONL artifact coordination
-are process-local/file-backed and are not safe for multiple Uvicorn workers sharing the same
-directory.
+## Reproducibility and verification
 
-Do not invent capabilities or fake demo values while completing the ranked final-stretch work. See:
+The offline suites inject scripted decisions at the model-client seam while the scientific tools
+operate on controlled fixtures for failure and edge cases and five cached public SPOC light
+curves exercise the complete backend against locked expectations.
 
-- [`AGENTS.md`](AGENTS.md) - repository-wide coding-agent rules.
-- [`docs/00_SOURCE_OF_TRUTH.md`](docs/00_SOURCE_OF_TRUTH.md) - source-derived constraints vs scaffold conventions.
-- [`docs/11_48H_SCOPE_AND_BUILD_ORDER.md`](docs/11_48H_SCOPE_AND_BUILD_ORDER.md) - P0/P1/deferred priority and implementation order.
-- [`docs/13_HARNESS_SCAFFOLD.md`](docs/13_HARNESS_SCAFFOLD.md) - implemented harness boundary and authority classes.
-- [`docs/15_FINAL_STRETCH_PRIORITIES.md`](docs/15_FINAL_STRETCH_PRIORITIES.md) - current cut list, sequencing, and submission gates.
-- [`docs/inference.md`](docs/inference.md) - Featherless integration and measured inference-statistics contract.
+| Command | What it verifies |
+|---|---|
+| `make reproduce` | One cached TESS investigation, mandatory diagnostics, exact-byte lock, gated reveal, and matching hashes |
+| `make test` | Backend, science, harness, API, privacy, persistence, and lock/reveal tests |
+| `pnpm --dir apps/web test` | Frontend state and component behavior |
+| `make lint` | Ruff, ESLint, and TypeScript checks |
+| `make build` | Backend import smoke test and optimized Next.js build |
+| `make eval-real-tess` | Locked five-case cached TESS suite: signal recovery, dispositions, mandatory evidence, hashes, and zero raw model samples |
 
-## References and data attribution
+If GNU Make is unavailable, run the underlying cross-platform commands directly:
 
-- [Featherless.ai documentation](https://featherless.ai/docs) — hosted inference provider used by
-  the bounded six-role pipeline.
-- [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) — post-lock catalog
-  comparison source; never an agent input during investigation.
-- [MAST TESS data archive](https://archive.stsci.edu/missions-and-data/tess) — source of the public
-  cached SPOC light-curve products used by the reproducible backend cases.
-- [TESS mission](https://tess.mit.edu/) — mission and instrument context.
-- [SHERLOCK](https://github.com/franpoz/SHERLOCK) and
-  [WATSON](https://github.com/planetHunters/watson) — MIT-licensed upstream implementation
-  references; adopted and rejected patterns are recorded precisely in
-  [`docs/14_SCIENCE_VERTICAL_SLICE.md`](docs/14_SCIENCE_VERTICAL_SLICE.md).
+```powershell
+uv run --project apps/api --extra science --extra agents pytest -c apps/api/pyproject.toml
+uv run --project apps/api ruff check apps/api/src apps/api/tests scripts evals
+pnpm --dir apps/web lint
+pnpm --dir apps/web typecheck
+pnpm --dir apps/web build
+uv run --project apps/api --extra science --extra agents python scripts/run_cached_real_tess_evals.py
+```
 
-## Scientific claim language
+The repository's CI runs frozen installs, backend and frontend checks, harness evaluation,
+reproduction, a backend container build, and HTTP smoke tests. Live Featherless canaries and the
+full API/SSE/model gate are credentialed opt-in checks documented in
+[`docs/inference.md`](docs/inference.md).
 
-Preferred wording:
+## Audit artifacts
 
-> The planetary interpretation survives the implemented vetting.
+Each persistent run uses a boundary such as:
 
-Avoid claims that ExoSwarm autonomously confirms or discovers planets. If NASA later reveals a confirmed-planet status, that status belongs to the external catalog, not to ExoSwarm's photometric vetting.
+```text
+runs/<opaque-target>/<run-id>/
+├── state.json                 # atomic durable snapshot and restart authority
+├── trace.jsonl                # ordered transitions, calls, failures, and budgets
+├── agent_decisions.jsonl      # append-only validated role outputs/checkpoints
+├── evidence.jsonl             # append-only scientific results and provenance
+├── inference_summary.json     # measured provider telemetry; missing means not measured
+├── result.json                # canonical pre-reveal result
+├── result.json.sha256         # hash of the exact result bytes
+├── reveal.json                # created only after lock verification
+└── artifacts/                 # deterministic science data and plot projections
+```
+
+`state.json` is replaced atomically as state changes. The evidence and agent-decision ledgers open
+in append mode and reject duplicate evidence/action or role/phase/context identities. This is a
+local, inspectable audit design—not an event-sourced database or a claim of cryptographic security.
+SHA-256 makes the pre-reveal result tamper-evident; it does not protect a machine whose backend data
+or code has already been compromised.
+
+## Technology
+
+| Layer | Current implementation |
+|---|---|
+| Web | Next.js 16, React 19, TypeScript, Tailwind CSS, Plotly.js, React Three Fiber |
+| API and events | FastAPI, Pydantic v2, Uvicorn, REST + SSE |
+| Investigation topology | LangGraph with a disposable `run_id` routing envelope |
+| Durable state | Local JSON/JSONL artifacts with atomic snapshots and append-only ledgers |
+| Model inference | OpenAI Python client against Featherless.ai; DeepSeek V4 Flash configuration |
+| Science | Lightkurve, Astropy, NumPy, SciPy, Pandas, Matplotlib |
+| Tooling | Python 3.12, uv, pytest, Ruff, pnpm, ESLint, Vitest, GitHub Actions, Docker |
+
+## Scope and limitations
+
+- ExoSwarm evaluates a fixed, opaque set of cached single-sector TESS light curves. It is not a
+  general target-search service and does not stitch multiple sectors.
+- Mission Control uses API state and ordered SSE events by default. The explicit fixture
+  mode remains useful for offline presentation and frontend regression tests, but it never activates
+  automatically after a live API or model failure.
+- The mandatory implementation covers BLS signal search, odd/even comparison, secondary-event
+  search, and aggregate contamination context. Harmonic testing is adaptive.
+- Pixel/centroid localization is registered as an unavailable capability because the committed
+  targets do not include cached target-pixel files. The UI and documentation must not imply that
+  ExoSwarm spatially localized a source.
+- The cached `CROWDSAP` fallback measures aggregate aperture contamination capacity; it does not
+  identify a neighboring source.
+- Local JSON/JSONL persistence is intentionally single-process. There is no authentication,
+  database, distributed queue, or multi-worker coordination layer.
+- Provider availability and structured-output quality affect the live role path. Retries and
+  fallback behavior are bounded and traced; offline reproduction remains available without a key.
+
+## Data, scientific sources, and attribution
+
+### Data and ground truth
+
+- [NASA: What is a transit?](https://science.nasa.gov/exoplanets/whats-a-transit/) explains why a
+  planet crossing a star produces a brightness dip and what period and depth can reveal.
+- [MAST's TESS archive](https://archive.stsci.edu/missions-and-data/tess) is the source service for
+  the public calibrated light-curve products cached in this repository. Acquisition metadata and
+  checksums are preserved under `data/ground_truth/`; routine runs do not call MAST.
+- The [NASA Exoplanet Archive overview](https://exoplanetarchive.ipac.caltech.edu/docs/intro.html)
+  describes the catalog service used for the separate viewer-only comparison. Catalog status is
+  external reference data, not an input to ExoSwarm's investigation or any model call.
+
+### Scientific methods and software
+
+- ExoSwarm uses Astropy's
+  [`BoxLeastSquares`](https://docs.astropy.org/en/stable/timeseries/bls.html), a periodogram for
+  transit-like and eclipsing-binary signals in photometric time series.
+- Pipeline ordering and period/harmonic trial patterns were adapted from the MIT-licensed
+  [SHERLOCK](https://github.com/franpoz/SHERLOCK) project. The per-transit odd/even depth-series
+  pattern was adapted from the MIT-licensed [WATSON](https://github.com/planetHunters/watson)
+  project. Exact upstream commits, borrowed/adapted boundaries, rejected patterns, and regression
+  evidence are recorded in [`docs/14_SCIENCE_VERTICAL_SLICE.md`](docs/14_SCIENCE_VERTICAL_SLICE.md).
+
+### Agent and inference infrastructure
+
+- [LangGraph's Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api) provides the
+  node-and-edge workflow primitive used for investigation sequencing. ExoSwarm deliberately keeps
+  its scientific state in its own durable artifacts.
+- [Featherless's API documentation](https://featherless.ai/docs/api-overview-and-common-options)
+  documents the OpenAI-compatible inference endpoint used by the live role adapter. ExoSwarm—not
+  the provider—owns role schemas, validation, budgets, traces, and tool execution.
+
+## Engineering documentation
+
+- [`docs/02_ARCHITECTURE.md`](docs/02_ARCHITECTURE.md) — component responsibilities, topology, and
+  trust boundary
+- [`docs/05_AGENT_RUNTIME.md`](docs/05_AGENT_RUNTIME.md) — role contracts, loop limits, validation,
+  context, and traces
+- [`docs/06_SCIENCE_CONTRACTS.md`](docs/06_SCIENCE_CONTRACTS.md) — numerical tool contracts, units,
+  failures, and scientific claim language
+- [`docs/07_DATA_ARTIFACTS_BLINDING.md`](docs/07_DATA_ARTIFACTS_BLINDING.md) — data boundary,
+  evidence ledger, lock, and reveal protocol
+- [`docs/08_API_EVENTS.md`](docs/08_API_EVENTS.md) — REST and SSE contracts
+- [`docs/10_TESTING_EVALS.md`](docs/10_TESTING_EVALS.md) — layered tests, evaluations, and release
+  gates
+- [`docs/inference.md`](docs/inference.md) — Featherless integration, structured-output policy, and
+  measured telemetry contract
+
+## License
+
+ExoSwarm is available under the [MIT License](LICENSE).

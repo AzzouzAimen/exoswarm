@@ -7,6 +7,8 @@ import type {
 
 function eventBoundary(event: PresentationEvent): InvestigationPresentationState["timeline"][number]["boundary"] {
   switch (event.type) {
+    case "audit.event":
+      return "authority"
     case "agent.started":
     case "agent.decision":
     case "agent.handoff":
@@ -79,6 +81,8 @@ export function applyPresentationEvent(
   }
 
   switch (event.type) {
+    case "audit.event":
+      return next
     case "agent.started": {
       const agents = state.agents.map((agent) => ({
         ...agent,

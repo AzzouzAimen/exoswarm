@@ -22,6 +22,8 @@ class ResultLockService:
         self.artifacts = artifacts
 
     def lock(self, state: InvestigationState) -> tuple[InvestigationState, LockReceipt]:
+        if state.lock_state in {LockState.RESULT_LOCKED, LockState.CATALOG_REVEALED}:
+            return state, self.receipt(state)
         if state.status != InvestigationStatus.READY_TO_LOCK:
             raise ResultNotLockableError(
                 f"run {state.run_id} is {state.status}; READY_TO_LOCK is required"
@@ -59,4 +61,29 @@ class ResultLockService:
             sha256=digest,
             result_path="result.json",
             locked_at=locked_at,
+        )
+
+    def receipt(self, state: InvestigationState) -> LockReceipt:
+        if state.lock_state not in {LockState.RESULT_LOCKED, LockState.CATALOG_REVEALED}:
+            raise ResultNotLockableError("result has not been locked")
+        try:
+            content = self.artifacts.read_bytes(state, "result.json")
+            persisted = self.artifacts.read_bytes(state, "result.json.sha256").decode().strip()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ResultNotLockableError("locked result artifacts are invalid") from exc
+        actual = hashlib.sha256(content).hexdigest()
+        if persisted != actual:
+            raise ResultNotLockableError("locked result hash verification failed")
+        try:
+            result = LockedResult.model_validate_json(content)
+        except ValueError as exc:
+            raise ResultNotLockableError("locked result artifact is invalid") from exc
+        if result.run_id != state.run_id or result.opaque_target_id != state.opaque_target_id:
+            raise ResultNotLockableError("locked result belongs to a different run")
+        return LockReceipt(
+            run_id=result.run_id,
+            opaque_target_id=result.opaque_target_id,
+            sha256=actual,
+            result_path="result.json",
+            locked_at=result.locked_at,
         )

@@ -81,8 +81,9 @@ Candidate measurements enter state only from matching deterministic ledger recor
 
 The default API loads a strict versioned opaque-target manifest from
 `data/targets/source_manifest.json`. Missing mappings or cached files fail explicitly before
-execution. Paths and identity-bearing provenance remain backend-only and are recursively rejected
-from public state, event, and target payloads.
+execution. Paths and identity-bearing provenance remain excluded from agent-safe state, event, and
+target payloads. The separate `/api/viewer/targets` projection intentionally exposes catalog
+identity to the human UI without attaching it to the controller or agent context.
 
 Result lock is a backend policy boundary. A run must be `READY_TO_LOCK` with a disposition and
 terminal reason. The service writes exact canonical JSON bytes, hashes those bytes, updates durable
@@ -91,8 +92,9 @@ calling a reveal provider.
 
 ## Human approval points
 
-No current endpoint deploys, merges, deletes artifacts, or reveals catalog truth without a result
-lock. Supplying `FEATHERLESS_API_KEY` enables model-provider contact for the six bounded roles. The
+No current endpoint deploys, merges, or deletes artifacts. The viewer catalog endpoint is read-only
+and run-independent; legacy lock/reveal endpoints remain only for reproduction compatibility.
+Supplying `FEATHERLESS_API_KEY` enables model-provider contact for the six bounded roles. The
 real provider canary and exact-model thinking preflight are credential-gated and never run as part
 of ordinary offline tests.
 

@@ -109,6 +109,8 @@ export interface PlotPresentation {
 export interface InstrumentPresentation {
   mode: InstrumentMode
   label: string
+  available: boolean
+  unavailableReason?: string
   plot: PlotPresentation
   readouts: Array<{
     label: string
@@ -146,6 +148,7 @@ export interface TimelineRecord {
 }
 
 export type PresentationEventType =
+  | "audit.event"
   | "agent.started"
   | "agent.decision"
   | "agent.handoff"
@@ -160,7 +163,9 @@ export type PresentationEventType =
 export interface InvestigationPresentationState {
   run: {
     id: string
-    mode: "demo"
+    mode: "live" | "fixture"
+    status?: string
+    terminalReason?: string | null
   }
   target: {
     id: string
@@ -192,6 +197,12 @@ export interface InvestigationPresentationState {
   lock?: {
     hash: string
     lockedAt: string
+  }
+  reveal?: {
+    lockedResultHash: string
+    catalogSource: string
+    catalogPayload: Record<string, import("@/lib/contracts").JsonValue>
+    revealedAt: string
   }
 }
 
@@ -225,6 +236,7 @@ interface EventBase {
 
 export type PresentationEvent = EventBase &
   (
+    | { type: "audit.event" }
     | { type: "agent.started"; agentId: AgentId }
     | {
         type: "agent.decision"

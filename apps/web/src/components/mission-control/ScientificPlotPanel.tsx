@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon } from "@heroicons/react/24/outline"
 import dynamic from "next/dynamic"
-import type { Data, Layout } from "plotly.js"
+import type { Layout } from "plotly.js"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -11,8 +11,8 @@ import type {
   InstrumentMode,
   InstrumentPresentation,
   InvestigationPhase,
-  PlotTracePresentation,
 } from "./model/presentation-state"
+import { plotContentState, toPlotlyTrace } from "./scientific-plot"
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false })
 
@@ -25,42 +25,11 @@ const MODES: Array<{ id: InstrumentMode; label: string; help: string }> = [
   { id: "harmonic", label: "Alt timing", help: "Checks whether half or double the interval fits better." },
 ]
 
-const TRACE_COLORS: Record<PlotTracePresentation["tone"], string> = {
-  science: "#65dce4",
-  muted: "#8ca3a8",
-  unresolved: "#eeb862",
-  approved: "#72cc9b",
-}
-
-function toPlotlyTrace(trace: PlotTracePresentation): Data {
-  const color = TRACE_COLORS[trace.tone]
-  if (trace.kind === "bar") {
-    return {
-      type: "bar",
-      name: trace.name,
-      x: trace.x,
-      y: trace.y,
-      marker: { color, line: { color: "#b6f0f2", width: 0.5 } },
-      hovertemplate: "%{x:.3f} d · %{y:.2f}<extra></extra>",
-    }
-  }
-  return {
-    type: "scatter",
-    mode: trace.kind === "markers" ? "markers" : "lines",
-    name: trace.name,
-    x: trace.x,
-    y: trace.y,
-    line: { color, width: 1.35, dash: trace.dash ?? "solid" },
-    marker: { color, size: trace.kind === "markers" ? 3.2 : 0, opacity: 0.72 },
-    hovertemplate: "%{x:.4f}<br>%{y:.6f}<extra></extra>",
-  }
-}
-
 function plotLayout(instrument: InstrumentPresentation): Partial<Layout> {
   return {
     autosize: true,
-    height: 148,
-    margin: { l: 54, r: 20, t: 12, b: 42 },
+    height: 176,
+    margin: { l: 58, r: 20, t: 14, b: 44 },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
     font: { color: "#8ca3a8", family: "IBM Plex Mono, monospace", size: 11 },
@@ -101,6 +70,9 @@ export function ScientificPlotPanel({
   isCollapsed,
   onCollapsedChange,
 }: ScientificPlotPanelProps) {
+  const contentState = plotContentState(instrument)
+  const primaryReadouts = instrument.readouts.slice(0, 4)
+  const evidenceRefs = [...new Set(instrument.readouts.flatMap((readout) => readout.evidenceRef ? [readout.evidenceRef] : []))]
   return (
     <section
       className="instrument-stage"
@@ -125,14 +97,19 @@ export function ScientificPlotPanel({
           <p>{instrument.plot.annotation}</p>
         </div>
         <div className="instrument-readouts" aria-label="Current measurements">
-          {instrument.readouts.map((readout) => (
-            <span key={readout.label}>
+          {primaryReadouts.map((readout) => (
+            <span key={readout.label} title={readout.evidenceRef ? `Source: ${readout.evidenceRef}` : undefined}>
               <small>{readout.label}</small>
               <strong className="telemetry">{readout.value}</strong>
-              {readout.evidenceRef ? <code>{readout.evidenceRef}</code> : null}
             </span>
           ))}
         </div>
+        {evidenceRefs[0] ? (
+          <div className="instrument-provenance">
+            <small>Evidence source</small>
+            <code title={evidenceRefs[0]}>{evidenceRefs[0].slice(-12)}</code>
+          </div>
+        ) : null}
       </div>
 
       <div className="instrument-body">
@@ -156,8 +133,8 @@ export function ScientificPlotPanel({
             ))}
           </TabsList>
         </Tabs>
-        <div className="plot-frame" aria-label={`${instrument.label} fixture visualization`}>
-          <Plot
+        <div className="plot-frame" aria-label={`${instrument.label} scientific visualization`}>
+          {contentState === "chart" ? <Plot
             data={instrument.plot.traces.map(toPlotlyTrace)}
             layout={plotLayout(instrument)}
             config={{
@@ -169,7 +146,9 @@ export function ScientificPlotPanel({
             }}
             className="plotly-instrument"
             useResizeHandler
-          />
+          /> : contentState === "readouts"
+            ? <div className="plot-unavailable" role="status">{instrument.plot.annotation || "This diagnostic is available as measured readouts."}</div>
+            : <div className="plot-unavailable" role="status">{instrument.unavailableReason ?? instrument.plot.annotation}</div>}
         </div>
       </div>
     </section>

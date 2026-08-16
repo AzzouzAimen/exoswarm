@@ -2,9 +2,9 @@ import { CpuChipIcon, ShieldCheckIcon } from "@heroicons/react/24/outline"
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import type { DemoRunResult } from "./demo/demo-cases"
+import type { RunIntegrityView } from "./view-models"
 
-export function RunIntegrity({ result }: { result: DemoRunResult }) {
+export function RunIntegrity({ result }: { result: RunIntegrityView }) {
   return (
     <aside className="run-integrity" aria-label="Run boundaries">
       <span>
@@ -20,9 +20,7 @@ export function RunIntegrity({ result }: { result: DemoRunResult }) {
             <ShieldCheckIcon aria-hidden="true" /> Agents choose checks; code measures
           </span>
         </TooltipTrigger>
-        <TooltipContent>
-          Agents see compact evidence summaries. Deterministic tools calculate the numeric results.
-        </TooltipContent>
+        <TooltipContent>{result.provider && result.provider !== "not_measured" ? `${result.provider} · ${result.modelIdentity}` : "Agents see compact evidence summaries. Deterministic tools calculate the numeric results."}</TooltipContent>
       </Tooltip>
     </aside>
   )

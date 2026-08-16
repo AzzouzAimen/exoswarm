@@ -3,8 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import mimetypes
+import os
 import re
-from pathlib import Path
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path, PurePosixPath
+from secrets import token_hex
+from typing import BinaryIO
 
 from exoswarm.domain.events import InvestigationEvent
 from exoswarm.domain.models import (
@@ -72,13 +77,54 @@ class FileSystemRunArtifactStore:
         if name not in {"result.json", "result.json.sha256", "reveal.json"}:
             raise ValueError(f"unsupported authority artifact: {name}")
         path = self.run_dir(state.opaque_target_id, state.run_id) / name
-        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary = path.with_name(f"{path.name}.{token_hex(8)}.tmp")
         temporary.write_bytes(content)
         temporary.replace(path)
         return path
 
+    @contextmanager
+    def authority_lock(self, state: InvestigationState) -> Iterator[None]:
+        """Serialize authority writes for one run across worker processes."""
+
+        path = self.run_dir(state.opaque_target_id, state.run_id) / ".authority.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a+b") as stream:
+            stream.seek(0, os.SEEK_END)
+            if stream.tell() == 0:
+                stream.write(b"\0")
+                stream.flush()
+            stream.seek(0)
+            self._lock_file(stream)
+            try:
+                yield
+            finally:
+                self._unlock_file(stream)
+
     def read_bytes(self, state: InvestigationState, name: str) -> bytes:
+        if name not in {"result.json", "result.json.sha256", "reveal.json"}:
+            raise ValueError(f"unsupported authority artifact: {name}")
         return (self.run_dir(state.opaque_target_id, state.run_id) / name).read_bytes()
+
+    def authority_exists(self, state: InvestigationState, name: str) -> bool:
+        if name not in {"result.json", "result.json.sha256", "reveal.json"}:
+            raise ValueError(f"unsupported authority artifact: {name}")
+        return (self.run_dir(state.opaque_target_id, state.run_id) / name).is_file()
+
+    def resolve_science_artifact(self, state: InvestigationState, artifact_ref: str) -> Path:
+        relative = PurePosixPath(artifact_ref)
+        if (
+            relative.is_absolute()
+            or len(relative.parts) != 2
+            or relative.parts[0] != "artifacts"
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
+            raise ValueError("science artifact reference is outside the run boundary")
+        run_dir = self.run_dir(state.opaque_target_id, state.run_id).resolve()
+        science_dir = (run_dir / "artifacts").resolve()
+        path = (run_dir / Path(*relative.parts)).resolve()
+        if not path.is_relative_to(science_dir) or not path.is_file() or path.is_symlink():
+            raise ValueError("science artifact reference is unavailable")
+        return path
 
     def find_state(self, run_id: str) -> InvestigationState | None:
         safe_run_id = _validate_component(run_id)
@@ -190,8 +236,31 @@ class FileSystemRunArtifactStore:
 
     @staticmethod
     def _write_json_atomic(path: Path, payload: object) -> None:
-        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary = path.with_name(f"{path.name}.{token_hex(8)}.tmp")
         temporary.write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         temporary.replace(path)
+
+    @staticmethod
+    def _lock_file(stream: BinaryIO) -> None:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+
+    @staticmethod
+    def _unlock_file(stream: BinaryIO) -> None:
+        stream.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)

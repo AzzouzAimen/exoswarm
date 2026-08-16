@@ -17,7 +17,7 @@ Prioritize:
 5. scientific tool being executed,
 6. evidence returned,
 7. hypothesis/disposition update,
-8. result-lock and catalog-reveal state.
+8. clear independent-result versus official-reference comparison.
 
 ## Central visualization
 
@@ -44,13 +44,15 @@ Static reproducible artifacts may be generated with Matplotlib by the backend.
 
 ### Target/status
 
-Before reveal, show only an opaque identity, e.g.:
+Show both identities with an explicit trust boundary:
 
 ```text
-UNKNOWN TARGET - TARGET-X17
+VIEWER: WASP-4 b · confirmed planet
+AGENTS: TARGET-C11 only
 ```
 
-Also show run ID, current phase, and lock state.
+Also show run ID and current phase. The viewer reference belongs in the top-right from selection
+through completion; its tooltip must explain that agents receive only the opaque ID.
 
 ### Hypothesis board
 
@@ -116,16 +118,19 @@ Render compact evidence such as:
 
 Every displayed number must have a backend evidence reference.
 
-### Lock/reveal
+### Automatic result comparison
 
-The UI must visibly distinguish:
+At completion, open the comparison directly. Lead with one verdict understandable without astronomy
+knowledge:
 
-- `GROUND TRUTH LOCKED`
-- `RESULT LOCKED`
-- `NASA REVEAL AVAILABLE`
-- `CATALOG REVEALED`
+- `MATCH`
+- `PARTIAL MATCH`
+- `DID NOT MATCH`
+- `NOT ENOUGH EVIDENCE`
 
-No frontend shortcut may bypass the backend gate.
+Place the agent interpretation and official catalog interpretation side by side. Put numerical rows,
+completed checks, provenance, and audit metadata behind expandable details. Do not require Commit,
+Reveal, or Compare clicks; those steps delay the demo's payoff without improving agent blindness.
 
 ## Loading/failure states
 
@@ -146,7 +151,7 @@ Do not use fake progress or fabricated terminal output.
 
 The primary flow should be visually understandable without narration:
 
-1. opaque target + locked ground truth,
+1. viewer sees the official target while agents receive only an opaque ID,
 2. deterministic search and measured transit-like signal,
 3. competing hypotheses,
 4. Skeptic adaptive decision,
@@ -155,11 +160,10 @@ The primary flow should be visually understandable without narration:
 7. negative-control target follows a different branch,
 8. architecture + measured Featherless summary,
 9. blindness proof,
-10. result lock/hash,
-11. NASA reveal,
-12. `make reproduce` + hash match,
-13. deterministic forward prediction if implemented.
+10. automatic plain-language result/catalog comparison,
+11. optional details and `make reproduce` audit proof,
+12. deterministic forward prediction if implemented.
 
 The primary video should emphasize the two different target trajectories, bounded inference,
-failure/lock boundaries, and reproducibility. Do not spend video time on a fixed-policy ablation or
+failure boundaries, agent/viewer isolation, and reproducibility. Do not spend video time on a fixed-policy ablation or
 scientific edge cases that are not visible in the judged path.

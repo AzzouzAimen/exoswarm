@@ -41,6 +41,10 @@ import type {
   PresentationEventType,
   TimelineRecord,
 } from "./model/presentation-state"
+import {
+  nextTraceRevealCount,
+  TRACE_REVEAL_INTERVAL_MS,
+} from "./model/trace-pacing"
 import { QuestionBot } from "./QuestionBot"
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>
@@ -55,7 +59,7 @@ const AGENT_ICONS: Record<AgentId, IconComponent> = {
 }
 
 const AGENT_TASKS: Record<AgentId, string> = {
-  director: "Decide whether the investigation can stop",
+  director: "Route the next bounded check",
   observer: "Check the observation quality",
   signal: "Search for a repeating signal",
   transit_hunter: "Measure the candidate transit",
@@ -64,6 +68,7 @@ const AGENT_TASKS: Record<AgentId, string> = {
 }
 
 const EVENT_ICONS: Record<PresentationEventType, IconComponent> = {
+  "audit.event": ClockIcon,
   "agent.started": LightBulbIcon,
   "agent.decision": ScaleIcon,
   "agent.handoff": ArrowRightIcon,
@@ -100,6 +105,69 @@ const BOUNDARY_LABELS: Record<TimelineRecord["boundary"], string> = {
   code: "Code measurement",
   evidence: "Evidence saved",
   authority: "Result commitment",
+}
+
+function useProgressiveTimeline(state: InvestigationPresentationState) {
+  const shouldReduceMotion = useReducedMotion()
+  const availableCountRef = useRef(state.timeline.length)
+  const runIdRef = useRef(state.run.id)
+  const timerRef = useRef<number | undefined>(undefined)
+  const initialVisibleCount = state.phase === "locked" ? state.timeline.length : 0
+  const visibleCountRef = useRef(initialVisibleCount)
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount)
+
+  useEffect(() => {
+    availableCountRef.current = state.timeline.length
+    const runChanged = runIdRef.current !== state.run.id
+    const timelineShrank = visibleCountRef.current > state.timeline.length
+    runIdRef.current = state.run.id
+
+    if (timerRef.current !== undefined && (runChanged || timelineShrank || shouldReduceMotion)) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = undefined
+    }
+
+    if (shouldReduceMotion || timelineShrank) {
+      visibleCountRef.current = state.timeline.length
+      setVisibleCount(state.timeline.length)
+      return
+    }
+
+    if (runChanged) {
+      const nextCount = state.phase === "locked" ? state.timeline.length : 0
+      visibleCountRef.current = nextCount
+      setVisibleCount(nextCount)
+    }
+
+    if (visibleCountRef.current >= state.timeline.length || timerRef.current !== undefined) return
+
+    timerRef.current = window.setInterval(() => {
+      const nextCount = nextTraceRevealCount(
+        visibleCountRef.current,
+        availableCountRef.current,
+      )
+
+      if (nextCount === visibleCountRef.current) {
+        if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
+        timerRef.current = undefined
+        return
+      }
+
+      visibleCountRef.current = nextCount
+      setVisibleCount(nextCount)
+
+      if (nextCount >= availableCountRef.current) {
+        if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
+        timerRef.current = undefined
+      }
+    }, TRACE_REVEAL_INTERVAL_MS)
+  }, [shouldReduceMotion, state.phase, state.run.id, state.timeline.length])
+
+  useEffect(() => () => {
+    if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
+  }, [])
+
+  return state.timeline.slice(0, visibleCount)
 }
 
 function activityLabel(stage: AgentTraceStage, state: InvestigationPresentationState) {
@@ -307,7 +375,11 @@ export function AgentTrace({
   currentStep: number
   onSelect: (step: number) => void
 }) {
-  const stages = buildAgentTraceStages(state)
+  const visibleTimeline = useProgressiveTimeline(state)
+  const traceState = visibleTimeline.length === state.timeline.length
+    ? state
+    : { ...state, timeline: visibleTimeline }
+  const stages = buildAgentTraceStages(traceState)
   const activeStage = stages.find((stage) => stage.status === "active")
 
   return (
@@ -318,13 +390,25 @@ export function AgentTrace({
           <div className="agent-trace-heading-copy">
             <span className="section-kicker">Investigation trace</span>
             <h1 id="agent-trace-title">
-              {activeStage ? AGENT_TASKS[activeStage.agent.id] : state.phase === "locked" ? "Investigation complete" : "Agents ready"}
+              {activeStage ? (
+                AGENT_TASKS[activeStage.agent.id]
+              ) : state.phase === "locked" ? (
+                "Investigation complete"
+              ) : (
+                <ShinyText
+                  text="Agents working in process"
+                  color="var(--text-primary)"
+                  shineColor="var(--science)"
+                  speed={1.4}
+                  delay={0.35}
+                />
+              )}
             </h1>
           </div>
         </div>
         <div className="agent-trace-count" aria-label={`${stages.length} agent stages recorded`}>
           <ClockIcon aria-hidden="true" />
-          <span className="telemetry">{stages.length} stages · {state.timeline.length} steps</span>
+          <span className="telemetry">{stages.length} stages · {visibleTimeline.length} steps</span>
         </div>
       </header>
 
@@ -333,9 +417,9 @@ export function AgentTrace({
           <div className="agent-trace-list">
             {stages.map((stage) => (
               <AgentTraceStageView
-                key={`${stage.id}-${stage.status}`}
+                key={stage.id}
                 stage={stage}
-                state={state}
+                state={traceState}
                 currentStep={currentStep}
                 onSelect={onSelect}
               />

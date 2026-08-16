@@ -18,11 +18,11 @@ build-order, and breadth recommendations. In particular:
 - do not add new transit fitting or broad uncertainty propagation,
 - preserve pixel/centroid work as a high-value P1 differentiator behind a short go/no-go acceptance
   check rather than making it a P0 blocker,
-- prioritize clean setup, cached reproducibility, blind-lock proof, failure handling, documentation,
+- prioritize clean setup, cached reproducibility, agent-blindness proof, failure handling, documentation,
   and the judged demo path.
 
 This changes delivery priority, not scientific truth. Deterministic measurements, typed evidence,
-agent-safe context, provenance, result locking, catalog gating, and precise claim language remain
+agent-safe context, provenance, viewer/agent data separation, and precise claim language remain
 non-negotiable.
 
 ## Source-derived requirements
@@ -40,8 +40,11 @@ The following are requirements carried directly from the supplied planning conte
 - Agent context is compact; raw light curves, FITS/TPF arrays, and hidden catalog truth do not enter model context.
 - Scientific actions are validated and bounded; maximum turns/experiment budgets are enforced by code.
 - Evidence is append-only and recorded in an Evidence Ledger.
-- Ground-truth identity/catalog access is gated until after result lock.
-- The result is serialized and SHA-256 hashed before reveal.
+- Ground-truth identity/catalog data may be shown to the human viewer from the start through a
+  separate viewer-only projection, but must never enter agent context, run state, SSE, or tools.
+- The primary UI compares the finished independent result automatically; it has no manual commit or
+  reveal step. Canonical result hashing remains an internal reproducibility/audit capability, not a
+  prerequisite for the viewer's comparison.
 - The demo should include one planet-like case and one false-positive/eclipsing-binary case with visibly different trajectories.
 - Core scientific path: cached TESS data, detrending, BLS, phase folding, period/depth/duration, odd/even, secondary eclipse, P/2-P-2P harmonic test, and one real spatial pixel/centroid diagnostic.
 - Scientific claims must remain candidate/vetting claims, not autonomous confirmation claims.

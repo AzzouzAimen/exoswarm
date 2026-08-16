@@ -27,6 +27,7 @@ from exoswarm.investigation.tool_registry import ScientificToolRegistry
 from exoswarm.security.catalog_gate import CatalogGate
 from exoswarm.security.result_lock import ResultLockService
 from exoswarm.services.artifacts import FileSystemRunArtifactStore
+from exoswarm.services.mission_control import MissionControlService
 from exoswarm.services.nasa_reveal import CachedCatalogRevealProvider
 from exoswarm.services.target_registry import (
     TargetMappingNotFoundError,
@@ -51,6 +52,9 @@ def create_app(
         runtime_settings.resolved_target_manifest_path,
         data_dir=runtime_settings.data_dir,
     )
+    runtime_viewer_catalog = CachedCatalogRevealProvider(
+        runtime_settings.data_dir / "ground_truth/catalog_reveal.json"
+    )
     runtime_controller = controller
     if runtime_controller is None:
         if runtime_settings.agent_fallback_enabled and fallback_inference is None:
@@ -67,9 +71,7 @@ def create_app(
             result_lock=ResultLockService(artifacts),
             catalog_gate=CatalogGate(
                 artifacts,
-                CachedCatalogRevealProvider(
-                    runtime_settings.data_dir / "ground_truth/catalog_reveal.json"
-                ),
+                runtime_viewer_catalog,
             ),
             inference=runtime_inference,
             fallback_inference=fallback_inference,
@@ -93,10 +95,12 @@ def create_app(
     application.state.settings = runtime_settings
     application.state.controller = runtime_controller
     application.state.target_registry = runtime_targets
+    application.state.viewer_catalog = runtime_viewer_catalog
     application.state.run_service = runtime_runner
+    application.state.mission_control = MissionControlService(runtime_controller, runtime_runner)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=runtime_settings.cors_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
@@ -122,14 +126,17 @@ def create_app(
             *,
             response_status: int = status_code,
         ) -> JSONResponse:
-            del request
+            run_id = request.path_params.get("run_id")
+            payload = {
+                "code": getattr(exc, "code", "EXOSWARM_ERROR"),
+                "message": str(exc),
+                "recoverable": response_status < 500,
+            }
+            if isinstance(run_id, str):
+                payload["run_id"] = run_id
             return JSONResponse(
                 status_code=response_status,
-                content={
-                    "code": getattr(exc, "code", "EXOSWARM_ERROR"),
-                    "message": str(exc),
-                    "recoverable": response_status < 500,
-                },
+                content=payload,
             )
 
         application.add_exception_handler(error_type, handler)

@@ -14,13 +14,6 @@ import {
 
 import type { InvestigationPresentationState } from "./model/presentation-state"
 
-const STATE_LABELS = {
-  unresolved: "Still possible",
-  supported: "Fits evidence",
-  "under-test": "Testing",
-  weakened: "Less likely",
-} as const
-
 export function MobileInvestigationSheet({ state }: { state: InvestigationPresentationState }) {
   return (
     <Sheet>
@@ -34,7 +27,7 @@ export function MobileInvestigationSheet({ state }: { state: InvestigationPresen
         <SheetHeader>
           <SheetTitle>Investigation details</SheetTitle>
           <SheetDescription>
-            Possible causes and the measurements collected so far.
+            Current investigation activity and measurements collected so far.
           </SheetDescription>
         </SheetHeader>
         <div className="mobile-sheet-body">
@@ -42,18 +35,6 @@ export function MobileInvestigationSheet({ state }: { state: InvestigationPresen
             <span className="section-kicker">Current question</span>
             <h3>{state.currentQuestion}</h3>
             <p>{state.activeAgentId ? `${state.agents.find((agent) => agent.id === state.activeAgentId)?.label ?? "Agent"} is working` : "No agent is working now"}</p>
-          </section>
-          <section>
-            <span className="section-kicker">Possible causes</span>
-            <ul>
-              {state.hypotheses.map((hypothesis) => (
-                <li key={hypothesis.id}>
-                  <strong>{hypothesis.label}</strong>
-                  <span>{STATE_LABELS[hypothesis.state]}</span>
-                  <small>{hypothesis.evidenceRefs.join(" · ") || "No measurement yet"}</small>
-                </li>
-              ))}
-            </ul>
           </section>
           <section>
             <span className="section-kicker">Measurements</span>

@@ -20,6 +20,7 @@ interface PlaybackControlsProps {
   onStepChange: (step: number) => void
   onReplay: () => void
   stageMarkers: ReadonlyArray<{ label: string; step: number }>
+  mode: "live" | "fixture"
 }
 
 function IconControl({
@@ -48,12 +49,13 @@ export function PlaybackControls({
   onStepChange,
   onReplay,
   stageMarkers,
+  mode,
 }: PlaybackControlsProps) {
   return (
-    <section className="playback-controls" aria-label="Demo investigation playback">
+    <section className="playback-controls" aria-label={mode === "live" ? "Live investigation history" : "Demo investigation playback"}>
       <div className="playback-buttons">
         <IconControl
-          label={isPlaying ? "Pause investigation" : "Play investigation"}
+          label={mode === "live" ? (isPlaying ? "Inspect buffered history" : "Follow live investigation") : (isPlaying ? "Pause investigation" : "Play investigation")}
           onClick={() => onPlayingChange(!isPlaying)}
         >
           {isPlaying ? <PauseIcon aria-hidden="true" /> : <PlayIcon aria-hidden="true" />}
@@ -65,7 +67,7 @@ export function PlaybackControls({
         >
           <ForwardIcon aria-hidden="true" />
         </IconControl>
-        <IconControl label="Replay from start" onClick={onReplay}>
+        <IconControl label={mode === "live" ? "Inspect from first buffered state" : "Replay from start"} onClick={onReplay}>
           <ArrowPathIcon aria-hidden="true" />
         </IconControl>
       </div>

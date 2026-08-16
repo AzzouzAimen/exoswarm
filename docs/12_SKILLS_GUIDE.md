@@ -17,7 +17,7 @@ The repository includes the supplied skills under `.agents/skills/<name>/SKILL.m
 | `orchestrate-investigation` | ExoSwarm investigation state, evidence-dependent branching, experiment selection, Critic review, stopping, catalog lock |
 | `implement-science-tool` | deterministic TESS/BLS/transit/odd-even/secondary/harmonic/centroid numerical implementation |
 | `validate-science` | scientific fixtures, tolerances, units, positive/negative cases, cached-real-data regression |
-| `build-mission-control-ui` | mission-control frontend, scientific plots, evidence board, timeline, lock/reveal UI |
+| `build-mission-control-ui` | mission-control frontend, scientific plots, evidence board, timeline, viewer reference, and result-comparison UI |
 | `verify-integration` | cross-layer state/schema/unit/event/lock verification after a change |
 | `debugging-wizard` | concrete errors, stack traces, logs, crashes, or unexpected runtime behavior; isolate the root cause before fixing |
 | `python-pro` | Python 3.11+ implementation where typing, async behavior, robust errors, pytest, mypy, black, or ruff are central |

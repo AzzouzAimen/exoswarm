@@ -1,4 +1,4 @@
-# Data, Artifacts, Blinding, and Result Lock
+# Data, Artifacts, and Viewer/Agent Isolation
 
 ## Cached real inputs
 
@@ -14,15 +14,17 @@ Agent-visible identity:
 TARGET-X17
 ```
 
-Backend-only mapping:
+Backend mapping:
 
 ```text
 TARGET-X17 -> real TESS/TIC/TOI identity
 ```
 
-The real mapping is used only by deterministic backend capabilities that require it. It must not be serialized into agent context or pre-lock UI payloads.
+The real mapping is used by deterministic backend capabilities and by a separate human-viewer
+projection. It must never be serialized into agent context, investigation state, agent-safe API
+payloads, SSE events, or agent tools.
 
-## Before lock
+## Agent-visible data throughout the run
 
 Allowed:
 
@@ -32,9 +34,9 @@ Allowed:
 - permitted non-ground-truth contextual summaries,
 - artifact references.
 
-Unavailable:
+Always unavailable to agents:
 
-- target identity reveal,
+- target identity,
 - NASA known planet parameters,
 - confirmation status,
 - ground-truth lookup tool/service.
@@ -90,7 +92,11 @@ measured fields defined in `docs/inference.md`; unavailable provider usage is se
 an explicit `not_measured` state, never an estimate. It must not contain prompts with hidden data,
 secrets, or chain-of-thought.
 
-## Lock protocol
+## Internal audit lock
+
+The primary demo does not ask the user to commit or reveal anything. The viewer reference is already
+visible and the final comparison opens automatically. The existing lock artifacts remain useful for
+offline reproduction and tamper-evidence only:
 
 1. investigation reaches a lock-eligible terminal scientific disposition,
 2. construct `LockedResult` only from deterministic evidence/state,
@@ -98,14 +104,14 @@ secrets, or chain-of-thought.
 4. write `result.json`,
 5. compute SHA-256 over the exact locked bytes and write `result.json.sha256`,
 6. persist `RESULT_LOCKED` event and lock state,
-7. only now enable the ground-truth reveal capability,
-8. reveal writes `reveal.json` for the same run ID and target.
+7. optionally write the legacy `reveal.json` comparison artifact for reproduction tooling.
 
 The exact JSON canonicalization strategy is a scaffold implementation detail, but it must be deterministic and tested.
 
-## Reveal protocol
+## Legacy comparison artifact
 
-`reveal.json` is a comparison artifact. It may include:
+`reveal.json` is retained as an internal reproduction artifact; it is not the viewer UI's source or
+a manual product step. It may include:
 
 - real target identity,
 - external catalog source/reference metadata,
@@ -120,9 +126,9 @@ Do not rewrite `result.json` after reveal.
 
 CI should prove:
 
-- ground-truth lookup cannot be called before lock,
+- viewer catalog data is available without creating or mutating a run,
 - agent modules do not import the reveal implementation,
-- pre-lock API/SSE payloads do not contain recognizable identity/ground-truth fields,
+- agent-safe API/SSE/context payloads do not contain recognizable identity/ground-truth fields,
 - `result.json` hash is stable for unchanged content,
 - reveal refers to the same locked run,
-- a reset restores the pre-reveal lock boundary.
+- resetting or refreshing does not leak viewer data into investigation state.

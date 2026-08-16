@@ -9,148 +9,128 @@ import { cn } from "@/lib/utils"
 import { AgentTrace } from "./AgentTrace"
 import { CentralOrbitScene, OrbitSceneStatus } from "./CentralOrbitScene"
 import { DEMO_CASES, type DemoCaseId } from "./demo/demo-cases"
-import { useDemoPlayback } from "./demo/use-demo-playback"
 import { EvidenceLedger } from "./EvidenceLedger"
-import { HypothesisPanel } from "./HypothesisPanel"
-import { LockRevealPanel } from "./LockRevealPanel"
+import { ResultComparisonPanel } from "./ResultComparisonPanel"
 import { MobileInvestigationSheet } from "./MobileInvestigationSheet"
-import { PlaybackControls } from "./PlaybackControls"
+import type { InstrumentMode } from "./model/presentation-state"
 import { RunIntegrity } from "./RunIntegrity"
 import { ScientificPlotPanel } from "./ScientificPlotPanel"
 import { TargetLaunchpad } from "./TargetLaunchpad"
 import { TargetStatus } from "./TargetStatus"
-import type { InstrumentMode } from "./model/presentation-state"
+import { useInvestigationController } from "./use-investigation-controller"
+import {
+  fixtureResultComparisonView,
+  launchTargets,
+  liveIntegrityView,
+  liveResultComparisonView,
+} from "./view-models"
 
 export function MissionControlShell() {
-  const [selectedCaseId, setSelectedCaseId] = useState<DemoCaseId>("TARGET-C11")
+  const [selectedId, setSelectedId] = useState("TARGET-C11")
   const [experience, setExperience] = useState<"selecting" | "running">("selecting")
   const [resultsOpen, setResultsOpen] = useState(false)
   const [isEvidenceCollapsed, setIsEvidenceCollapsed] = useState(true)
-  const [inspectedInstrumentMode, setInspectedInstrumentMode] = useState<InstrumentMode>()
-  const demoCase = DEMO_CASES[selectedCaseId]
-  const playback = useDemoPlayback(demoCase, experience === "running")
-  const { state } = playback
-  const isComplete = experience === "running" && playback.step >= playback.totalSteps
+  const controller = useInvestigationController(selectedId, experience === "running")
+  const { state } = controller
+  const fixtureCase = DEMO_CASES[(selectedId in DEMO_CASES ? selectedId : "TARGET-C11") as DemoCaseId]
+  const targets = launchTargets(controller.targets, controller.viewerTargets, controller.mode === "fixture" ? DEMO_CASES : undefined)
+  const effectiveSelectedId = targets.some((target) => target.id === selectedId)
+    ? selectedId
+    : targets.find((target) => target.available)?.id ?? ""
+  const viewerTarget = controller.viewerTargets.find((target) => target.opaque_target_id === effectiveSelectedId)
+  const liveComplete = controller.snapshot ? ["READY_TO_LOCK", "RESULT_LOCKED", "REVEALED", "INSUFFICIENT_EVIDENCE", "REJECTED", "FAILED", "BUDGET_EXHAUSTED"].includes(controller.snapshot.status) : false
+  const isRunningExperience = experience === "running" || (controller.mode === "live" && Boolean(controller.snapshot))
+  const isComplete = isRunningExperience && (controller.mode === "live" ? liveComplete : controller.step >= controller.totalSteps)
   const isResultDialogOpen = isComplete && resultsOpen
-  const isEvidenceDisplayCollapsed = isComplete || isEvidenceCollapsed
+  const isEvidenceDisplayCollapsed = isEvidenceCollapsed
 
-  const startInvestigation = () => {
+  const startInvestigation = async () => {
     setResultsOpen(true)
-    setInspectedInstrumentMode(undefined)
-    setIsEvidenceCollapsed(true)
-    setExperience("running")
-    playback.start()
+    setIsEvidenceCollapsed(false)
+    try {
+      await controller.start(effectiveSelectedId)
+      setExperience("running")
+    } catch {
+      // The controller keeps the typed live failure visible on the launchpad.
+    }
   }
 
   const restartSelection = () => {
     setResultsOpen(false)
-    setInspectedInstrumentMode(undefined)
     setExperience("selecting")
-    playback.setStep(0)
+    controller.reset()
+  }
+
+  const reviewInvestigation = () => {
+    setResultsOpen(false)
+    setIsEvidenceCollapsed(false)
   }
 
   const selectInstrumentMode = (mode: InstrumentMode) => {
-    playback.setStep(playback.step)
-    setInspectedInstrumentMode(mode)
+    controller.setStep(controller.step)
+    controller.selectInstrumentMode(mode)
   }
 
-  const selectStep = (step: number) => {
-    if (step >= playback.totalSteps) setResultsOpen(true)
-    setInspectedInstrumentMode(undefined)
-    playback.setStep(step)
+  const selectStep = (nextStep: number) => {
+    if (nextStep >= controller.totalSteps && isComplete) setResultsOpen(true)
+    controller.setStep(nextStep)
   }
 
-  const setPlaying = (playing: boolean) => {
-    if (playing) setResultsOpen(true)
-    setInspectedInstrumentMode(undefined)
-    playback.setIsPlaying(playing)
-  }
-
-  const replay = () => {
-    setResultsOpen(true)
-    setInspectedInstrumentMode(undefined)
-    playback.replay()
-  }
-
+  const resultView = viewerTarget
+    ? controller.mode === "live" && controller.snapshot
+      ? liveResultComparisonView(controller.snapshot, controller.artifacts, viewerTarget)
+      : fixtureResultComparisonView(fixtureCase, viewerTarget)
+    : undefined
+  const integrity = controller.mode === "live" && controller.snapshot
+    ? liveIntegrityView(controller.snapshot)
+    : { agentCalls: fixtureCase.result.agentCalls, toolCalls: fixtureCase.result.toolCalls }
   return (
     <main
       className={cn(
         "mission-shell",
-        experience === "selecting" && "mission-is-selecting",
+        !isRunningExperience && "mission-is-selecting",
         (state.phase === "measuring" || state.phase === "testing") && "instrument-is-focus",
         isResultDialogOpen && "results-are-open",
       )}
       data-evidence-collapsed={isEvidenceDisplayCollapsed}
     >
-      <TargetStatus
-        state={state}
-        officialIdentity={demoCase.reveal?.targetName}
-        mobileDetails={<MobileInvestigationSheet state={state} />}
-      />
-
+      <TargetStatus state={state} source={controller.mode} viewerTarget={viewerTarget} mobileDetails={<MobileInvestigationSheet state={state} />} />
       <CentralOrbitScene state={state} />
 
-      {experience === "selecting" ? (
+      {!isRunningExperience ? (
         <TargetLaunchpad
-          selectedId={selectedCaseId}
-          onSelectedIdChange={setSelectedCaseId}
-          onStart={startInvestigation}
+          selectedId={effectiveSelectedId}
+          targets={targets}
+          mode={controller.mode}
+          loading={controller.targetsLoading}
+          error={controller.error?.message}
+          onSelectedIdChange={setSelectedId}
+          onStart={() => { void startInvestigation() }}
         />
       ) : (
         <>
           <section className="investigation-stage" aria-label="Live investigation">
-            <div className="investigation-briefing">
-              <AgentTrace state={state} currentStep={playback.step} onSelect={selectStep} />
-            </div>
-
+            <div className="investigation-briefing"><AgentTrace state={state} currentStep={controller.step} onSelect={selectStep} /></div>
             <div className="mission-top-actions">
               <OrbitSceneStatus state={state} />
-              <HypothesisPanel hypotheses={state.hypotheses} />
-              {isComplete && !resultsOpen ? (
-                <Button type="button" className="view-result-button" onClick={() => setResultsOpen(true)}>
-                  <EyeIcon aria-hidden="true" />
-                  View result
-                </Button>
-              ) : null}
+              {isComplete && !resultsOpen ? <Button type="button" className="view-result-button" onClick={() => setResultsOpen(true)}><EyeIcon aria-hidden="true" />View result</Button> : null}
             </div>
-            {isResultDialogOpen ? (
-              <LockRevealPanel
-                demoCase={demoCase}
-                state={state}
-                onClose={() => setResultsOpen(false)}
+            {isResultDialogOpen && resultView ? (
+              <ResultComparisonPanel
+                runId={state.run.id}
+                view={resultView}
+                error={controller.error?.message}
+                onClose={reviewInvestigation}
                 onRestart={restartSelection}
               />
             ) : null}
           </section>
 
-          {!isResultDialogOpen ? (
-            <ScientificPlotPanel
-              instrument={
-                inspectedInstrumentMode ? demoCase.instruments[inspectedInstrumentMode] : state.instrument
-              }
-              phase={state.phase}
-              onModeChange={selectInstrumentMode}
-              isCollapsed={isEvidenceDisplayCollapsed}
-              onCollapsedChange={setIsEvidenceCollapsed}
-            />
-          ) : null}
+          {!isResultDialogOpen ? <ScientificPlotPanel instrument={controller.instrument} phase={state.phase} onModeChange={selectInstrumentMode} isCollapsed={isEvidenceDisplayCollapsed} onCollapsedChange={setIsEvidenceCollapsed} /> : null}
 
           <footer className="mission-footer">
-            <PlaybackControls
-              step={playback.step}
-              totalSteps={playback.totalSteps}
-              isPlaying={playback.isPlaying}
-              onPlayingChange={setPlaying}
-              onStepChange={selectStep}
-              onReplay={replay}
-              stageMarkers={demoCase.stageMarkers}
-            />
-            {!isResultDialogOpen ? <RunIntegrity result={demoCase.result} /> : null}
-            <EvidenceLedger
-              events={state.timeline}
-              currentStep={playback.step}
-              onSelect={selectStep}
-            />
+            <EvidenceLedger events={state.timeline} currentStep={controller.step} onSelect={selectStep} />
+            {!isResultDialogOpen ? <RunIntegrity result={integrity} /> : null}
           </footer>
         </>
       )}

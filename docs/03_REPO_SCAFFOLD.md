@@ -40,7 +40,7 @@ This tree is a derived implementation convention for the supplied ExoSwarm archi
 │   │       │       ├── AgentActivity.tsx
 │   │       │       ├── EvidenceLedger.tsx
 │   │       │       ├── AdaptiveDecisionPanel.tsx
-│   │       │       └── LockRevealPanel.tsx
+│   │       │       └── ResultComparisonPanel.tsx
 │   │       ├── lib/
 │   │       │   ├── api.ts
 │   │       │   ├── events.ts

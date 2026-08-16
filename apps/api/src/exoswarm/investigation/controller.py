@@ -7,11 +7,14 @@ import logging
 import multiprocessing
 import re
 import shutil
-from contextlib import suppress
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
+from functools import wraps
+from inspect import iscoroutinefunction
 from pathlib import Path, PurePosixPath
 from secrets import token_hex
-from threading import Event
+from threading import Event, Lock, RLock
 from time import perf_counter
 from typing import Any
 
@@ -118,6 +121,30 @@ _LOGGER = logging.getLogger(__name__)
 _NUMERIC_CLAIM = re.compile(r"(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?")
 
 
+def _serialized_run(method: Any) -> Any:
+    """Serialize one controller node without holding a lock across LangGraph dispatch."""
+
+    if iscoroutinefunction(method):
+
+        @wraps(method)
+        async def async_wrapper(
+            self: InvestigationController, run_id: str, *args: Any, **kwargs: Any
+        ) -> Any:
+            with self.run_boundary(run_id):
+                return await method(self, run_id, *args, **kwargs)
+
+        return async_wrapper
+
+    @wraps(method)
+    def wrapper(
+        self: InvestigationController, run_id: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        with self.run_boundary(run_id):
+            return method(self, run_id, *args, **kwargs)
+
+    return wrapper
+
+
 def _subprocess_tool_entry(
     sender: Any,
     handler: Any,
@@ -188,7 +215,20 @@ class InvestigationController:
         self._states: dict[str, InvestigationState] = {}
         self._events: dict[str, list[InvestigationEvent]] = {}
         self._advance_locks: dict[str, asyncio.Lock] = {}
+        self._run_locks: dict[str, RLock] = {}
+        self._run_locks_guard = Lock()
         self._investigation_graph = build_investigation_graph(self)
+
+    @contextmanager
+    def run_boundary(self, run_id: str) -> Iterator[None]:
+        """Keep a synchronous reader or durable mutation on one run boundary."""
+
+        with self._run_lock(run_id):
+            yield
+
+    def _run_lock(self, run_id: str) -> RLock:
+        with self._run_locks_guard:
+            return self._run_locks.setdefault(run_id, RLock())
 
     def create(self, opaque_target_id: str) -> InvestigationState:
         run_id = f"run_{token_hex(8)}"
@@ -231,31 +271,45 @@ class InvestigationController:
         return state
 
     def events(self, run_id: str) -> tuple[InvestigationEvent, ...]:
-        self.get(run_id)
-        return tuple(self._events[run_id])
+        with self.run_boundary(run_id):
+            self.get(run_id)
+            return tuple(self._events[run_id])
 
     def evidence(self, run_id: str) -> tuple[EvidenceRecord, ...]:
-        return tuple(self.artifacts.read_evidence(self.get(run_id)))
+        with self.run_boundary(run_id):
+            return tuple(self.artifacts.read_evidence(self.get(run_id)))
 
     def lock(self, run_id: str) -> LockReceipt:
-        state = self.get(run_id)
-        updated, receipt = self.result_lock.lock(state)
-        event = self._event(updated, "result.locked", {"sha256": receipt.sha256})
-        self._states[run_id] = updated
-        self.artifacts.append_trace(updated, event)
-        self._events[run_id].append(event)
-        return receipt
+        with self.run_boundary(run_id), self.artifacts.authority_lock(self.get(run_id)):
+            state = self._refresh_durable_run(run_id)
+            already_locked = state.lock_state in {
+                LockState.RESULT_LOCKED,
+                LockState.CATALOG_REVEALED,
+            }
+            updated, receipt = self.result_lock.lock(state)
+            if already_locked:
+                return receipt
+            self._states[run_id] = updated
+            self._emit(updated, "result.locked", {"sha256": receipt.sha256})
+            return receipt
 
     def reveal(self, run_id: str) -> RevealResult:
-        state = self.get(run_id)
-        reveal = self.catalog_gate.reveal(state)
-        updated = self._replace(
-            state,
-            status=InvestigationStatus.REVEALED,
-            lock_state=LockState.CATALOG_REVEALED,
-        )
-        self._emit(updated, "catalog.revealed", {"catalog_source": reveal.catalog_source})
-        return reveal
+        with self.run_boundary(run_id), self.artifacts.authority_lock(self.get(run_id)):
+            state = self._refresh_durable_run(run_id)
+            if state.lock_state == LockState.CATALOG_REVEALED:
+                return self.catalog_gate.read_reveal(state)
+            reveal = self.catalog_gate.reveal(state)
+            updated = self._replace(
+                state,
+                status=InvestigationStatus.REVEALED,
+                lock_state=LockState.CATALOG_REVEALED,
+            )
+            self._emit(
+                updated,
+                "catalog.revealed",
+                {"catalog_source": reveal.catalog_source},
+            )
+            return reveal
 
     def fail_run(
         self,
@@ -266,6 +320,23 @@ class InvestigationController:
         recoverable: bool = True,
     ) -> InvestigationState:
         """Checkpoint a runner-boundary failure through the durable harness path."""
+
+        with self.run_boundary(run_id):
+            return self._fail_run(
+                run_id,
+                reason,
+                kind=kind,
+                recoverable=recoverable,
+            )
+
+    def _fail_run(
+        self,
+        run_id: str,
+        reason: str,
+        *,
+        kind: HarnessFailureKind,
+        recoverable: bool,
+    ) -> InvestigationState:
 
         state = self.get(run_id)
         if self._cannot_advance(state):
@@ -289,6 +360,13 @@ class InvestigationController:
 
     def record_tool_result(self, run_id: str, result: ScientificToolResult) -> InvestigationState:
         """Admit an already deterministic result, including test/eval fixture results."""
+
+        with self.run_boundary(run_id):
+            return self._record_tool_result(run_id, result)
+
+    def _record_tool_result(
+        self, run_id: str, result: ScientificToolResult
+    ) -> InvestigationState:
 
         state = self.get(run_id)
         self._assert_science_admission_open(state)
@@ -352,16 +430,18 @@ class InvestigationController:
                     {"recursion_limit": 16},
                 )
             except _HarnessAbort as exc:
-                return self._terminate(
-                    self.get(run_id),
-                    exc.kind,
-                    exc.reason,
-                    status=exc.status,
-                    recoverable=exc.recoverable,
-                    action_id=exc.action_id,
-                )
+                with self.run_boundary(run_id):
+                    return self._terminate(
+                        self.get(run_id),
+                        exc.kind,
+                        exc.reason,
+                        status=exc.status,
+                        recoverable=exc.recoverable,
+                        action_id=exc.action_id,
+                    )
             return self.get(run_id)
 
+    @_serialized_run
     async def recover_prepared_execution(self, run_id: str) -> InvestigationGraphUpdate:
         """Recover controller-prepared work before any graph routing decision."""
 
@@ -371,6 +451,7 @@ class InvestigationController:
         await self._recover_prepared_execution(state)
         return {}
 
+    @_serialized_run
     def begin_cycle(self, run_id: str) -> InvestigationState:
         """Durably charge one step, idempotently across node-boundary restarts."""
 
@@ -388,6 +469,7 @@ class InvestigationController:
         self._emit(state, "budget.updated", self._budget_payload(state))
         return state
 
+    @_serialized_run
     def determine_route(self, run_id: str) -> DirectorRoute:
         """Reload durable state and ask the deterministic Director for the next node."""
 
@@ -475,6 +557,7 @@ class InvestigationController:
             )
         )
 
+    @_serialized_run
     def record_director_route(
         self, run_id: str, route: DirectorRoute, *, source: str
     ) -> None:
@@ -493,6 +576,7 @@ class InvestigationController:
             },
         )
 
+    @_serialized_run
     async def run_mandatory_cycle(self, run_id: str) -> InvestigationGraphUpdate:
         """Execute the next controller-authorized mandatory action."""
 
@@ -518,6 +602,7 @@ class InvestigationController:
         await self._execute_action(state, spec.name, {}, adaptive=False)
         return {}
 
+    @_serialized_run
     async def run_specialist_briefing(self, run_id: str) -> InvestigationGraphUpdate:
         """Run shadow specialists with isolated contexts and stable durable commit order."""
 
@@ -598,6 +683,7 @@ class InvestigationController:
             )
         return {}
 
+    @_serialized_run
     async def run_director_briefing(self, run_id: str) -> InvestigationGraphUpdate:
         """Ask the model Director to echo the binding deterministic route."""
 
@@ -635,6 +721,7 @@ class InvestigationController:
         )
         return {}
 
+    @_serialized_run
     async def run_skeptic_node(self, run_id: str) -> InvestigationGraphUpdate:
         """Persist exactly one validated Skeptic decision for the current step."""
 
@@ -698,6 +785,7 @@ class InvestigationController:
         self._replace(state, status=InvestigationStatus.WAITING_FOR_CRITIC)
         return {}
 
+    @_serialized_run
     async def run_critic_node(self, run_id: str) -> InvestigationGraphUpdate:
         """Persist exactly one validated Critic review for the current proposal."""
 
@@ -759,6 +847,7 @@ class InvestigationController:
         )
         return {}
 
+    @_serialized_run
     def resolve_critic_verdict(self, run_id: str) -> DirectorRoute:
         """Validate the durable Critic verdict and authorize its graph branch."""
 
@@ -802,6 +891,7 @@ class InvestigationController:
             return DirectorRoute.FINALIZE
         return DirectorRoute.EXECUTE_APPROVED_ACTION
 
+    @_serialized_run
     async def run_adaptive_cycle(self, run_id: str) -> InvestigationGraphUpdate:
         """Execute the current Critic-authorized adaptive action once."""
 
@@ -835,6 +925,7 @@ class InvestigationController:
         )
         return {}
 
+    @_serialized_run
     def evaluate_cycle_result(self, run_id: str) -> InvestigationGraphUpdate:
         """Apply deterministic post-result policy to the latest durable evidence."""
 
@@ -853,6 +944,7 @@ class InvestigationController:
             return {"current_route": DirectorRoute.FINALIZE}
         return {"current_route": DirectorRoute.NOOP_TERMINAL}
 
+    @_serialized_run
     async def finalize_cycle(self, run_id: str) -> InvestigationGraphUpdate:
         """Finalize from durable evidence using the existing deterministic rules."""
 
@@ -927,6 +1019,7 @@ class InvestigationController:
         self._finalize(state, reason)
         return {}
 
+    @_serialized_run
     def terminate_cycle(self, run_id: str) -> InvestigationGraphUpdate:
         """Terminate the controller-classified non-candidate path."""
 
@@ -2784,6 +2877,17 @@ class InvestigationController:
         )
         self._emit(
             state,
+            "hypothesis.updated",
+            {
+                "active_hypotheses": list(state.active_hypotheses),
+                "strongest_unresolved_alternative": state.strongest_unresolved_alternative,
+                "interpretation_code": interpretation_code,
+                "evidence_id": evidence_id,
+            },
+            action_id=result.action_id,
+        )
+        self._emit(
+            state,
             "evidence.appended",
             {
                 "evidence_id": evidence_id,
@@ -3298,6 +3402,17 @@ class InvestigationController:
             },
             action_id=record.action_id,
         )
+        self._emit(
+            state,
+            "hypothesis.updated",
+            {
+                "active_hypotheses": list(state.active_hypotheses),
+                "strongest_unresolved_alternative": state.strongest_unresolved_alternative,
+                "interpretation_code": record.interpretation_code,
+                "evidence_id": record.evidence_id,
+            },
+            action_id=record.action_id,
+        )
         return state
 
     def _updated_candidates(
@@ -3351,15 +3466,16 @@ class InvestigationController:
         return hashlib.sha256(canonical).hexdigest()
 
     def _replace(self, state: InvestigationState, **changes: Any) -> InvestigationState:
-        requested_status = changes.get("status", state.status)
-        validate_status_transition(state.status, InvestigationStatus(requested_status))
-        payload = state.model_dump(mode="python")
-        payload.update(changes)
-        payload["updated_at"] = datetime.now(UTC)
-        updated = InvestigationState.model_validate(payload)
-        self.artifacts.save_state(updated)
-        self._states[state.run_id] = updated
-        return updated
+        with self.run_boundary(state.run_id):
+            requested_status = changes.get("status", state.status)
+            validate_status_transition(state.status, InvestigationStatus(requested_status))
+            payload = state.model_dump(mode="python")
+            payload.update(changes)
+            payload["updated_at"] = datetime.now(UTC)
+            updated = InvestigationState.model_validate(payload)
+            self.artifacts.save_state(updated)
+            self._states[state.run_id] = updated
+            return updated
 
     def _emit(
         self,
@@ -3369,9 +3485,18 @@ class InvestigationController:
         *,
         action_id: str | None = None,
     ) -> None:
-        event = self._event(state, event_type, payload, action_id=action_id)
-        self.artifacts.append_trace(state, event)
-        self._events[state.run_id].append(event)
+        with self.run_boundary(state.run_id):
+            event = self._event(state, event_type, payload, action_id=action_id)
+            self.artifacts.append_trace(state, event)
+            self._events[state.run_id].append(event)
+
+    def _refresh_durable_run(self, run_id: str) -> InvestigationState:
+        state = self.artifacts.find_state(run_id)
+        if state is None:
+            raise RunNotFoundError(f"investigation not found: {run_id}")
+        self._states[run_id] = state
+        self._events[run_id] = self.artifacts.read_trace(state)
+        return state
 
     def _event(
         self,

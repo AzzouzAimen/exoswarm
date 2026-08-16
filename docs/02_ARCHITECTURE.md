@@ -42,6 +42,7 @@ flowchart LR
 | Six role adapters | bounded, structured, result-neutral model inference |
 | Tool registry/science | validated deterministic execution and measurements |
 | Result lock/catalog gate | backend security authority |
+| Viewer catalog projection | human-only official reference, isolated from investigation state |
 
 The graph is compiled without a LangGraph checkpointer. Its small `run_id`-keyed state is transient
 and reconstructible; it never stores scientific arrays, raw paths, ground truth, Evidence Ledger
@@ -59,7 +60,7 @@ contents, budgets, or disposition logic.
 - permissions and tool availability,
 - max turns / experiment budget / repeated-action checks,
 - result lock and hash,
-- catalog gating and reveal authority,
+- viewer/agent catalog isolation and legacy audit reveal authority,
 - persistence and trace events,
 - scientific numeric provenance guardrails.
 
