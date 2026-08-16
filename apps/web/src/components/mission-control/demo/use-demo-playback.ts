@@ -2,29 +2,29 @@
 
 import { useEffect, useMemo, useState } from "react"
 
-import { DEMO_EVENTS, DEMO_INITIAL_STATE } from "./demo-investigation.fixture"
+import type { DemoCaseDefinition } from "./demo-cases"
 import { replayPresentation } from "./demo-reducer"
 
-export function useDemoPlayback() {
+export function useDemoPlayback(demoCase: DemoCaseDefinition, enabled: boolean) {
   const [step, setStepState] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
-    if (!isPlaying || step >= DEMO_EVENTS.length) return
+    if (!enabled || !isPlaying || step >= demoCase.events.length) return
     const timer = window.setTimeout(() => {
-      setStepState((current) => Math.min(current + 1, DEMO_EVENTS.length))
-    }, DEMO_EVENTS[step]?.holdMs ?? 1800)
+      setStepState((current) => Math.min(current + 1, demoCase.events.length))
+    }, demoCase.events[step]?.holdMs ?? 1800)
     return () => window.clearTimeout(timer)
-  }, [isPlaying, step])
+  }, [demoCase.events, enabled, isPlaying, step])
 
   const state = useMemo(
-    () => replayPresentation(DEMO_INITIAL_STATE, DEMO_EVENTS, step),
-    [step],
+    () => replayPresentation(demoCase.initialState, demoCase.events, step),
+    [demoCase, step],
   )
 
   const setStep = (value: number) => {
     setIsPlaying(false)
-    setStepState(Math.max(0, Math.min(value, DEMO_EVENTS.length)))
+    setStepState(Math.max(0, Math.min(value, demoCase.events.length)))
   }
 
   const replay = () => {
@@ -32,13 +32,19 @@ export function useDemoPlayback() {
     setIsPlaying(true)
   }
 
+  const start = () => {
+    setStepState(0)
+    setIsPlaying(true)
+  }
+
   return {
     state,
     step,
-    totalSteps: DEMO_EVENTS.length,
-    isPlaying: isPlaying && step < DEMO_EVENTS.length,
+    totalSteps: demoCase.events.length,
+    isPlaying: enabled && isPlaying && step < demoCase.events.length,
     setIsPlaying,
     setStep,
     replay,
+    start,
   }
 }

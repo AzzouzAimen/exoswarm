@@ -9,15 +9,15 @@ import type {
 } from "../model/presentation-state"
 
 /**
- * SYNTHETIC UI DEMO DATA — NOT PRODUCTION SCIENTIFIC DATA.
+ * CACHED BACKEND-ALIGNED UI FIXTURE — NOT A LIVE BACKEND RUN.
  *
  * Values in this file exist only to exercise the presentation layer. They are
  * intentionally isolated so a future backend adapter can replace this event
  * source without changing visual components.
  */
 
-const periodDays = 3.184
-const transitDepth = 0.0082
+const periodDays = 1.338249
+const transitDepth = 0.023047
 
 function sequence(length: number, start: number, step: number) {
   return Array.from({ length }, (_, index) => start + index * step)
@@ -47,8 +47,8 @@ const diagnosticPeriod = [periodDays / 2, periodDays, periodDays * 2]
 const harmonicPower = [4.2, 11.6, 6.1]
 
 const oddPhase = phase
-const oddFlux = phase.map((value) => 1 - 0.0081 * Math.exp(-Math.pow(value / 0.036, 6)))
-const evenFlux = phase.map((value) => 1 - 0.0083 * Math.exp(-Math.pow(value / 0.036, 6)))
+const oddFlux = phase.map((value) => 1 - 0.022807 * Math.exp(-Math.pow(value / 0.036, 6)))
+const evenFlux = phase.map((value) => 1 - 0.022914 * Math.exp(-Math.pow(value / 0.036, 6)))
 
 const secondaryPhase = sequence(160, 0, 1 / 159)
 const secondaryFlux = secondaryPhase.map(
@@ -107,30 +107,30 @@ function instrument(
 
 export const DEMO_INSTRUMENTS: Record<InstrumentMode, InstrumentPresentation> = {
   raw: instrument("raw", "Brightness over time", [
-    { label: "Readings", value: "220 demo points", evidenceRef: "E11" },
-    { label: "Data", value: "synthetic demo" },
+    { label: "Readings", value: "220 display samples", evidenceRef: "E11" },
+    { label: "Source", value: "cached TESS fixture" },
   ]),
   bls: instrument("bls", "Period search", [
-    { label: "Repeats every", value: "3.184 days", evidenceRef: "E14" },
+    { label: "Repeats every", value: "1.338249 days", evidenceRef: "E14" },
     { label: "Method", value: "period search" },
   ]),
   "phase-fold": instrument("phase-fold", "Dips lined up", [
-    { label: "Repeats every", value: "3.184 days", evidenceRef: "E14" },
-    { label: "Brightness drop", value: "0.82 %", evidenceRef: "E17" },
+    { label: "Repeats every", value: "1.338249 days", evidenceRef: "E14" },
+    { label: "Brightness drop", value: "2.30 %", evidenceRef: "E17" },
   ]),
   "odd-even": instrument("odd-even", "Alternating dip check", [
-    { label: "First set", value: "0.81 %" },
-    { label: "Second set", value: "0.83 %" },
-    { label: "Data", value: "synthetic demo" },
+    { label: "First set", value: "2.281 %" },
+    { label: "Second set", value: "2.291 %" },
+    { label: "Difference", value: "0.06 σ" },
   ]),
   secondary: instrument("secondary", "Hidden companion check", [
     { label: "Checked near", value: "half an orbit" },
     { label: "Result", value: "no clear second dip" },
   ]),
   harmonic: instrument("harmonic", "Alternative periods", [
-    { label: "P/2", value: "1.592 d" },
-    { label: "P", value: "3.184 d", evidenceRef: "E14" },
-    { label: "2P", value: "6.368 d" },
+    { label: "P/2", value: "0.669 d" },
+    { label: "P", value: "1.338 d", evidenceRef: "E14" },
+    { label: "2P", value: "2.676 d" },
   ]),
 }
 
@@ -166,45 +166,45 @@ export const DEMO_EVIDENCE: Record<string, EvidencePresentation> = {
     summary: "The time coverage is good enough to search for repeats.",
     supports: [],
     contradicts: ["instrument-artifact"],
-    provenance: "synthetic://demo/preprocess-v1",
+    provenance: "fixture://cached-backend/TARGET-C11/preprocess-v1",
   },
   E14: {
     id: "E14",
     kind: "candidate-period",
     sourceTool: "search_bls",
-    summary: "A repeating dip appears every 3.184 days.",
-    measurement: { value: periodDays, displayValue: "3.184", unit: "d" },
+    summary: "A repeating dip appears every 1.338249 days.",
+    measurement: { value: periodDays, displayValue: "1.338249", unit: "d" },
     supports: ["planetary-transit", "eclipsing-binary"],
     contradicts: ["instrument-artifact"],
-    provenance: "synthetic://demo/search_bls-v1",
+    provenance: "fixture://cached-backend/TARGET-C11/search_bls-v1",
   },
   E17: {
     id: "E17",
     kind: "phase-consistency",
     sourceTool: "measure_transit",
-    summary: "The dips line up when each 3.184-day cycle is stacked.",
-    measurement: { value: transitDepth, displayValue: "0.82", unit: "% depth" },
+    summary: "The dips line up when each 1.338249-day cycle is stacked.",
+    measurement: { value: transitDepth, displayValue: "2.30", unit: "% depth" },
     supports: ["planetary-transit", "eclipsing-binary"],
     contradicts: ["instrument-artifact"],
-    provenance: "synthetic://demo/measure_transit-v1",
+    provenance: "fixture://cached-backend/TARGET-C11/measure_transit-v1",
   },
   E18: {
     id: "E18",
     kind: "harmonic-diagnostic",
     sourceTool: "harmonic_test",
-    summary: "Half and double periods fit worse than 3.184 days.",
+    summary: "Half and double periods fit worse than 1.338249 days.",
     supports: ["planetary-transit"],
     contradicts: ["eclipsing-binary"],
-    provenance: "synthetic://demo/harmonic_test-v1",
+    provenance: "fixture://cached-backend/TARGET-C11/harmonic_test-v1",
   },
 }
 
 export const DEMO_INITIAL_STATE: InvestigationPresentationState = {
-  run: { id: "demo_run_7A21", mode: "demo" },
+  run: { id: "fixture_run_C11", mode: "demo" },
   target: {
-    id: "TARGET-DEMO-07",
-    sector: "Sector 21",
-    dataLabel: "Synthetic demo data",
+    id: "TARGET-C11",
+    sector: "Sector 2",
+    dataLabel: "Cached TESS presentation fixture",
     groundTruthState: "sealed",
   },
   phase: "observing",
@@ -285,7 +285,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
       currentQuestion: "What orbit matches this repeat?",
       cameraPose: "candidate",
       instrument: instrument("bls", "Period search", [
-        { label: "Repeats every", value: "3.184 days", evidenceRef: "E14" },
+        { label: "Repeats every", value: "1.338249 days", evidenceRef: "E14" },
         { label: "Method", value: "period search" },
       ]),
     },
@@ -305,7 +305,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
     trace: {
       actor: "EVIDENCE",
       headline: "E14 appended",
-      detail: "Candidate period · 3.184 d",
+      detail: "Candidate period · 1.338249 d",
       tone: "science",
       evidenceRef: "E14",
     },
@@ -338,7 +338,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
       cameraPose: "transit",
       instrument: instrument("phase-fold", "Dips lined up", [
         { label: "Center", value: "mid-dip" },
-        { label: "Repeats every", value: "3.184 days", evidenceRef: "E14" },
+        { label: "Repeats every", value: "1.338249 days", evidenceRef: "E14" },
       ]),
     },
     trace: {
@@ -361,15 +361,15 @@ export const DEMO_EVENTS: PresentationEvent[] = [
       currentQuestion: "How deep is the repeating dip?",
       cameraPose: "measurement",
       instrument: instrument("phase-fold", "Dips lined up", [
-        { label: "Repeats every", value: "3.184 days", evidenceRef: "E14" },
-        { label: "Brightness drop", value: "0.82 %", evidenceRef: "E17" },
-        { label: "View", value: "illustration" },
+        { label: "Repeats every", value: "1.338249 days", evidenceRef: "E14" },
+        { label: "Brightness drop", value: "2.30 %", evidenceRef: "E17" },
+        { label: "Source", value: "cached fixture" },
       ]),
     },
     trace: {
       actor: "EVIDENCE",
       headline: "E17 appended",
-      detail: "Phase-consistent depth · 0.82 %",
+      detail: "Phase-consistent depth · 2.30 %",
       tone: "science",
       evidenceRef: "E17",
     },
@@ -434,7 +434,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
         action: "harmonic_test",
         expectedDiscriminator: "consistency at P/2, P and 2P",
         model: "DeepSeek-V4 · demo trace",
-        latency: "3.2 s · synthetic telemetry",
+        latency: "3.2 s · fixture telemetry",
         schema: "valid",
       },
     },
@@ -442,7 +442,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
     holdMs: 2400,
     trace: {
       actor: "SKEPTIC",
-      headline: "harmonic_test proposed",
+      headline: "Half / double timing check proposed",
       detail: "Cost 1 evidence unit",
       tone: "model",
     },
@@ -507,7 +507,7 @@ export const DEMO_EVENTS: PresentationEvent[] = [
     },
     trace: {
       actor: "SCIENCE TOOL",
-      headline: "harmonic_test running",
+      headline: "Half / double timing check running",
       detail: "Allowlisted · deterministic",
       tone: "science",
     },
@@ -526,14 +526,14 @@ export const DEMO_EVENTS: PresentationEvent[] = [
     holdMs: 2200,
     view: {
       instrument: instrument("harmonic", "Alternative periods", [
-        { label: "P/2", value: "1.592 d" },
-        { label: "P", value: "3.184 d", evidenceRef: "E14" },
-        { label: "2P", value: "6.368 d" },
+        { label: "P/2", value: "0.669 d" },
+        { label: "P", value: "1.338 d", evidenceRef: "E14" },
+        { label: "2P", value: "2.676 d" },
       ]),
     },
     trace: {
       actor: "SCIENCE TOOL",
-      headline: "harmonic_test complete",
+      headline: "Half / double timing check complete",
       detail: "420 ms · no stronger alias",
       tone: "science",
     },
@@ -602,8 +602,8 @@ export const DEMO_EVENTS: PresentationEvent[] = [
     },
     trace: {
       actor: "AUTHORITY",
-      headline: "Measurements locked",
-      detail: "SHA-256 receipt issued · ground truth sealed",
+      headline: "Independent result saved",
+      detail: "Result committed before the official record is opened",
       tone: "unresolved",
     },
   },

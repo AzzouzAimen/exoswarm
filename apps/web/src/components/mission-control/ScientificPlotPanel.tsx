@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import type { Data, Layout } from "plotly.js"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import type {
   InstrumentMode,
@@ -15,13 +16,13 @@ import type {
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false })
 
-const MODES: Array<{ id: InstrumentMode; label: string }> = [
-  { id: "raw", label: "Brightness" },
-  { id: "bls", label: "Period" },
-  { id: "phase-fold", label: "Aligned" },
-  { id: "odd-even", label: "Odd / even" },
-  { id: "secondary", label: "Companion" },
-  { id: "harmonic", label: "Alt periods" },
+const MODES: Array<{ id: InstrumentMode; label: string; help: string }> = [
+  { id: "raw", label: "Brightness", help: "The observation before repeat-pattern analysis." },
+  { id: "bls", label: "Repeat search", help: "How strongly each possible interval matches repeating dips." },
+  { id: "phase-fold", label: "Dips lined up", help: "Repeated cycles stacked to show the shared event shape." },
+  { id: "odd-even", label: "Odd / even", help: "Compares every other event to catch two-star systems." },
+  { id: "secondary", label: "Second dip", help: "Searches for another eclipse between primary events." },
+  { id: "harmonic", label: "Alt timing", help: "Checks whether half or double the interval fits better." },
 ]
 
 const TRACE_COLORS: Record<PlotTracePresentation["tone"], string> = {
@@ -142,13 +143,20 @@ export function ScientificPlotPanel({
         >
           <TabsList variant="line" aria-label="Scientific instrument mode">
             {MODES.map((mode) => (
-              <TabsTrigger key={mode.id} value={mode.id}>
-                {mode.label}
-              </TabsTrigger>
+              <Tooltip key={mode.id}>
+                <TooltipTrigger asChild>
+                  <span className="instrument-tab-tooltip">
+                    <TabsTrigger value={mode.id} className="instrument-tab-trigger">
+                      {mode.label}
+                    </TabsTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{mode.help}</TooltipContent>
+              </Tooltip>
             ))}
           </TabsList>
         </Tabs>
-        <div className="plot-frame" aria-label={`${instrument.label} synthetic demonstration plot`}>
+        <div className="plot-frame" aria-label={`${instrument.label} fixture visualization`}>
           <Plot
             data={instrument.plot.traces.map(toPlotlyTrace)}
             layout={plotLayout(instrument)}

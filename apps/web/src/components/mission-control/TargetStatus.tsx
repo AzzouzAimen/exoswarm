@@ -1,23 +1,19 @@
 "use client"
 
-import { LockClosedIcon, ViewfinderCircleIcon } from "@heroicons/react/24/outline"
-
-import { Button } from "@/components/ui/button"
+import { LockClosedIcon } from "@heroicons/react/24/outline"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import type { InvestigationPresentationState } from "./model/presentation-state"
 
 interface TargetStatusProps {
   state: InvestigationPresentationState
-  xRayEnabled: boolean
-  onToggleXRay: () => void
+  revealedIdentity?: string
   mobileDetails?: React.ReactNode
 }
 
 export function TargetStatus({
   state,
-  xRayEnabled,
-  onToggleXRay,
+  revealedIdentity,
   mobileDetails,
 }: TargetStatusProps) {
   return (
@@ -35,7 +31,7 @@ export function TargetStatus({
         <span className="telemetry">{state.target.id}</span>
         <span className="target-rule" aria-hidden="true" />
         <span>{state.target.sector}</span>
-        <span className="demo-flag">Demo data</span>
+        <span className="demo-flag">Fixture playback</span>
       </div>
 
       <div className="mission-status">
@@ -43,24 +39,18 @@ export function TargetStatus({
           <span className="phase-index">{String(state.stageIndex).padStart(2, "0")}</span>
           {state.stageLabel}
         </span>
-        <span className="sealed-readout">
-          <LockClosedIcon aria-hidden="true" />
-          {state.lock ? "Saved" : "Catalog hidden"}
-        </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant={xRayEnabled ? "secondary" : "outline"}
-              size="sm"
-              aria-pressed={xRayEnabled}
-              onClick={onToggleXRay}
-            >
-              <ViewfinderCircleIcon data-icon="inline-start" aria-hidden="true" />
-              X-RAY
-            </Button>
+            <span className="sealed-readout" tabIndex={0}>
+              <LockClosedIcon aria-hidden="true" />
+              {revealedIdentity ?? "Official identity ███████"}
+            </span>
           </TooltipTrigger>
-          <TooltipContent>Show how decisions are checked</TooltipContent>
+          <TooltipContent>
+            {revealedIdentity
+              ? "Opened only after the independent result was saved."
+              : "The agents cannot see the known catalog identity or answer."}
+          </TooltipContent>
         </Tooltip>
         {mobileDetails}
       </div>

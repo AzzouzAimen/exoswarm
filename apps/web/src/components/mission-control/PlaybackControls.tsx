@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { DEMO_STAGE_MARKERS } from "./demo/demo-investigation.fixture"
-
 interface PlaybackControlsProps {
   step: number
   totalSteps: number
@@ -21,6 +19,7 @@ interface PlaybackControlsProps {
   onPlayingChange: (playing: boolean) => void
   onStepChange: (step: number) => void
   onReplay: () => void
+  stageMarkers: ReadonlyArray<{ label: string; step: number }>
 }
 
 function IconControl({
@@ -48,6 +47,7 @@ export function PlaybackControls({
   onPlayingChange,
   onStepChange,
   onReplay,
+  stageMarkers,
 }: PlaybackControlsProps) {
   return (
     <section className="playback-controls" aria-label="Demo investigation playback">
@@ -71,15 +71,19 @@ export function PlaybackControls({
       </div>
 
       <div className="scrubber-stack">
-        <div className="stage-markers" aria-label="Investigation stages">
-          {DEMO_STAGE_MARKERS.map((marker, index) => (
+        <div
+          className="stage-markers"
+          aria-label="Investigation stages"
+          style={{ gridTemplateColumns: `repeat(${stageMarkers.length}, minmax(0, 1fr))` }}
+        >
+          {stageMarkers.map((marker, index) => (
             <button
               type="button"
               key={marker.label}
               data-passed={step >= marker.step}
               data-current={
                 step >= marker.step &&
-                (index === DEMO_STAGE_MARKERS.length - 1 || step < DEMO_STAGE_MARKERS[index + 1].step)
+                (index === stageMarkers.length - 1 || step < stageMarkers[index + 1].step)
               }
               onClick={() => onStepChange(marker.step)}
             >

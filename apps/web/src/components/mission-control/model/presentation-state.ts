@@ -43,6 +43,13 @@ export type SemanticTone =
   | "approved"
   | "danger"
 
+export type DecisionBoundary =
+  | "agent"
+  | "review"
+  | "code"
+  | "evidence"
+  | "authority"
+
 export interface AgentPresentation {
   id: AgentId
   label: string
@@ -123,6 +130,7 @@ export interface TimelineRecord {
   sequence: number
   timestamp: string
   eventType: PresentationEventType
+  boundary: DecisionBoundary
   agentId?: AgentId
   tool?: ToolPresentation
   handoff?: {
@@ -146,6 +154,7 @@ export type PresentationEventType =
   | "tool.completed"
   | "evidence.appended"
   | "hypothesis.updated"
+  | "run.concluded"
   | "result.locked"
 
 export interface InvestigationPresentationState {
@@ -192,7 +201,14 @@ interface EventBase {
   holdMs: number
   trace: Omit<
     TimelineRecord,
-    "id" | "sequence" | "timestamp" | "eventType" | "agentId" | "tool" | "handoff"
+    | "id"
+    | "sequence"
+    | "timestamp"
+    | "eventType"
+    | "boundary"
+    | "agentId"
+    | "tool"
+    | "handoff"
   >
   view?: Partial<
     Pick<
@@ -234,5 +250,6 @@ export type PresentationEvent = EventBase &
         hypothesisId: string
         update: Partial<HypothesisPresentation>
       }
+    | { type: "run.concluded" }
     | { type: "result.locked"; hash: string; lockedAt: string }
   )

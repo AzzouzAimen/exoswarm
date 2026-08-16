@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import ShinyText from "@/components/ui/ShinyText"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 import { buildAgentTraceStages, type AgentTraceStage } from "./model/agent-trace"
@@ -71,7 +72,34 @@ const EVENT_ICONS: Record<PresentationEventType, IconComponent> = {
   "tool.completed": BeakerIcon,
   "evidence.appended": DocumentCheckIcon,
   "hypothesis.updated": CircleStackIcon,
+  "run.concluded": LockClosedIcon,
   "result.locked": LockClosedIcon,
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  search_bls: "Repeat-pattern search",
+  odd_even: "Alternating-event check",
+  secondary_eclipse: "Second-event check",
+  contamination_screening: "Nearby-source risk check",
+  harmonic_test: "Half / double timing check",
+  alternate_detrend: "Reprocessing check",
+}
+
+const TOOL_HELP: Record<string, string> = {
+  search_bls: "Deterministic code scans many possible repeat intervals. Backend name: search_bls.",
+  odd_even: "Deterministic code compares alternating event depths. Backend name: odd_even.",
+  secondary_eclipse: "Deterministic code searches for a second dimming event. Backend name: secondary_eclipse.",
+  contamination_screening: "Code checks whether nearby sources could explain the signal. Backend name: contamination_screening.",
+  harmonic_test: "Deterministic code compares the chosen timing with half and double periods. Backend name: harmonic_test.",
+  alternate_detrend: "Code reprocesses the observation to test whether the signal survives. Backend name: alternate_detrend.",
+}
+
+const BOUNDARY_LABELS: Record<TimelineRecord["boundary"], string> = {
+  agent: "Agent decision",
+  review: "Independent review",
+  code: "Code measurement",
+  evidence: "Evidence saved",
+  authority: "Result commitment",
 }
 
 function activityLabel(stage: AgentTraceStage, state: InvestigationPresentationState) {
@@ -123,6 +151,7 @@ function TraceStep({
 }) {
   const Icon = EVENT_ICONS[record.eventType]
   const result = traceResult(record, state)
+  const toolLabel = record.tool ? (TOOL_LABELS[record.tool.name] ?? record.tool.name) : undefined
   const isRunning = record.tool?.status === "running" && record.sequence === state.timeline.length
   const isCurrentWork = isActive && record.sequence === state.timeline.length
 
@@ -153,7 +182,17 @@ function TraceStep({
               record.headline
             )}
           </strong>
-          {record.tool ? <code>{record.tool.name}</code> : null}
+          <span className="agent-trace-boundary" data-boundary={record.boundary}>
+            {BOUNDARY_LABELS[record.boundary]}
+          </span>
+          {record.tool ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <code tabIndex={0}>{toolLabel}</code>
+              </TooltipTrigger>
+              <TooltipContent>{TOOL_HELP[record.tool.name] ?? `Deterministic backend tool: ${record.tool.name}`}</TooltipContent>
+            </Tooltip>
+          ) : null}
           <time className="telemetry">{record.timestamp}</time>
         </span>
         <span>{record.detail}</span>

@@ -5,6 +5,26 @@ import type {
   PresentationEvent,
 } from "../model/presentation-state"
 
+function eventBoundary(event: PresentationEvent): InvestigationPresentationState["timeline"][number]["boundary"] {
+  switch (event.type) {
+    case "agent.started":
+    case "agent.decision":
+    case "agent.handoff":
+      return "agent"
+    case "critic.review":
+      return "review"
+    case "tool.started":
+    case "tool.completed":
+      return "code"
+    case "evidence.appended":
+    case "hypothesis.updated":
+      return "evidence"
+    case "run.concluded":
+    case "result.locked":
+      return "authority"
+  }
+}
+
 function updateAgent(
   agents: AgentPresentation[],
   agentId: AgentId,
@@ -53,6 +73,7 @@ export function applyPresentationEvent(
         sequence: state.timeline.length + 1,
         timestamp: event.timestamp,
         eventType: event.type,
+        boundary: eventBoundary(event),
       },
     ],
   }
@@ -95,12 +116,12 @@ export function applyPresentationEvent(
           status: "complete",
           summary: `${event.verdict} · ${event.summary}`,
           inspector: {
-            currentQuestion: "Does harmonic_test discriminate the strongest unresolved alternative?",
+            currentQuestion: "Does the half / double timing check separate the strongest alternative?",
             evidenceRefs: ["E14", "E17"],
             action: "harmonic_test",
             expectedDiscriminator: "P/2, P and 2P consistency",
             model: "DeepSeek-V4 · demo trace",
-            latency: "2.1 s · synthetic telemetry",
+            latency: "2.1 s · fixture telemetry",
             schema: "valid",
           },
         }),
@@ -129,6 +150,14 @@ export function applyPresentationEvent(
             ? { ...hypothesis, ...event.update }
             : hypothesis,
         ),
+      }
+    case "run.concluded":
+      return {
+        ...next,
+        activeAgentId: undefined,
+        activeHandoff: undefined,
+        activeTool: undefined,
+        agents: state.agents.map((agent) => ({ ...agent, status: "complete" })),
       }
     case "result.locked":
       return {
