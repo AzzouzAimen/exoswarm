@@ -1,0 +1,16 @@
+# Loaded by the VPS's existing edge Caddy. That container already owns ports
+# 80/443 and the fidelgo-vps-dev-edge network.
+exoswarm.duckdns.org {
+	encode zstd gzip
+
+	@backend path /api/* /health /docs /docs/* /redoc /openapi.json
+	handle @backend {
+		reverse_proxy exoswarm-api:8000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy exoswarm-web:3000
+	}
+}

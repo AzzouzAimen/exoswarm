@@ -1,17 +1,33 @@
-# This host already runs a production ingress on ports 80 and 443.
-# Keep ExoSwarm isolated on an alternate HTTP port instead of touching it.
+# This host already runs a production Caddy ingress on ports 80 and 443.
+# Join its existing edge network; the versioned route is in
+# deploy/Caddyfile.shared-vps.
 services:
   api:
     environment:
-      EXOSWARM_CORS_ORIGINS: '["http://exoswarm.duckdns.org:8081"]'
+      EXOSWARM_CORS_ORIGINS: '["https://exoswarm.duckdns.org"]'
+    networks:
+      default:
+      shared-ingress:
+        aliases:
+          - exoswarm-api
 
   web:
     build:
       args:
-        NEXT_PUBLIC_EXOSWARM_API_URL: http://exoswarm.duckdns.org:8081
+        NEXT_PUBLIC_EXOSWARM_API_URL: https://exoswarm.duckdns.org
+    networks:
+      default:
+      shared-ingress:
+        aliases:
+          - exoswarm-web
 
+  # The shared ingress owns public ports. Keep ExoSwarm's standalone proxy out
+  # of the default VPS deployment; the profile remains available for recovery.
   proxy:
-    environment:
-      EXOSWARM_SITE_ADDRESS: http://exoswarm.duckdns.org:8081
-    ports: !override
-      - "8081:8081"
+    profiles:
+      - standalone-ingress
+
+networks:
+  shared-ingress:
+    external: true
+    name: fidelgo-vps-dev-edge

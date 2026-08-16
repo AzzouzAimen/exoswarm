@@ -236,16 +236,21 @@ to delete saved investigation runs and the cached TLS state.
 ### Shared demo VPS
 
 The current demo VPS already uses ports `80` and `443` for other websites. Do not stop or replace
-that ingress. The VPS override runs ExoSwarm independently on HTTP port `8081`:
+that ingress. The VPS override joins ExoSwarm's API and web services to the existing edge network;
+the shared Caddy route in `deploy/Caddyfile.shared-vps` provides clean-domain HTTPS without
+publishing another host port:
 
 ```bash
 docker compose -f compose.yaml -f compose.vps.yaml up -d --build
 docker compose -f compose.yaml -f compose.vps.yaml ps
 ```
 
-Allow inbound TCP port `8081` in both the Oracle Cloud ingress rules and the host firewall, then open
-<http://exoswarm.duckdns.org:8081>. This override changes the browser API URL, CORS origin, Caddy
-listener, and published port together so API requests and SSE remain same-origin.
+The shared edge Caddy must load the versioned route before starting the VPS override. Once loaded,
+open <https://exoswarm.duckdns.org>. The override changes the browser API URL and CORS origin
+together, gives the containers unique `exoswarm-api` and `exoswarm-web` aliases on the existing
+`fidelgo-vps-dev-edge` network, and leaves ExoSwarm's standalone proxy behind an opt-in profile.
+API requests and SSE therefore remain same-origin while the existing websites keep ownership of
+ports `80` and `443`.
 
 ## Reproducibility and verification
 
