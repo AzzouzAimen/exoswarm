@@ -22,7 +22,7 @@
           "variants": {
             "fast": {
               "reasoningEffort": "low",
-              "textVerbosity": "low"
+              "textVerbosity": "low"/v
             },
 
             "balanced": {

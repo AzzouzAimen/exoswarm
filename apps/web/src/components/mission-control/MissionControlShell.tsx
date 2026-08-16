@@ -1,7 +1,9 @@
 "use client"
 
+import { EyeIcon } from "@heroicons/react/24/outline"
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import { AgentTrace } from "./AgentTrace"
@@ -22,17 +24,18 @@ import type { InstrumentMode } from "./model/presentation-state"
 export function MissionControlShell() {
   const [selectedCaseId, setSelectedCaseId] = useState<DemoCaseId>("TARGET-C11")
   const [experience, setExperience] = useState<"selecting" | "running">("selecting")
-  const [revealed, setRevealed] = useState(false)
+  const [resultsOpen, setResultsOpen] = useState(false)
   const [isEvidenceCollapsed, setIsEvidenceCollapsed] = useState(true)
   const [inspectedInstrumentMode, setInspectedInstrumentMode] = useState<InstrumentMode>()
   const demoCase = DEMO_CASES[selectedCaseId]
   const playback = useDemoPlayback(demoCase, experience === "running")
   const { state } = playback
   const isComplete = experience === "running" && playback.step >= playback.totalSteps
+  const isResultDialogOpen = isComplete && resultsOpen
   const isEvidenceDisplayCollapsed = isComplete || isEvidenceCollapsed
 
   const startInvestigation = () => {
-    setRevealed(false)
+    setResultsOpen(true)
     setInspectedInstrumentMode(undefined)
     setIsEvidenceCollapsed(true)
     setExperience("running")
@@ -40,7 +43,7 @@ export function MissionControlShell() {
   }
 
   const restartSelection = () => {
-    setRevealed(false)
+    setResultsOpen(false)
     setInspectedInstrumentMode(undefined)
     setExperience("selecting")
     playback.setStep(0)
@@ -52,18 +55,19 @@ export function MissionControlShell() {
   }
 
   const selectStep = (step: number) => {
-    if (step < playback.totalSteps) setRevealed(false)
+    if (step >= playback.totalSteps) setResultsOpen(true)
     setInspectedInstrumentMode(undefined)
     playback.setStep(step)
   }
 
   const setPlaying = (playing: boolean) => {
+    if (playing) setResultsOpen(true)
     setInspectedInstrumentMode(undefined)
     playback.setIsPlaying(playing)
   }
 
   const replay = () => {
-    setRevealed(false)
+    setResultsOpen(true)
     setInspectedInstrumentMode(undefined)
     playback.replay()
   }
@@ -74,13 +78,13 @@ export function MissionControlShell() {
         "mission-shell",
         experience === "selecting" && "mission-is-selecting",
         (state.phase === "measuring" || state.phase === "testing") && "instrument-is-focus",
-        isComplete && "investigation-is-complete",
+        isResultDialogOpen && "results-are-open",
       )}
       data-evidence-collapsed={isEvidenceDisplayCollapsed}
     >
       <TargetStatus
         state={state}
-        revealedIdentity={revealed ? demoCase.reveal?.targetName : undefined}
+        officialIdentity={demoCase.reveal?.targetName}
         mobileDetails={<MobileInvestigationSheet state={state} />}
       />
 
@@ -102,27 +106,34 @@ export function MissionControlShell() {
             <div className="mission-top-actions">
               <OrbitSceneStatus state={state} />
               <HypothesisPanel hypotheses={state.hypotheses} />
+              {isComplete && !resultsOpen ? (
+                <Button type="button" className="view-result-button" onClick={() => setResultsOpen(true)}>
+                  <EyeIcon aria-hidden="true" />
+                  View result
+                </Button>
+              ) : null}
             </div>
-            {isComplete ? (
+            {isResultDialogOpen ? (
               <LockRevealPanel
                 demoCase={demoCase}
                 state={state}
-                revealed={revealed}
-                onReveal={() => setRevealed(true)}
+                onClose={() => setResultsOpen(false)}
                 onRestart={restartSelection}
               />
             ) : null}
           </section>
 
-          <ScientificPlotPanel
-            instrument={
-              inspectedInstrumentMode ? demoCase.instruments[inspectedInstrumentMode] : state.instrument
-            }
-            phase={state.phase}
-            onModeChange={selectInstrumentMode}
-            isCollapsed={isEvidenceDisplayCollapsed}
-            onCollapsedChange={setIsEvidenceCollapsed}
-          />
+          {!isResultDialogOpen ? (
+            <ScientificPlotPanel
+              instrument={
+                inspectedInstrumentMode ? demoCase.instruments[inspectedInstrumentMode] : state.instrument
+              }
+              phase={state.phase}
+              onModeChange={selectInstrumentMode}
+              isCollapsed={isEvidenceDisplayCollapsed}
+              onCollapsedChange={setIsEvidenceCollapsed}
+            />
+          ) : null}
 
           <footer className="mission-footer">
             <PlaybackControls
@@ -134,7 +145,7 @@ export function MissionControlShell() {
               onReplay={replay}
               stageMarkers={demoCase.stageMarkers}
             />
-            <RunIntegrity result={demoCase.result} />
+            {!isResultDialogOpen ? <RunIntegrity result={demoCase.result} /> : null}
             <EvidenceLedger
               events={state.timeline}
               currentStep={playback.step}

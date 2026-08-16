@@ -405,6 +405,17 @@ export const DEMO_CASES: Record<DemoCaseId, DemoCaseDefinition> = {
       terminalReason: "Insufficient evidence",
       reportFilename: "exoswarm-target-d31-audit.json",
     },
+    reveal: {
+      targetName: "TOI-270 b",
+      catalogId: "TIC 259377017",
+      catalogDisposition: "Confirmed planet",
+      sourceLabel: "NASA Exoplanet Archive / cached challenge record",
+      comparisonRows: [
+        { label: "Search result", independent: "No stable repeat found", official: "3.359920 d period" },
+        { label: "Signal depth", independent: "Below search threshold", official: "0.0977 % transit depth" },
+        { label: "Interpretation", independent: "Inconclusive", official: "Confirmed planet" },
+      ],
+    },
     auditReport: { fixture: true, target: "TARGET-D31", result: "insufficient evidence", claimMade: false },
   },
 }

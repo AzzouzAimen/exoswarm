@@ -1,19 +1,19 @@
 "use client"
 
-import { LockClosedIcon } from "@heroicons/react/24/outline"
+import { EyeIcon } from "@heroicons/react/24/outline"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import type { InvestigationPresentationState } from "./model/presentation-state"
 
 interface TargetStatusProps {
   state: InvestigationPresentationState
-  revealedIdentity?: string
+  officialIdentity?: string
   mobileDetails?: React.ReactNode
 }
 
 export function TargetStatus({
   state,
-  revealedIdentity,
+  officialIdentity,
   mobileDetails,
 }: TargetStatusProps) {
   return (
@@ -41,15 +41,13 @@ export function TargetStatus({
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="sealed-readout" tabIndex={0}>
-              <LockClosedIcon aria-hidden="true" />
-              {revealedIdentity ?? "Official identity ███████"}
+            <span className="official-readout" tabIndex={0}>
+              <EyeIcon aria-hidden="true" />
+              <span>Official: {officialIdentity ?? "Not available"}</span>
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            {revealedIdentity
-              ? "Opened only after the independent result was saved."
-              : "The agents cannot see the known catalog identity or answer."}
+            Visible to you for context. Agents receive only the opaque target ID and cannot see this identity.
           </TooltipContent>
         </Tooltip>
         {mobileDetails}

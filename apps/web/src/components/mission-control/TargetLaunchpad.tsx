@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, CircleStackIcon, LockClosedIcon } from "@heroicons/react/24/outline"
+import { ArrowRightIcon, CircleStackIcon, EyeIcon } from "@heroicons/react/24/outline"
 
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -21,7 +21,7 @@ export function TargetLaunchpad({
     <section className="launchpad" aria-labelledby="launchpad-title">
       <div className="launchpad-copy">
         <span className="section-kicker">Blind investigation demo</span>
-        <h1 id="launchpad-title">Choose a sealed observation</h1>
+        <h1 id="launchpad-title">Choose an observation</h1>
         <p>
           Watch a small team of agents choose the next useful check while deterministic code owns
           every measurement.
@@ -34,7 +34,7 @@ export function TargetLaunchpad({
         onValueChange={(value) => value && onSelectedIdChange(value as DemoCaseId)}
         orientation="vertical"
         className="launchpad-targets"
-        aria-label="Sealed observations"
+        aria-label="Observations"
       >
         {DEMO_CASE_LIST.map((demoCase) => (
           <ToggleGroupItem key={demoCase.id} value={demoCase.id} className="launchpad-target">
@@ -47,13 +47,13 @@ export function TargetLaunchpad({
             </span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="launchpad-sealed" tabIndex={0}>
-                  <LockClosedIcon aria-hidden="true" />
-                  Identity sealed
+                <span className="launchpad-official" tabIndex={0}>
+                  <EyeIcon aria-hidden="true" />
+                  {demoCase.reveal?.targetName ?? "Official identity unavailable"}
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                The agents receive an opaque target ID, not the known catalog answer.
+                Official identity is visible to you. Agents receive only the opaque target ID.
               </TooltipContent>
             </Tooltip>
             <span className="launchpad-ready">

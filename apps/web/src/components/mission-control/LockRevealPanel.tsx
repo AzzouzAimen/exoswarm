@@ -2,17 +2,16 @@
 
 import {
   ArrowDownTrayIcon,
+  ArrowLeftIcon,
   ArrowPathIcon,
   CheckCircleIcon,
-  EyeIcon,
   InformationCircleIcon,
-  LockClosedIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline"
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 
 import type { DemoCaseDefinition } from "./demo/demo-cases"
 import type { InvestigationPresentationState } from "./model/presentation-state"
@@ -20,12 +19,11 @@ import type { InvestigationPresentationState } from "./model/presentation-state"
 interface LockRevealPanelProps {
   demoCase: DemoCaseDefinition
   state: InvestigationPresentationState
-  revealed: boolean
-  onReveal: () => void
+  onClose: () => void
   onRestart: () => void
 }
 
-export function LockRevealPanel({ demoCase, state, revealed, onReveal, onRestart }: LockRevealPanelProps) {
+export function LockRevealPanel({ demoCase, state, onClose, onRestart }: LockRevealPanelProps) {
   const { result, reveal } = demoCase
 
   const downloadAudit = () => {
@@ -47,7 +45,26 @@ export function LockRevealPanel({ demoCase, state, revealed, onReveal, onRestart
   }
 
   return (
-    <section className="result-panel" aria-labelledby="result-title" aria-live="polite">
+    <section
+      className="result-panel"
+      role="dialog"
+      aria-labelledby="result-title"
+      aria-describedby="result-summary"
+      aria-live="polite"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose()
+      }}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="result-close"
+        aria-label="Close result and return to investigation"
+        onClick={onClose}
+      >
+        <XMarkIcon aria-hidden="true" />
+      </Button>
       <div className="result-panel-heading">
         <span className="result-icon" data-result={result.kind} aria-hidden="true">
           {result.kind === "locked" ? <CheckCircleIcon /> : <InformationCircleIcon />}
@@ -57,20 +74,19 @@ export function LockRevealPanel({ demoCase, state, revealed, onReveal, onRestart
             {result.kind === "locked" ? "Independent result" : "Safe stop"}
           </span>
           <h2 id="result-title">{result.headline}</h2>
-          <p>{result.summary}</p>
+          <p id="result-summary">{result.summary}</p>
         </div>
         <span className="result-disposition" data-result={result.kind}>{result.disposition}</span>
       </div>
 
-      {result.kind === "inconclusive" ? (
-        <Alert className="result-alert">
-          <InformationCircleIcon aria-hidden="true" />
-          <AlertTitle>No catalog comparison opened</AlertTitle>
-          <AlertDescription>
-            The system made no claim, so it keeps the official identity sealed.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <Alert className="result-alert">
+        <InformationCircleIcon aria-hidden="true" />
+        <AlertTitle>Official identity is viewer-only</AlertTitle>
+        <AlertDescription>
+          You can see the catalog record throughout the demo. The agents investigate only the opaque
+          target ID and cannot use the official identity or answer.
+        </AlertDescription>
+      </Alert>
 
       <div className="result-proof">
         <div className="result-reasons">
@@ -84,65 +100,41 @@ export function LockRevealPanel({ demoCase, state, revealed, onReveal, onRestart
           </ul>
         </div>
 
-        {result.kind === "locked" && reveal ? (
-          <div className="result-comparison" data-revealed={revealed}>
+        {reveal ? (
+          <div className="result-comparison">
             <div className="result-comparison-heading">
               <div>
-                <span className="section-kicker">Official record</span>
-                {revealed ? (
-                  <>
-                    <strong>{reveal.targetName}</strong>
-                    <small>{reveal.catalogId} · {reveal.catalogDisposition}</small>
-                  </>
-                ) : (
-                  <>
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-3 w-56" />
-                  </>
-                )}
+                <span className="section-kicker">Official catalog record</span>
+                <strong>{reveal.targetName}</strong>
+                <small>{reveal.catalogId} · {reveal.catalogDisposition}</small>
               </div>
-              {!revealed ? (
-                <Button type="button" onClick={onReveal}>
-                  <EyeIcon data-icon="inline-start" aria-hidden="true" />
-                  Compare with official record
-                </Button>
-              ) : (
-                <span className="comparison-opened">
-                  <LockClosedIcon aria-hidden="true" /> Opened after result
-                </span>
-              )}
+              <span className="comparison-viewer-only">Visible to viewer, hidden from agents</span>
             </div>
 
-            {revealed ? (
-              <div className="comparison-table" role="table" aria-label="Independent and official results">
-                <div role="row" className="comparison-row comparison-header">
-                  <span role="columnheader">Measurement</span>
-                  <span role="columnheader">ExoSwarm</span>
-                  <span role="columnheader">Official</span>
+            <div className="comparison-table" role="table" aria-label="Agent investigation and official catalog comparison">
+              <div role="row" className="comparison-row comparison-header">
+                <span role="columnheader">Measurement</span>
+                <span role="columnheader">Agent investigation</span>
+                <span role="columnheader">Official catalog</span>
+              </div>
+              {reveal.comparisonRows.map((row) => (
+                <div role="row" className="comparison-row" key={row.label}>
+                  <strong role="cell">{row.label}</strong>
+                  <span role="cell">{row.independent}</span>
+                  <span role="cell">{row.official}</span>
                 </div>
-                {reveal.comparisonRows.map((row) => (
-                  <div role="row" className="comparison-row" key={row.label}>
-                    <strong role="cell">{row.label}</strong>
-                    <span role="cell">{row.independent}</span>
-                    <span role="cell">{row.official}</span>
-                  </div>
-                ))}
-                <small>{reveal.sourceLabel}</small>
-              </div>
-            ) : (
-              <div className="comparison-sealed">
-                <LockClosedIcon aria-hidden="true" />
-                <span>
-                  <strong>Identity stays hidden until you compare</strong>
-                  <small>The saved result cannot change after reveal.</small>
-                </span>
-              </div>
-            )}
+              ))}
+              <small>{reveal.sourceLabel}</small>
+            </div>
           </div>
         ) : null}
       </div>
 
       <div className="result-actions">
+        <Button type="button" onClick={onClose}>
+          <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+          Back to investigation
+        </Button>
         <Button type="button" variant="outline" onClick={downloadAudit}>
           <ArrowDownTrayIcon data-icon="inline-start" aria-hidden="true" />
           Download fixture audit
