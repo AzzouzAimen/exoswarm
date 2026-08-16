@@ -39,3 +39,6 @@ Thumbs.db
 
 .playwright-mcp
 key
+
+# Temporary demo-slide assets (not part of the application)
+/TEMP_CLOSING_SLIDE/
