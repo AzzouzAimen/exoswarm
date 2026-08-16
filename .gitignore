@@ -38,3 +38,4 @@ data/ground_truth/*
 Thumbs.db
 
 .playwright-mcp
+key

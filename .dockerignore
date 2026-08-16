@@ -1,4 +1,6 @@
 .env
+key/
+*.key
 .git
 .github
 .agents

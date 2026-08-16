@@ -36,6 +36,7 @@ export function buildAgentTraceStages(
   >,
 ): AgentTraceStage[] {
   const stages: Array<Omit<AgentTraceStage, "status">> = []
+  const agentOccurrences = new Map<AgentId, number>()
   let currentAgentId: AgentId | undefined
 
   for (const record of state.timeline) {
@@ -50,7 +51,9 @@ export function buildAgentTraceStages(
     if (startsNewStage) {
       const agent = state.agents.find((candidate) => candidate.id === nextAgentId)
       if (!agent) continue
-      stages.push({ id: `${nextAgentId}-${record.id}`, agent, records: [] })
+      const occurrence = (agentOccurrences.get(nextAgentId) ?? 0) + 1
+      agentOccurrences.set(nextAgentId, occurrence)
+      stages.push({ id: `${nextAgentId}-${occurrence}`, agent, records: [] })
     }
 
     stages.at(-1)?.records.push(record)

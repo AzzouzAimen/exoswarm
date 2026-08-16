@@ -63,4 +63,35 @@ describe("agent trace grouping", () => {
     expect(stages.at(-1)?.records.at(-1)?.eventType).toBe("result.locked")
     expect(stages.every((stage) => stage.status === "complete")).toBe(true)
   })
+
+  it("keeps a stage identity stable when a live status record is replaced", () => {
+    const searching = {
+      ...DEMO_INITIAL_STATE,
+      activeAgentId: "director" as const,
+      timeline: [{
+        id: "status-SEARCHING",
+        sequence: 1,
+        timestamp: "2026-08-16T00:00:00Z",
+        eventType: "audit.event" as const,
+        boundary: "authority" as const,
+        agentId: "director" as const,
+        actor: "DIRECTOR CONTROL",
+        headline: "Search",
+        detail: "SEARCHING",
+        tone: "neutral" as const,
+      }],
+    }
+    const vetting = {
+      ...searching,
+      timeline: [{
+        ...searching.timeline[0],
+        id: "status-VETTING_MANDATORY",
+        headline: "Measure",
+        detail: "VETTING_MANDATORY",
+      }],
+    }
+
+    expect(buildAgentTraceStages(searching)[0]?.id).toBe("director-1")
+    expect(buildAgentTraceStages(vetting)[0]?.id).toBe("director-1")
+  })
 })

@@ -1,0 +1,10 @@
+exoswarm.duckdns.org {
+	encode zstd gzip
+
+	@backend path /api/* /health /docs /docs/* /redoc /openapi.json
+	reverse_proxy @backend api:8000 {
+		flush_interval -1
+	}
+
+	reverse_proxy web:3000
+}

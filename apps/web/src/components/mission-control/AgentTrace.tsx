@@ -42,7 +42,11 @@ import type {
   TimelineRecord,
 } from "./model/presentation-state"
 import {
-  nextTraceRevealCount,
+  clearTraceRevealTimer,
+  createTraceRevealQueue,
+  reconcileTraceRevealQueue,
+  revealAllTraceRecords,
+  revealNextTraceRecord,
   TRACE_REVEAL_INTERVAL_MS,
 } from "./model/trace-pacing"
 import { QuestionBot } from "./QuestionBot"
@@ -109,65 +113,59 @@ const BOUNDARY_LABELS: Record<TimelineRecord["boundary"], string> = {
 
 function useProgressiveTimeline(state: InvestigationPresentationState) {
   const shouldReduceMotion = useReducedMotion()
-  const availableCountRef = useRef(state.timeline.length)
+  const initialQueue = createTraceRevealQueue(state.timeline, Boolean(shouldReduceMotion))
+  const queueRef = useRef(initialQueue)
   const runIdRef = useRef(state.run.id)
   const timerRef = useRef<number | undefined>(undefined)
-  const initialVisibleCount = state.phase === "locked" ? state.timeline.length : 0
-  const visibleCountRef = useRef(initialVisibleCount)
-  const [visibleCount, setVisibleCount] = useState(initialVisibleCount)
+  const [renderedQueue, setRenderedQueue] = useState({
+    visible: initialQueue.visible,
+    pendingCount: initialQueue.pending.length,
+  })
 
   useEffect(() => {
-    availableCountRef.current = state.timeline.length
     const runChanged = runIdRef.current !== state.run.id
-    const timelineShrank = visibleCountRef.current > state.timeline.length
     runIdRef.current = state.run.id
 
-    if (timerRef.current !== undefined && (runChanged || timelineShrank || shouldReduceMotion)) {
-      window.clearInterval(timerRef.current)
-      timerRef.current = undefined
+    if (timerRef.current !== undefined && (runChanged || shouldReduceMotion)) {
+      timerRef.current = clearTraceRevealTimer(timerRef.current, window.clearInterval)
     }
 
-    if (shouldReduceMotion || timelineShrank) {
-      visibleCountRef.current = state.timeline.length
-      setVisibleCount(state.timeline.length)
-      return
-    }
+    let nextQueue = runChanged
+      ? createTraceRevealQueue(state.timeline, Boolean(shouldReduceMotion))
+      : reconcileTraceRevealQueue(queueRef.current, state.timeline)
+    if (shouldReduceMotion) nextQueue = revealAllTraceRecords(nextQueue)
+    queueRef.current = nextQueue
+    setRenderedQueue({
+      visible: nextQueue.visible,
+      pendingCount: nextQueue.pending.length,
+    })
 
-    if (runChanged) {
-      const nextCount = state.phase === "locked" ? state.timeline.length : 0
-      visibleCountRef.current = nextCount
-      setVisibleCount(nextCount)
-    }
-
-    if (visibleCountRef.current >= state.timeline.length || timerRef.current !== undefined) return
+    if (!nextQueue.pending.length || timerRef.current !== undefined) return
 
     timerRef.current = window.setInterval(() => {
-      const nextCount = nextTraceRevealCount(
-        visibleCountRef.current,
-        availableCountRef.current,
-      )
-
-      if (nextCount === visibleCountRef.current) {
-        if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
-        timerRef.current = undefined
+      const advancedQueue = revealNextTraceRecord(queueRef.current)
+      if (advancedQueue === queueRef.current) {
+        timerRef.current = clearTraceRevealTimer(timerRef.current, window.clearInterval)
         return
       }
 
-      visibleCountRef.current = nextCount
-      setVisibleCount(nextCount)
+      queueRef.current = advancedQueue
+      setRenderedQueue({
+        visible: advancedQueue.visible,
+        pendingCount: advancedQueue.pending.length,
+      })
 
-      if (nextCount >= availableCountRef.current) {
-        if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
-        timerRef.current = undefined
+      if (!advancedQueue.pending.length) {
+        timerRef.current = clearTraceRevealTimer(timerRef.current, window.clearInterval)
       }
     }, TRACE_REVEAL_INTERVAL_MS)
-  }, [shouldReduceMotion, state.phase, state.run.id, state.timeline.length])
+  }, [shouldReduceMotion, state.run.id, state.timeline])
 
   useEffect(() => () => {
-    if (timerRef.current !== undefined) window.clearInterval(timerRef.current)
+    timerRef.current = clearTraceRevealTimer(timerRef.current, window.clearInterval)
   }, [])
 
-  return state.timeline.slice(0, visibleCount)
+  return renderedQueue
 }
 
 function activityLabel(stage: AgentTraceStage, state: InvestigationPresentationState) {
@@ -375,11 +373,15 @@ export function AgentTrace({
   currentStep: number
   onSelect: (step: number) => void
 }) {
-  const visibleTimeline = useProgressiveTimeline(state)
-  const traceState = visibleTimeline.length === state.timeline.length
-    ? state
-    : { ...state, timeline: visibleTimeline }
-  const stages = buildAgentTraceStages(traceState)
+  const { visible: visibleTimeline, pendingCount } = useProgressiveTimeline(state)
+  const traceState = { ...state, timeline: visibleTimeline }
+  const groupedStages = buildAgentTraceStages(traceState)
+  const stages = pendingCount && groupedStages.length
+    ? groupedStages.map((stage, index) => ({
+        ...stage,
+        status: index === groupedStages.length - 1 ? "active" as const : "complete" as const,
+      }))
+    : groupedStages
   const activeStage = stages.find((stage) => stage.status === "active")
 
   return (

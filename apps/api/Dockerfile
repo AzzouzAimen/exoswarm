@@ -7,7 +7,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     EXOSWARM_DATA_DIR=/app/data \
     EXOSWARM_RUNS_DIR=/app/runs \
     PATH="/app/.venv/bin:$PATH" \
-    UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
 WORKDIR /app

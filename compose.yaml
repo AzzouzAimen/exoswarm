@@ -1,0 +1,58 @@
+name: exoswarm
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      EXOSWARM_ENV: production
+      EXOSWARM_DATA_DIR: /app/data
+      EXOSWARM_RUNS_DIR: /app/runs
+      EXOSWARM_CORS_ORIGINS: '["https://exoswarm.duckdns.org"]'
+    volumes:
+      - exoswarm-runs:/app/runs
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_EXOSWARM_API_URL: https://exoswarm.duckdns.org
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    expose:
+      - "3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  exoswarm-runs:
+  caddy-data:
+  caddy-config:

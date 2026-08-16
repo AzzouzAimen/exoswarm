@@ -4,8 +4,7 @@
 
 **Auditable AI investigation of candidate exoplanet signals in NASA TESS observations.**
 
-<!-- Replace "#demo" with the deployed demo URL when it is available. -->
-<a href="#demo"><img alt="View demo" src="https://img.shields.io/badge/▶_View_Demo-6D28D9?style=for-the-badge"></a>
+<a href="https://exoswarm.duckdns.org"><img alt="View demo" src="https://img.shields.io/badge/▶_View_Demo-6D28D9?style=for-the-badge"></a>
 <a href="#try-the-reproducible-path"><img alt="Reproduce locally" src="https://img.shields.io/badge/Reproduce_Locally-0F766E?style=for-the-badge"></a>
 
 [![CI](https://github.com/AzzouzAimen/exoswarm/actions/workflows/ci.yml/badge.svg)](https://github.com/AzzouzAimen/exoswarm/actions/workflows/ci.yml)
@@ -41,8 +40,9 @@ answer key?
 
 ## Demo
 
-The hosted demo link will be added here. Until then, the cached reproducible path below runs a
-complete investigation without a model key or astronomy-network access.
+The hosted Mission Control demo is available at <https://exoswarm.duckdns.org>. The cached
+reproducible path below runs a complete investigation without a model key or astronomy-network
+access.
 
 ## Try the reproducible path
 
@@ -200,6 +200,38 @@ cached inputs:
 docker build -f apps/api/Dockerfile -t exoswarm-api .
 docker run --rm -p 8000:8000 --env-file .env exoswarm-api
 ```
+
+## Deploy the demo to the VPS
+
+The production Compose setup runs the FastAPI service, the optimized Next.js server, and Caddy as
+the HTTPS reverse proxy. Caddy obtains and renews the TLS certificate automatically. Run exactly one
+API container because ExoSwarm's durable run coordination is intentionally single-process.
+
+Before starting, set the DuckDNS `exoswarm` record to `84.235.226.37` in the DuckDNS dashboard and
+allow inbound TCP ports `80` and `443` on the VPS/firewall. Then install Docker Engine with the
+Compose plugin, clone the repository, and run:
+
+```bash
+cp .env.example .env
+nano .env                         # set FEATHERLESS_API_KEY only
+docker compose up -d --build
+docker compose ps
+```
+
+Open <https://exoswarm.duckdns.org>. The public `/api/*` routes are proxied to FastAPI on the same
+origin, including the SSE event stream; the API and web ports are not exposed directly. Investigation
+artifacts and Caddy certificates live in named Docker volumes and survive container restarts.
+
+Useful operations:
+
+```bash
+docker compose logs -f
+docker compose restart
+docker compose down
+```
+
+`docker compose down` keeps the named volumes. Do not add `--volumes` unless you intentionally want
+to delete saved investigation runs and the cached TLS state.
 
 ## Reproducibility and verification
 
