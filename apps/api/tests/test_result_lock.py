@@ -15,7 +15,7 @@ def ready_state() -> InvestigationState:
         opaque_target_id="TARGET-X17",
         status=InvestigationStatus.READY_TO_LOCK,
         disposition=Disposition.INCONCLUSIVE_ADDITIONAL_DATA_REQUIRED,
-        terminal_reason="SCAFFOLD_FIXTURE_COMPLETE",
+        terminal_reason="FIXTURE_COMPLETE",
     )
 
 

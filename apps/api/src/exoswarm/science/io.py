@@ -8,8 +8,6 @@ from typing import Any
 import numpy as np
 from astropy.io import fits
 
-from exoswarm.science.contracts import not_implemented_result
-
 
 class CachedLightCurveError(ValueError):
     """A cached light curve cannot satisfy the deterministic ingestion contract."""
@@ -177,26 +175,4 @@ def load_cached_tess_fits(path: Path) -> CachedTessLightCurve:
         fits_checksum=str(checksum) if checksum is not None else None,
         fits_datasum=str(datasum) if datasum is not None else None,
         crowdsap=crowdsap,
-    )
-
-
-def load_cached_lightcurve(run_id, action_id, target_id, parameters):
-    # The public milestone entry point is search_bls, which owns the full typed result and ledger
-    # transaction. Keep this standalone registry action explicit until a multi-step runtime exists.
-    return not_implemented_result(
-        tool_name="load_cached_lightcurve",
-        run_id=run_id,
-        action_id=action_id,
-        target_id=target_id,
-        parameters=parameters,
-    )
-
-
-def load_cached_tpf(run_id, action_id, target_id, parameters):
-    return not_implemented_result(
-        tool_name="load_cached_tpf",
-        run_id=run_id,
-        action_id=action_id,
-        target_id=target_id,
-        parameters=parameters,
     )

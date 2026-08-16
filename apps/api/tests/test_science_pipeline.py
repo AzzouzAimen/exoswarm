@@ -9,7 +9,7 @@ from astropy.io import fits
 
 from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.models import EvidenceRecord
-from exoswarm.investigation.tool_registry import scaffold_tool_registry
+from exoswarm.investigation.tool_registry import build_scientific_tool_registry
 from exoswarm.science.harmonic import classify_harmonic_relation
 from exoswarm.science.io import load_cached_tess_fits
 from exoswarm.science.pipeline import analyze_cached_candidate
@@ -406,11 +406,11 @@ def test_official_spoc_btjd_time_column_unit_is_accepted(tmp_path: Path) -> None
     assert observation.bjd_reference == 2_457_000.0
 
 
-def test_registry_executes_the_vertical_slice(tmp_path: Path) -> None:
+def test_registry_executes_the_cached_candidate_pipeline(tmp_path: Path) -> None:
     cached_path = tmp_path / "registry.fits"
     _injected_observation(cached_path)
     request = _parameters(tmp_path, cached_path)
-    result = scaffold_tool_registry().execute(
+    result = build_scientific_tool_registry().execute(
         "search_bls",
         run_id="run_1",
         action_id="action_registry",

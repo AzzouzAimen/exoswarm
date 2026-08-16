@@ -1,6 +1,6 @@
 # API and SSE Contracts
 
-The original planning context specifies FastAPI + REST + SSE but not exact endpoint paths. The paths and event names below are derived scaffold conventions.
+FastAPI exposes the implemented REST control surface, UI-safe projections, and ordered SSE stream.
 
 ## REST surface
 
@@ -58,6 +58,18 @@ execution metadata. It never creates a second investigation.
 Returns the agent-safe current structured state/view model. Once inference has occurred, include the
 recorded run-level inference summary or an explicit scripted/unavailable state.
 
+### Mission Control projection
+
+`GET /api/investigations/{run_id}/mission-control`
+
+Returns the typed UI projection assembled from durable backend state, evidence, decisions, and the
+separate viewer reference. The viewer data is never merged back into investigation state.
+
+`GET /api/investigations/{run_id}/mission-control/plots/{mode}`
+
+Returns bounded Plotly-ready traces for an implemented scientific view. Unsupported modes and
+unavailable evidence return explicit errors or empty states rather than fabricated points.
+
 ### Stream events
 
 `GET /api/investigations/{run_id}/events`
@@ -84,7 +96,7 @@ Returns run artifact references/metadata; viewer catalog data uses the separate 
 
 ## SSE event envelope
 
-Every event should use one envelope:
+Every event uses one envelope:
 
 ```json
 {
@@ -154,7 +166,7 @@ inflating every subsequent inference context.
 
 ## Error payloads
 
-Prefer typed errors:
+Domain errors use typed payloads:
 
 ```json
 {

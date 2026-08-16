@@ -107,7 +107,7 @@ from exoswarm.investigation.stopping import (
 from exoswarm.investigation.tool_registry import (
     STOP_ACTION,
     ScientificToolRegistry,
-    scaffold_tool_registry,
+    build_scientific_tool_registry,
 )
 from exoswarm.science.contracts import ExecutionIsolation, ScientificToolSpec
 from exoswarm.security.catalog_gate import CatalogGate
@@ -188,7 +188,7 @@ class _HarnessAbort(Exception):
 
 
 class InvestigationController:
-    """Explicit bounded policy loop around mockable inference and deterministic tools."""
+    """Explicit bounded policy loop around pluggable inference and deterministic tools."""
 
     def __init__(
         self,
@@ -209,7 +209,7 @@ class InvestigationController:
         self.catalog_gate = catalog_gate
         self.inference = inference or UnconfiguredInferenceClient()
         self.fallback_inference = fallback_inference
-        self.registry = registry or scaffold_tool_registry()
+        self.registry = registry or build_scientific_tool_registry()
         self.candidate_sources = candidate_sources
         self.granted_scopes = frozenset(granted_scopes)
         self._states: dict[str, InvestigationState] = {}

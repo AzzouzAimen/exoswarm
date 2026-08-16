@@ -5,11 +5,11 @@ from exoswarm.domain.errors import (
     ToolPermissionError,
     UnknownToolError,
 )
-from exoswarm.investigation.tool_registry import scaffold_tool_registry
+from exoswarm.investigation.tool_registry import build_scientific_tool_registry
 
 
 def test_unknown_tool_is_rejected() -> None:
-    registry = scaffold_tool_registry()
+    registry = build_scientific_tool_registry()
     with pytest.raises(UnknownToolError, match="unknown scientific tool"):
         registry.execute(
             "lookup_ground_truth",
@@ -21,7 +21,7 @@ def test_unknown_tool_is_rejected() -> None:
 
 def test_vetting_tool_requires_backend_owned_runtime_input() -> None:
     with pytest.raises(ActionValidationError, match="backend runtime inputs"):
-        scaffold_tool_registry().execute(
+        build_scientific_tool_registry().execute(
             "odd_even",
             run_id="run_1",
             action_id="action_1",
@@ -32,7 +32,7 @@ def test_vetting_tool_requires_backend_owned_runtime_input() -> None:
 
 def test_registered_tool_requires_declared_scope() -> None:
     with pytest.raises(ToolPermissionError, match="science:execute"):
-        scaffold_tool_registry().execute(
+        build_scientific_tool_registry().execute(
             "odd_even",
             run_id="run_1",
             action_id="action_1",
@@ -41,7 +41,7 @@ def test_registered_tool_requires_declared_scope() -> None:
 
 
 def test_every_production_tool_has_an_explicit_strict_parameter_schema() -> None:
-    registry = scaffold_tool_registry()
+    registry = build_scientific_tool_registry()
 
     assert all(spec.parameter_schema is not None for spec in registry.specs)
     for tool_name in {
@@ -80,7 +80,7 @@ def test_production_candidate_parameters_reject_wrong_types_ranges_and_fields(
     parameters,
 ) -> None:
     with pytest.raises(ActionValidationError, match="strict schema"):
-        scaffold_tool_registry().validate_request(
+        build_scientific_tool_registry().validate_request(
             "search_bls",
             parameters=parameters,
             granted_scopes={"science:execute"},
@@ -89,7 +89,7 @@ def test_production_candidate_parameters_reject_wrong_types_ranges_and_fields(
 
 def test_registry_execute_cannot_bypass_parameter_validation() -> None:
     with pytest.raises(ActionValidationError, match="strict schema"):
-        scaffold_tool_registry().execute(
+        build_scientific_tool_registry().execute(
             "odd_even",
             run_id="run_1",
             action_id="action_1",

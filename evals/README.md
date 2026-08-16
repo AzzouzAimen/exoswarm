@@ -7,6 +7,11 @@ registry, filesystem persistence, and runner. Every run's state snapshot, trace,
 ledger are independently reloaded and checked for ordering, consistency, privacy, and budget
 invariants. This is artifact reload verification, not event-sourced state reconstruction.
 
+The harness uses an isolated synthetic tool registry to exercise unavailable actions, controlled
+failures, timeouts, and alternate branches. Tool names in its generated report are test-fixture
+labels, not claims about the production registry. The cached-real suite below runs the production
+scientific registry.
+
 Run it from the repository root:
 
 ```console

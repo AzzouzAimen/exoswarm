@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "exoswarm-api"
 version = "0.1.0"
-description = "ExoSwarm FastAPI and bounded investigation harness scaffold"
+description = "FastAPI service for ExoSwarm's bounded, auditable TESS investigation runtime"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "fastapi>=0.116,<1",

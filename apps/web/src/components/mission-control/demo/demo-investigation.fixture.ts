@@ -12,8 +12,8 @@ import type {
  * RECORDED BACKEND-ALIGNED UI SCENARIO FOR OFFLINE PRESENTATION.
  *
  * Values in this file exist only to exercise the presentation layer. They are
- * intentionally isolated so a future backend adapter can replace this event
- * source without changing visual components.
+ * intentionally isolated from the live backend adapter and are used only by
+ * explicit fixture mode and frontend tests.
  */
 
 const periodDays = 1.338249

@@ -8,7 +8,7 @@ import pytest
 
 from exoswarm.domain.enums import ToolStatus
 from exoswarm.domain.errors import ActionValidationError
-from exoswarm.investigation.tool_registry import scaffold_tool_registry
+from exoswarm.investigation.tool_registry import build_scientific_tool_registry
 from exoswarm.science.contamination import screen_contamination
 from exoswarm.science.harmonic import test_harmonics as run_harmonic_test
 from exoswarm.science.odd_even import compare_odd_even
@@ -383,7 +383,7 @@ def test_vetting_results_are_deterministic_and_do_not_expose_paths(
 
 def test_registry_keeps_candidate_path_out_of_model_parameters(tmp_path: Path) -> None:
     artifact = _write_candidate_artifact(tmp_path / "candidate.json")
-    registry = scaffold_tool_registry()
+    registry = build_scientific_tool_registry()
 
     with pytest.raises(ActionValidationError, match="parameters for odd_even"):
         registry.execute(
@@ -426,7 +426,7 @@ def test_contamination_runtime_schema_rejects_incomplete_neighbor_coverage(
     context["aperture_radius_arcsec"] = 20.0
 
     with pytest.raises(ActionValidationError, match="backend runtime inputs"):
-        scaffold_tool_registry().execute(
+        build_scientific_tool_registry().execute(
             "contamination_screening",
             run_id="run_1",
             action_id="action_1",

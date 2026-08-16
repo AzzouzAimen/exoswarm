@@ -8,7 +8,7 @@ and independent Critic review. Deterministic application code remains authoritat
 tools, measurements, permissions, budgets, state transitions, result locking, and fallback
 behavior.
 
-The P0 provider/model plan is:
+The provider configuration is:
 
 | Field | Value |
 |---|---|
@@ -17,7 +17,7 @@ The P0 provider/model plan is:
 | Live roles | Observer, Signal, Transit Hunter, Director, Skeptic, and Critic |
 | Model-visible data | compact evidence packet with opaque identity and evidence references |
 | Raw light-curve samples sent to model | `0` |
-| Additional providers / model routing | cut for the hackathon |
+| Additional providers / model routing | not implemented; one boundary keeps behavior comparable |
 
 ## Current implementation status
 

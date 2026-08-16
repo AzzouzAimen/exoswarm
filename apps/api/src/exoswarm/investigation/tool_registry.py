@@ -137,7 +137,9 @@ class ScientificToolRegistry:
         return {**validated_parameters, **validated_runtime_inputs}
 
 
-def scaffold_tool_registry() -> ScientificToolRegistry:
+def build_scientific_tool_registry() -> ScientificToolRegistry:
+    """Build the complete allowlisted registry exposed to investigation policy."""
+
     handlers = {
         "search_bls": search_bls,
         "odd_even": compare_odd_even,

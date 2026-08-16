@@ -33,7 +33,7 @@ from exoswarm.investigation.runtime_inputs import (
 )
 from exoswarm.investigation.tool_registry import (
     ScientificToolRegistry,
-    scaffold_tool_registry,
+    build_scientific_tool_registry,
 )
 from exoswarm.science.contracts import ScientificToolSpec
 from exoswarm.science.pipeline import (
@@ -470,7 +470,7 @@ async def test_default_candidate_path_fails_explicitly_without_backend_source(tm
     controller = make_controller(
         tmp_path,
         ScriptedInferenceClient({}),
-        scaffold_tool_registry(),
+        build_scientific_tool_registry(),
     )
     state = controller.create("TARGET-X17")
 
@@ -503,7 +503,7 @@ async def test_cached_real_candidate_can_cross_the_controller_runtime_boundary(
     controller = make_controller(
         tmp_path,
         ScriptedInferenceClient({}),
-        scaffold_tool_registry(),
+        build_scientific_tool_registry(),
         candidate_sources=resolver,
     )
     state = controller.create(case["opaque_target_id"])
@@ -549,7 +549,7 @@ async def test_cached_real_candidate_completes_the_production_mandatory_vetting_
         ScriptedInferenceClient(
             {"skeptic": [stop_after_mandatory_evidence], "critic": [critic_policy]}
         ),
-        scaffold_tool_registry(),
+        build_scientific_tool_registry(),
         candidate_sources=resolver,
     )
     state = controller.create(case["opaque_target_id"])

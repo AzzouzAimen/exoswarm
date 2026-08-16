@@ -4,8 +4,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from exoswarm.science.contracts import not_implemented_result
-
 
 @dataclass(frozen=True, slots=True)
 class FoldedLightCurve:
@@ -32,14 +30,4 @@ def phase_fold(
         phase=phase[order],
         relative_flux=relative_flux[order],
         relative_flux_error=relative_flux_error[order],
-    )
-
-
-def measure_transit(run_id, action_id, target_id, parameters):
-    return not_implemented_result(
-        tool_name="measure_transit",
-        run_id=run_id,
-        action_id=action_id,
-        target_id=target_id,
-        parameters=parameters,
     )

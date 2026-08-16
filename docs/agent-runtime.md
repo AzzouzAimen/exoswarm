@@ -6,7 +6,7 @@ The runtime is a state machine around the model. Important truth lives in `Inves
 
 ## Core state
 
-`InvestigationState` should contain, as applicable:
+`InvestigationState` contains, as applicable:
 
 - `run_id`
 - `opaque_target_id`
@@ -33,7 +33,7 @@ The runtime is a state machine around the model. Important truth lives in `Inves
 
 ## Runtime statuses
 
-Recommended explicit states:
+Implemented states:
 
 - `INITIALIZED`
 - `PREPARING`
@@ -52,7 +52,7 @@ Recommended explicit states:
 - `FAILED`
 - `BUDGET_EXHAUSTED`
 
-The exact names are a scaffold convention, but every terminal state must include a terminal reason.
+Every terminal state includes a terminal reason.
 
 ## Specialist objectives
 
@@ -105,7 +105,7 @@ handoff useful without turning specialist consensus into authority.
 
 Objective: identify the strongest plausible non-planetary explanation still compatible with evidence and select the available experiment expected to best discriminate it from the planetary hypothesis.
 
-A `SkepticDecision` should contain fields like:
+A `SkepticDecision` contains:
 
 ```yaml
 hypothesis_under_test: background_contamination

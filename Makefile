@@ -13,7 +13,7 @@ test:
 	uv run --project apps/api --extra science --extra agents pytest -c apps/api/pyproject.toml
 
 lint:
-	uv run --project apps/api ruff check apps/api/src apps/api/tests scripts
+	uv run --project apps/api ruff check apps/api/src apps/api/tests scripts evals
 	pnpm --dir apps/web lint
 	pnpm --dir apps/web typecheck
 

@@ -29,10 +29,10 @@ def test_scientific_result_accepts_explicit_not_implemented() -> None:
             "run_id": "run_1",
             "action_id": "action_1",
             "target_id": "TARGET-X17",
-            "method": "scaffold:not-implemented",
+            "method": "unavailable:not-implemented",
             "provenance": {
                 "input_artifact_refs": [],
-                "code_version": "scaffold",
+                "code_version": "unavailable-capability-v1",
                 "source_data_ref": "unavailable:not-implemented",
             },
         }
@@ -57,4 +57,3 @@ def test_event_requires_run_and_step_identifiers() -> None:
             timestamp=datetime.now(UTC),
             type="status.changed",
         )
-

@@ -1,8 +1,7 @@
-# Agent Harness Scaffold
+# Agent Harness
 
-This document records the bounded production-harness milestone. The control loop is operational
-with live or scripted inference, deterministic science, durable execution, and explicit failure
-boundaries.
+The bounded control loop supports live or scripted inference, deterministic science, durable
+execution, and explicit failure boundaries.
 
 ## Harness boundary
 
@@ -11,9 +10,9 @@ Python functions directly. The loop validates structured model output, resolves 
 action in `investigation/tool_registry.py`, enforces the tool specification, and only then invokes
 deterministic science code.
 
-Current surfaces:
+Implemented surfaces:
 
-| Surface | Scaffold implementation |
+| Surface | Implementation |
 |---|---|
 | Instructions | Repository contract plus role-specific adapter modules |
 | Tools and schemas | Allowlisted `ScientificToolRegistry` and typed `ScientificToolResult` |
@@ -69,7 +68,7 @@ Model output is a request, never authority. Schema, role/run/step identity, regi
 availability, strict parameters, scopes, preconditions, duplicate policy, mandatory/lock rules, and
 budgets are checked before execution. Scientific stubs return typed `NOT_IMPLEMENTED` results with
 empty measurements and provenance rather than invented data. Only transient model/provider failures
-receive bounded retries in this milestone. Invalid output,
+receive bounded retries. Invalid output,
 authorization denial, precondition failure, negative scientific evidence, and exhausted budgets
 remain distinct states.
 
@@ -102,13 +101,12 @@ The file-backed run service is deployed as one API process per runs directory. C
 single-writer guards do not coordinate multiple Uvicorn workers; horizontal instances therefore
 need isolated run directories until a shared coordination layer is deliberately introduced.
 
-## Final-stretch delta
+## Bounded execution details
 
-The submission backend path is implemented and verified by the credential-gated multi-state
-canary, live six-role FastAPI/SSE gates, the locked five-case cached-real TESS evaluator,
-and the locked 24-scenario harness suite. The retained live reports cover adaptive, weak, and
-decisive-baseline branches with exact-model thinking tested and Director-only thinking promoted.
-The deterministic controller remains
+The backend path is verified by the credential-gated multi-state canary, live six-role FastAPI/SSE
+gates, the locked five-case cached-real TESS evaluator, and the locked 24-scenario harness suite.
+The retained live reports cover adaptive, weak, and decisive-baseline branches with exact-model
+thinking tested and Director-only thinking enabled. The deterministic controller remains
 the route and scientific-disposition authority while the model Director only ratifies its binding
 values.
 
@@ -138,5 +136,4 @@ execute an action.
 
 Observer, Signal, Transit Hunter, briefing/final Director, Skeptic, and Critic are now live bounded
 roles. Observer and Signal run concurrently; all accepted decisions are append-only and
-checkpointed by role/phase/context so resume does not duplicate calls. Multi-model routing,
-fixed-policy ablation, and `pass^3` remain out of scope.
+checkpointed by role, phase, and context so resume does not duplicate calls.

@@ -74,29 +74,23 @@ At completion:
 
 The catalog is an evaluator, not an input to the investigation.
 
-## Target user and transferable value
+## Users and transferable value
 
-The immediate users are hackathon judges and engineers evaluating whether an agentic workflow is
-bounded, observable, reproducible, and useful—not professional astronomers validating every edge
-case. ExoSwarm demonstrates a reusable software pattern for any evidence-heavy domain: the model
-selects a bounded deterministic analysis under budget; typed tools perform it; an append-only ledger
-and trace make the trajectory auditable; and viewer reference answers remain isolated from agents.
+ExoSwarm is built for engineers, researchers, and technical reviewers evaluating whether an AI-led
+workflow is bounded, observable, reproducible, and useful. It is a research prototype for
+photometric vetting, not a substitute for professional exoplanet confirmation.
 
-This framing does not relax scientific honesty. It explains why architecture legibility, failure
-handling, context isolation, measured inference behavior, and viewer/agent separation are the product's
-primary value.
+The architecture demonstrates a reusable pattern for evidence-heavy domains: a model selects a
+bounded deterministic analysis under budget; typed tools perform it; append-only evidence and trace
+records make the trajectory auditable; and reference answers remain isolated from decision-making.
 
-## Minimum proof for the hackathon
+## What the prototype demonstrates
 
-A credible P0 demonstration must show:
-
-- one planet-like/confirmed-planet holdout case,
-- one false-positive/eclipsing-binary case,
-- visibly different evidence-driven agent paths,
-- a visible adaptive experiment decision,
-- official viewer reference visible from the start but absent from all agent contexts,
-- automatic, understandable end-state comparison without manual commit/reveal clicks,
-- CI/test evidence that the blind protocol cannot be bypassed,
-- reproducible run artifacts,
-- a visible Featherless inference summary based on recorded—not estimated—metrics,
-- a clean setup/reproduction path and honest limitations.
+- five cached public TESS cases spanning clean, weak, rejected, and inconclusive outcomes,
+- different valid paths when the deterministic evidence differs,
+- visible Skeptic experiment selection and independent Critic review,
+- an official viewer reference that remains absent from every agent context,
+- automatic result comparison tied to the locked result hash,
+- CI coverage of the blind protocol, persistence, recovery, API, science, and frontend,
+- a complete offline reproduction path without model credentials or astronomy-network access,
+- Featherless telemetry derived from recorded provider metadata rather than estimates.

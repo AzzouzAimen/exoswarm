@@ -1,4 +1,4 @@
-# Cached TESS Candidate Vertical Slice
+# Cached TESS Scientific Provenance
 
 ## Contract
 
@@ -65,10 +65,11 @@ configuration is `evals/fixtures/cached_real_tess_case.json`:
 The expected range must be set from independent documentation before this implementation's output
 is evaluated. Recognizable identity and catalog truth stay backend-only.
 
-The cached FITS and identity-bearing provenance remain ignored at `data/cached/lightcurves/` and
-`data/ground_truth/`. `scripts/acquire_cached_tess.py` is the manually invoked, networked one-time
-acquisition boundary; its exact invocation is stored only in the private provenance JSON. Normal
-science execution and `make reproduce` read the opaque cached file and never contact MAST.
+The five cached FITS products and their acquisition records are versioned under
+`data/cached/lightcurves/` and `data/ground_truth/`. The acquisition records preserve source URLs,
+release metadata, and checksums, while recognizable identity remains outside agent-visible state.
+`scripts/acquire_cached_tess.py` is the manually invoked, networked acquisition boundary. Normal
+science execution and `make reproduce` read the opaque cached files and never contact MAST.
 
 The selected official SPOC file is structurally valid but preserves extension-level `CHECKSUM`
 values that Astropy reports as invalid through both tested official MAST delivery routes. The

@@ -2,7 +2,9 @@
 
 ## Cached real inputs
 
-The demonstrated investigations should run from cached real TESS products so the judged path does not depend on MAST/Gaia/network availability. Caching removes network fragility; it must not fabricate or alter the scientific source data.
+Investigations run from cached real TESS products, so the reproducible path does not depend on
+MAST, Gaia, or other astronomy-network availability. Caching removes network fragility without
+fabricating or altering the scientific source data.
 
 Store provenance for every cached input, including enough metadata to identify the original data product outside the agent context.
 
@@ -43,7 +45,7 @@ Always unavailable to agents:
 
 ## Evidence Ledger
 
-Use append-only JSONL. A ledger record should include:
+The Evidence Ledger uses append-only JSONL. A ledger record includes:
 
 - evidence ID,
 - timestamp,
@@ -63,7 +65,7 @@ The ledger powers agent context, audit trails, UI state, final disposition, eval
 
 ## Run artifacts
 
-Recommended scaffold layout:
+Implemented layout:
 
 ```text
 runs/
@@ -71,18 +73,14 @@ runs/
     <run-id>/
       state.json
       trace.jsonl
+      agent_decisions.jsonl
+      evidence.jsonl
       inference_summary.json
       result.json
       result.json.sha256
       reveal.json
       artifacts/
-        raw_lightcurve.png
-        cleaned_lightcurve.png
-        bls_periodogram.png
-        folded_lightcurve.png
-        odd_even.png
-        secondary_eclipse.png
-        centroid.png
+        <action-id>.candidate-search.json
 ```
 
 Files may be absent when their corresponding tool has not run. Do not create placeholder plots containing fake scientific values.
@@ -106,7 +104,7 @@ offline reproduction and tamper-evidence only:
 6. persist `RESULT_LOCKED` event and lock state,
 7. optionally write the legacy `reveal.json` comparison artifact for reproduction tooling.
 
-The exact JSON canonicalization strategy is a scaffold implementation detail, but it must be deterministic and tested.
+Canonical result serialization is deterministic and covered by exact-byte hash tests.
 
 ## Legacy comparison artifact
 
@@ -124,7 +122,7 @@ Do not rewrite `result.json` after reveal.
 
 ## Blind-protocol tests
 
-CI should prove:
+CI verifies:
 
 - viewer catalog data is available without creating or mutating a run,
 - agent modules do not import the reveal implementation,

@@ -14,9 +14,9 @@ Use the narrowest test first, then broaden:
 
 Avoid requiring live astronomy APIs for regression tests.
 
-## Scaffold-level tests
+## Contract tests
 
-The initial repository should include at least:
+The backend suite includes dedicated boundaries for:
 
 - `test_schema_contracts.py`
 - `test_tool_registry.py`
@@ -45,18 +45,20 @@ When a science tool is implemented:
 
 Set expected values/ranges and tolerances before evaluating a new result. Include positive, negative, and indeterminate cases. Test fragile units explicitly: days vs hours, fraction vs percent vs ppm, epoch conventions, radius ratio vs depth, sign/sigma conventions.
 
-## Final-stretch agent evaluation suite
+## Locked cached-real evaluation suite
 
-Keep a locked three-case minimum suite for the submission:
+The versioned evaluator covers five public SPOC light curves:
 
-- one clean planet-like/confirmed-planet holdout,
-- one eclipsing-binary-like false positive,
-- one deliberately difficult/inconclusive case.
+- one clean planet-like case,
+- two hot-Jupiter evidence profiles,
+- one cataloged eclipsing binary recovered at its half-period,
+- one deliberately shallow, inconclusive case.
 
-Run the suite after meaningful harness/inference changes. Keep deterministic unit fixtures for
-additional failure classes. Once all submission gates are green, add a fourth contamination/spatial
-case only if it validates the centroid path or improves the visible demo; do not pursue case count
-for its own sake. Do not optimize the agent for one demo star.
+The expected periods, accepted harmonic factors, dispositions, tolerances, and catalog classes are
+versioned in `evals/real_tess/v1/cases.json`; the criteria digest is pinned in `lock.json`. The suite
+runs the complete backend, locks every lockable result, performs the gated audit comparison, and
+checks mandatory evidence, hashes, and the zero-raw-sample invariant. See
+[`evals/README.md`](../evals/README.md) for commands and artifact locations.
 
 ## Deterministic graders
 
@@ -96,13 +98,6 @@ At minimum, test evidence states representing:
 - weak/noisy or contamination-like evidence.
 
 Assert that at least some cases select different valid next actions. If every path is predetermined, the behavior belongs in a workflow, not the agent.
-
-## Explicit final-stretch cuts
-
-Do not build the agent-vs-fixed-policy ablation or the `pass^3` stochastic metric for the hackathon
-submission. Retain ordinary deterministic regression checks, branch tests, and the three-case
-minimum suite; a gated fourth high-value spatial case is allowed.
-Release repeatability below is operational demo hardening, not an inference-consistency metric.
 
 ## Provider and structured-output canary
 
@@ -153,9 +148,10 @@ did not improve that action metric and increased latency, it remains an opt-in e
 Director-only C11, P21, and B42 live gates passed without a disposition change, fallback, repair,
 or provider error.
 
-## Release/demo gate
+## Release gate
 
-After the core works, the judged path should complete from clean reset at least three consecutive times with:
+The representative live path must complete from a clean reset at least three consecutive times
+with:
 
 - real cached inputs,
 - scientifically consistent outputs,

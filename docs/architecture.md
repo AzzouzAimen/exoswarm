@@ -27,8 +27,8 @@ flowchart LR
     STATE --> CTRL
     STATE -->|SSE events| UI
     CTRL --> LOCK[Result Lock + SHA-256]
-    LOCK --> GATE[Catalog Gate]
-    GATE --> REVEAL[NASA Ground-Truth Reveal]
+    API --> VIEWER[Viewer-only catalog projection]
+    LOCK --> COMPARE[Hash-verified audit comparison]
 ```
 
 ## Responsibility split
@@ -109,10 +109,10 @@ Mandatory checks must not depend on the LLM remembering them. A viable transit c
 - secondary-eclipse test,
 - basic contamination screening.
 
-After the baseline, adaptive experiments may include harmonic checks, alternate
-aperture/preprocessing analysis, or STOP, subject to the bounded registry, current evidence, and
-cost-weighted budget. Centroid localization is a high-value P1 option once its deterministic
-implementation passes the final-stretch go/no-go check.
+After the baseline, adaptive experiments may include harmonic checks, alternate preprocessing, or
+STOP, subject to the bounded registry, current evidence, and cost-weighted budget. Centroid
+localization remains registered as unavailable because the committed targets do not include cached
+target-pixel files; the aggregate contamination screen is not presented as spatial localization.
 
 ## Explicit loop
 
@@ -143,20 +143,30 @@ flowchart TB
       DECISIONS[Structured decisions]
     end
 
+    subgraph ViewerVisible[Viewer-visible, never agent-visible]
+      REFERENCE[Official catalog reference]
+      VERDICT[Independent result comparison]
+    end
+
     subgraph BackendOnly[Backend-only authority]
       MAP[Opaque ID -> real target mapping]
       RAW[Cached FITS/TPF data]
       TRUTH[Known catalog truth]
-      GATE[Ground-truth reveal capability]
+      GATE[Hash-verifying audit gate]
+      LOCKED[Canonical locked result]
     end
 
     RAW -->|deterministic summaries/results| PACKET
     MAP --> RAW
+    TRUTH --> REFERENCE
     TRUTH --> GATE
-    GATE -->|only after RESULT_LOCKED| AgentVisible
+    LOCKED --> GATE
+    GATE --> VERDICT
 ```
 
-The runtime agent must not have an import path or tool path to pre-lock ground truth.
+The viewer projection may show the catalog reference before a run begins. The runtime agent has no
+import path, tool path, context field, state field, or event path to that reference. The separate
+audit comparison accepts catalog truth only after verifying the canonical result hash.
 
 ## Failure architecture
 

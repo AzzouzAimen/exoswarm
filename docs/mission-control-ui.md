@@ -1,10 +1,11 @@
-# Mission-Control UI Guide
+# Mission Control UI
 
 ## Product feel
 
-The interface should feel like autonomous scientific mission control, not a chatbot and not a generic card-heavy admin dashboard.
+The interface is designed as autonomous scientific mission control rather than a chatbot or a
+generic card-heavy admin dashboard.
 
-Scientific evidence should dominate the visual hierarchy; agent prose is concise and subordinate.
+Scientific evidence dominates the visual hierarchy; agent prose is concise and subordinate.
 
 ## Information hierarchy
 
@@ -21,13 +22,14 @@ Prioritize:
 
 ## Central visualization
 
-Use **one** React Three Fiber mission-control scene in the center. It may progressively represent the target star/candidate orbit as evidence accumulates.
+One React Three Fiber mission-control scene progressively represents the target star and candidate
+orbit as evidence accumulates.
 
 Do not use R3F for scientific charts.
 
 ## Scientific visualization
 
-Use Plotly for:
+Plotly renders:
 
 - raw light curve,
 - cleaned light curve,
@@ -35,7 +37,6 @@ Use Plotly for:
 - phase-folded signal,
 - odd/even diagnostic,
 - secondary-eclipse diagnostic,
-- centroid/pixel diagnostic,
 - other scientific charts.
 
 Static reproducible artifacts may be generated with Matplotlib by the backend.
@@ -112,7 +113,7 @@ Render compact evidence such as:
 + odd/even depths consistent           difference = <ledger significance>
 + no significant secondary event       <ledger result>
 ! nearby source in contamination area  <ledger context>
-+ centroid consistent with target       offset = <ledger value>
+! aggregate contamination capacity      CROWDSAP = <ledger value>
 ? low-SNR secondary unconstrained       <explicit indeterminate state>
 ```
 
@@ -147,7 +148,7 @@ Display real states for:
 
 Do not use fake progress or fabricated terminal output.
 
-## Demo narrative target
+## Representative demonstration flow
 
 The primary flow should be visually understandable without narration:
 
@@ -161,9 +162,4 @@ The primary flow should be visually understandable without narration:
 8. architecture + measured Featherless summary,
 9. blindness proof,
 10. automatic plain-language result/catalog comparison,
-11. optional details and `make reproduce` audit proof,
-12. deterministic forward prediction if implemented.
-
-The primary video should emphasize the two different target trajectories, bounded inference,
-failure boundaries, agent/viewer isolation, and reproducibility. Do not spend video time on a fixed-policy ablation or
-scientific edge cases that are not visible in the judged path.
+11. optional details and `make reproduce` audit proof.

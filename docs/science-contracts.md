@@ -4,7 +4,7 @@
 
 Scientific measurements come from deterministic Python, cached/catalog data, or an explicitly defined statistical method. The LLM never reconstructs measurements from a plot, prose, or raw sample array.
 
-## Final-stretch P0 scientific pipeline
+## Implemented scientific pipeline
 
 ```text
 cached TESS light curve
@@ -19,14 +19,14 @@ cached TESS light curve
   -> basic contamination/neighbor context
 ```
 
-Pixel/centroid localization is a high-value P1 differentiator, not a P0 ship blocker. After the
-vertical path is stable, implement or finish it against a real cached TPF and keep it when the
-deterministic acceptance test passes. Otherwise prefer an honestly labeled alternate-aperture
-comparison plus neighbor context. Never rename that fallback as centroid or pixel localization.
+Pixel/centroid localization remains unavailable because the committed targets do not include
+cached target-pixel files. The implemented contamination fallback uses cached neighbor context when
+available or the official SPOC `CROWDSAP` field as an explicitly labeled aggregate aperture screen.
+It is never described as centroid or pixel localization.
 
 ## Tool-result contract
 
-Every scientific tool result should contain, as applicable:
+Every scientific tool result contains, as applicable:
 
 ```yaml
 tool_name: odd_even
@@ -71,7 +71,7 @@ A domain-level negative finding is evidence, not an infrastructure error.
 ### Data and preprocessing
 
 - load cached TESS light curve,
-- load cached Target Pixel File only for an accepted conditional spatial diagnostic,
+- reject the spatial diagnostic explicitly when no cached Target Pixel File is available,
 - apply quality flags,
 - normalize,
 - detrend using one of the declared allowed configurations,
@@ -95,7 +95,7 @@ A domain-level negative finding is evidence, not an infrastructure error.
 - secondary-eclipse significance/evidence,
 - P/2, P, 2P harmonic/alias analysis,
 - basic contamination/neighbor context,
-- optional genuine pixel/centroid localization diagnostic after its go/no-go gate.
+- explicit unavailable status for pixel/centroid localization without cached target-pixel data.
 
 ## Mandatory baseline
 
@@ -110,10 +110,9 @@ Adaptive experiments are additional and evidence-driven.
 
 ## Numerical precision
 
-Do not present BLS decimal output as if it were physical certainty. For the final stretch,
-prioritize a defensible period uncertainty or declared comparison tolerance because period is used
-in the catalog reveal. Preserve already verified deterministic uncertainty fields, but do not add
-new depth, duration, radius-ratio, or general uncertainty propagation before the core path ships.
+BLS decimal output is not presented as physical certainty. The system distinguishes statistical
+uncertainties supplied by an implemented method from grid/cadence or evaluation tolerances. It does
+not imply uncertainty propagation for depth, duration, or radius ratio where none was calculated.
 
 ## Hypothesis updates
 

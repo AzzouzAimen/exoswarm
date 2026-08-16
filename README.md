@@ -13,7 +13,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 
-[Architecture](#system-architecture) · [Agent harness](#what-can-the-ai-control) · [Quick start](#quick-start-full-local-application) · [Verification](#reproducibility-and-verification) · [Documentation](#engineering-documentation)
+[Architecture](#system-architecture) · [Agent harness](#what-can-the-ai-control) · [Quick start](#quick-start-full-local-application) · [Verification](#reproducibility-and-verification) · [Attribution](#data-scientific-sources-and-attribution) · [Documentation](#engineering-documentation)
 
 </div>
 
@@ -38,6 +38,20 @@ This makes exoplanet vetting a concrete test case for a broader engineering ques
 choose useful next actions without becoming the authority over execution, measurements, or the
 answer key?
 
+## Why this approach matters
+
+- **The investigation is falsifiable.** Competing explanations and negative diagnostics are
+  first-class state, so the system can reject or weaken a planetary interpretation instead of only
+  narrating a detection.
+- **The AI is useful without being trusted as a calculator.** Models choose among bounded,
+  evidence-dependent actions; deterministic software owns every displayed measurement and final
+  disposition.
+- **The result can be audited and reproduced.** Inputs, tool parameters, evidence, decisions,
+  budgets, failures, and the exact locked result are durable artifacts.
+- **The pattern transfers beyond astronomy.** The same separation of judgment, authorization, and
+  measurement applies to other evidence-heavy workflows where actions must be explainable and
+  reference answers must not leak into the decision process.
+
 ## Demo
 
 The hosted Mission Control demo is available at <https://exoswarm.duckdns.org>. The cached
@@ -57,8 +71,8 @@ It requires no model API key and makes no astronomy-network request. A scripted 
 exercises the same controller boundary, while committed TESS FITS data supplies the scientific
 tools. The script verifies mandatory diagnostics, writes and hashes the canonical result in a
 temporary run directory, verifies the retained cryptographic audit artifacts, checks that the
-catalog comparison references the same hash, and prints a JSON `PASS` summary. On systems with GNU Make, `make reproduce` is the
-equivalent shortcut.
+catalog comparison references the same hash, and prints a JSON `PASS` summary. On systems with GNU
+Make, `make reproduce` is the equivalent shortcut.
 
 ## System architecture
 
@@ -74,6 +88,26 @@ the durable source of truth.
 External systems are shown outside the deterministic authority boundary. Normal cached runs do not
 contact MAST or the NASA Exoplanet Archive; their source products and viewer-reference catalog records are
 versioned locally with provenance.
+
+### Repository structure
+
+```text
+apps/api/src/exoswarm/
+├── agents/          # role adapters, prompts, model boundary, and safe context
+├── api/             # FastAPI routes, SSE, and Mission Control projections
+├── domain/          # typed state, evidence, decisions, enums, and events
+├── evaluation/      # deterministic comparison and grading helpers
+├── investigation/  # controller, LangGraph topology, runner, registry, and policy
+├── science/         # deterministic TESS measurements and diagnostics
+├── security/        # blinding, result lock, and catalog gate
+└── services/        # persistence, artifacts, target resolution, and viewer catalog
+
+apps/web/            # Next.js Mission Control frontend
+data/                # opaque manifests, cached public TESS inputs, and provenance
+evals/               # locked scenarios, criteria, and retained reports
+scripts/             # reproduction, evaluation, acquisition, and provider gates
+docs/                # architecture and implementation contracts
+```
 
 ## What can the AI control?
 
@@ -201,26 +235,24 @@ docker build -f apps/api/Dockerfile -t exoswarm-api .
 docker run --rm -p 8000:8000 --env-file .env exoswarm-api
 ```
 
-## Deploy the demo to the VPS
+## Container deployment
 
 The production Compose setup runs the FastAPI service, the optimized Next.js server, and Caddy as
-the HTTPS reverse proxy. Caddy obtains and renews the TLS certificate automatically. Run exactly one
-API container because ExoSwarm's durable run coordination is intentionally single-process.
-
-Before starting, set the DuckDNS `exoswarm` record to `84.235.226.37` in the DuckDNS dashboard. On a
-clean VPS, allow inbound TCP ports `80` and `443`, install Docker Engine with the Compose plugin,
-clone the repository, and run:
+the HTTPS reverse proxy. Caddy obtains and renews TLS certificates automatically. Run exactly one
+API container because ExoSwarm's durable run coordination is intentionally single-process. Point
+the configured domain at the host, allow inbound TCP ports `80` and `443`, install Docker Engine
+with the Compose plugin, then run:
 
 ```bash
 cp .env.example .env
-nano .env                         # set FEATHERLESS_API_KEY only
+# Set FEATHERLESS_API_KEY and deployment-specific origins in .env/Compose config.
 docker compose up -d --build
 docker compose ps
 ```
 
-Open <https://exoswarm.duckdns.org>. The public `/api/*` routes are proxied to FastAPI on the same
-origin, including the SSE event stream; the API and web ports are not exposed directly. Investigation
-artifacts and Caddy certificates live in named Docker volumes and survive container restarts.
+The public `/api/*` routes are proxied to FastAPI on the same origin, including the SSE event
+stream; the API and web ports are not exposed directly. Investigation artifacts and Caddy
+certificates live in named Docker volumes and survive container restarts.
 
 Useful operations:
 
@@ -232,25 +264,6 @@ docker compose down
 
 `docker compose down` keeps the named volumes. Do not add `--volumes` unless you intentionally want
 to delete saved investigation runs and the cached TLS state.
-
-### Shared demo VPS
-
-The current demo VPS already uses ports `80` and `443` for other websites. Do not stop or replace
-that ingress. The VPS override joins ExoSwarm's API and web services to the existing edge network;
-the shared Caddy route in `deploy/Caddyfile.shared-vps` provides clean-domain HTTPS without
-publishing another host port:
-
-```bash
-docker compose -f compose.yaml -f compose.vps.yaml up -d --build
-docker compose -f compose.yaml -f compose.vps.yaml ps
-```
-
-The shared edge Caddy must load the versioned route before starting the VPS override. Once loaded,
-open <https://exoswarm.duckdns.org>. The override changes the browser API URL and CORS origin
-together, gives the containers unique `exoswarm-api` and `exoswarm-web` aliases on the existing
-`fidelgo-vps-dev-edge` network, and leaves ExoSwarm's standalone proxy behind an opt-in profile.
-API requests and SSE therefore remain same-origin while the existing websites keep ownership of
-ports `80` and `443`.
 
 ## Reproducibility and verification
 
@@ -356,10 +369,13 @@ or code has already been compromised.
   [`BoxLeastSquares`](https://docs.astropy.org/en/stable/timeseries/bls.html), a periodogram for
   transit-like and eclipsing-binary signals in photometric time series.
 - Pipeline ordering and period/harmonic trial patterns were adapted from the MIT-licensed
-  [SHERLOCK](https://github.com/franpoz/SHERLOCK) project. The per-transit odd/even depth-series
-  pattern was adapted from the MIT-licensed [WATSON](https://github.com/planetHunters/watson)
-  project. Exact upstream commits, borrowed/adapted boundaries, rejected patterns, and regression
-  evidence are recorded in [`docs/14_SCIENCE_VERTICAL_SLICE.md`](docs/14_SCIENCE_VERTICAL_SLICE.md).
+  [SHERLOCK](https://github.com/franpoz/SHERLOCK/tree/a42e2025c521572b79f0add0a6f135b2df84aabc)
+  project. The per-transit odd/even depth-series pattern was adapted from the MIT-licensed
+  [WATSON](https://github.com/planetHunters/watson/tree/c8332b9a77fcae2b56942def18ca3a0573b0a772)
+  project. ExoSwarm reimplemented these ideas behind its own typed deterministic boundaries and
+  validated them independently; it does not depend on either upstream package at runtime. Exact
+  borrowed/adapted boundaries and regression evidence are recorded in
+  [`docs/scientific-provenance.md`](docs/scientific-provenance.md).
 
 ### Agent and inference infrastructure
 
@@ -370,19 +386,39 @@ or code has already been compromised.
   documents the OpenAI-compatible inference endpoint used by the live role adapter. ExoSwarm—not
   the provider—owns role schemas, validation, budgets, traces, and tool execution.
 
+### Design and evaluation inspirations
+
+- [ASTER](https://github.com/emipanek/aster/tree/9eadc08ec5cf7b0065e0f63e8fbb949b7e68adfe)
+  and its [2026 paper](https://arxiv.org/abs/2603.26953) informed the concept-level design review of
+  scientific-tool lifecycle, validation, recovery messages, and resource controls. No ASTER source
+  code was copied, and ExoSwarm intentionally excludes its broad shell, filesystem, Python, web,
+  and pre-lock catalog access.
+- [Stargazer](https://github.com/AIPS-UofT/Stargazer/tree/3f617667472061e253288c7b26f0e70f186f2dff)
+  and its [2026 paper](https://arxiv.org/abs/2604.15664) informed the evaluation pattern: stable
+  scenario banks, hidden truth, deterministic conjunctive graders, bounded runs, and durable
+  traces. ExoSwarm uses its own transit-specific fixtures and compares truth only after result lock;
+  it does not adopt Stargazer's radial-velocity algorithms, Python REPL, or mid-run truth feedback.
+
+The complete project-by-project adoption record—including pinned commits, licenses, verification,
+and deliberately rejected behavior—is in
+[`docs/upstream-inspirations.md`](docs/upstream-inspirations.md).
+
 ## Engineering documentation
 
-- [`docs/02_ARCHITECTURE.md`](docs/02_ARCHITECTURE.md) — component responsibilities, topology, and
-  trust boundary
-- [`docs/05_AGENT_RUNTIME.md`](docs/05_AGENT_RUNTIME.md) — role contracts, loop limits, validation,
-  context, and traces
-- [`docs/06_SCIENCE_CONTRACTS.md`](docs/06_SCIENCE_CONTRACTS.md) — numerical tool contracts, units,
-  failures, and scientific claim language
-- [`docs/07_DATA_ARTIFACTS_BLINDING.md`](docs/07_DATA_ARTIFACTS_BLINDING.md) — data boundary,
-  evidence ledger, lock, and reveal protocol
-- [`docs/08_API_EVENTS.md`](docs/08_API_EVENTS.md) — REST and SSE contracts
-- [`docs/10_TESTING_EVALS.md`](docs/10_TESTING_EVALS.md) — layered tests, evaluations, and release
-  gates
+- [`docs/README.md`](docs/README.md) — documentation map
+- [`docs/architecture.md`](docs/architecture.md) — component responsibilities, topology, and trust
+  boundaries
+- [`docs/agent-harness.md`](docs/agent-harness.md) — permissions, validation, recovery, and durable
+  execution
+- [`docs/science-contracts.md`](docs/science-contracts.md) — numerical contracts, units, failures,
+  and scientific claim language
+- [`docs/data-and-blinding.md`](docs/data-and-blinding.md) — data boundaries, evidence ledger, lock,
+  and comparison protocol
+- [`docs/api-and-events.md`](docs/api-and-events.md) — REST and SSE contracts
+- [`docs/testing-and-evaluation.md`](docs/testing-and-evaluation.md) — tests, locked evaluations,
+  and release gates
+- [`docs/upstream-inspirations.md`](docs/upstream-inspirations.md) — pinned upstream references,
+  design influences, licenses, and adoption boundaries
 - [`docs/inference.md`](docs/inference.md) — Featherless integration, structured-output policy, and
   measured telemetry contract
 

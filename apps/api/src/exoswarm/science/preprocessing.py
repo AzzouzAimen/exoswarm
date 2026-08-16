@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.ndimage import median_filter
 
-from exoswarm.science.contracts import not_implemented_result
 from exoswarm.science.io import CachedTessLightCurve
 
 
@@ -147,14 +146,4 @@ def preprocess_lightcurve(
         outlier_removed=outlier_removed,
         normalization_flux=normalization_flux,
         detrend_window_samples=requested_window,
-    )
-
-
-def preprocess(run_id, action_id, target_id, parameters):
-    return not_implemented_result(
-        tool_name="preprocess",
-        run_id=run_id,
-        action_id=action_id,
-        target_id=target_id,
-        parameters=parameters,
     )
