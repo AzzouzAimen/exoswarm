@@ -1,5 +1,6 @@
 "use client"
 
+import { ChevronDownIcon } from "@heroicons/react/24/outline"
 import dynamic from "next/dynamic"
 import type { Data, Layout } from "plotly.js"
 
@@ -88,18 +89,37 @@ interface ScientificPlotPanelProps {
   instrument: InstrumentPresentation
   phase: InvestigationPhase
   onModeChange: (mode: InstrumentMode) => void
+  isCollapsed: boolean
+  onCollapsedChange: (collapsed: boolean) => void
 }
 
 export function ScientificPlotPanel({
   instrument,
   phase,
   onModeChange,
+  isCollapsed,
+  onCollapsedChange,
 }: ScientificPlotPanelProps) {
   return (
-    <section className="instrument-stage" data-focus={phase === "measuring" || phase === "testing"}>
+    <section
+      className="instrument-stage"
+      data-collapsed={isCollapsed}
+      data-focus={phase === "measuring" || phase === "testing"}
+    >
       <div className="instrument-header">
         <div>
-          <span className="section-kicker">Measured evidence</span>
+          <div className="instrument-title-row">
+            <span className="section-kicker">Measured evidence</span>
+            <button
+              type="button"
+              className="instrument-collapse"
+              aria-expanded={!isCollapsed}
+              aria-label={isCollapsed ? "Expand measured evidence" : "Collapse measured evidence"}
+              onClick={() => onCollapsedChange(!isCollapsed)}
+            >
+              <ChevronDownIcon aria-hidden="true" />
+            </button>
+          </div>
           <h2>{instrument.label}</h2>
           <p>{instrument.plot.annotation}</p>
         </div>

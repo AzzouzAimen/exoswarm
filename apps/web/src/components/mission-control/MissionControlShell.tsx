@@ -4,8 +4,8 @@ import { useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-import { AgentActivity } from "./AgentActivity"
-import { CentralOrbitScene } from "./CentralOrbitScene"
+import { AgentTrace } from "./AgentTrace"
+import { CentralOrbitScene, OrbitSceneStatus } from "./CentralOrbitScene"
 import { DEMO_INSTRUMENTS } from "./demo/demo-investigation.fixture"
 import { useDemoPlayback } from "./demo/use-demo-playback"
 import { EvidenceLedger } from "./EvidenceLedger"
@@ -21,6 +21,7 @@ import type { InstrumentMode } from "./model/presentation-state"
 export function MissionControlShell() {
   const playback = useDemoPlayback()
   const [xRayEnabled, setXRayEnabled] = useState(false)
+  const [isEvidenceCollapsed, setIsEvidenceCollapsed] = useState(true)
   const [inspectedInstrumentMode, setInspectedInstrumentMode] = useState<InstrumentMode>()
   const { state } = playback
 
@@ -51,6 +52,7 @@ export function MissionControlShell() {
         (state.phase === "measuring" || state.phase === "testing") && "instrument-is-focus",
         state.phase === "locked" && "investigation-is-locked",
       )}
+      data-evidence-collapsed={isEvidenceCollapsed}
     >
       <TargetStatus
         state={state}
@@ -61,18 +63,15 @@ export function MissionControlShell() {
 
       <CentralOrbitScene state={state} />
 
-      <section className="investigation-stage" aria-labelledby="investigation-question">
+      <section className="investigation-stage" aria-label="Live investigation">
         <div className="investigation-briefing">
-          <div className="stage-narrative">
-            <div className="stage-narrative-kicker">
-              <span>{state.phase === "locked" ? "Investigation complete" : "Current question"}</span>
-            </div>
-            <h1 id="investigation-question">{state.currentQuestion}</h1>
-          </div>
-          <AgentActivity state={state} />
+          <AgentTrace state={state} currentStep={playback.step} onSelect={selectStep} />
         </div>
 
-        <HypothesisPanel hypotheses={state.hypotheses} />
+        <div className="mission-top-actions">
+          <OrbitSceneStatus state={state} />
+          <HypothesisPanel hypotheses={state.hypotheses} />
+        </div>
         <LockRevealPanel state={state} />
         <XRayOverlay visible={xRayEnabled} budget={state.evidenceBudget} />
       </section>
@@ -83,6 +82,8 @@ export function MissionControlShell() {
         }
         phase={state.phase}
         onModeChange={selectInstrumentMode}
+        isCollapsed={isEvidenceCollapsed}
+        onCollapsedChange={setIsEvidenceCollapsed}
       />
 
       <footer className="mission-footer">

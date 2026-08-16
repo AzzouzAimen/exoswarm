@@ -122,12 +122,31 @@ export interface TimelineRecord {
   id: string
   sequence: number
   timestamp: string
+  eventType: PresentationEventType
+  agentId?: AgentId
+  tool?: ToolPresentation
+  handoff?: {
+    from: AgentNodeId
+    to: AgentNodeId
+    kind: "model" | "science"
+  }
   actor: string
   headline: string
   detail: string
   tone: SemanticTone
   evidenceRef?: string
 }
+
+export type PresentationEventType =
+  | "agent.started"
+  | "agent.decision"
+  | "agent.handoff"
+  | "critic.review"
+  | "tool.started"
+  | "tool.completed"
+  | "evidence.appended"
+  | "hypothesis.updated"
+  | "result.locked"
 
 export interface InvestigationPresentationState {
   run: {
@@ -171,7 +190,10 @@ interface EventBase {
   eventId: string
   timestamp: string
   holdMs: number
-  trace: Omit<TimelineRecord, "id" | "sequence" | "timestamp">
+  trace: Omit<
+    TimelineRecord,
+    "id" | "sequence" | "timestamp" | "eventType" | "agentId" | "tool" | "handoff"
+  >
   view?: Partial<
     Pick<
       InvestigationPresentationState,

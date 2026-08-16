@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef } from "react"
 import { AdaptiveDpr, CameraControls, Line, Preload, Stars } from "@react-three/drei"
-import { Canvas, useFrame } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Bloom, EffectComposer } from "@react-three/postprocessing"
 import { useReducedMotion } from "motion/react"
-import type { Group } from "three"
+import { Vector3, type Group } from "three"
 
 import type { CameraPose, InvestigationPresentationState } from "./model/presentation-state"
 
@@ -170,10 +170,48 @@ function CandidateSystem({
   )
 }
 
-function InvestigationWorld({ state }: { state: InvestigationPresentationState }) {
+function RightHalfSystem({
+  state,
+  quiet,
+}: {
+  state: InvestigationPresentationState
+  quiet: boolean
+}) {
+  const systemGroup = useRef<Group>(null)
+  const sceneCenter = useMemo(() => new Vector3(0, 1.25, 0), [])
+  const cameraRight = useMemo(() => new Vector3(), [])
+  const { camera, size, viewport } = useThree()
   const candidateVisible = state.phase !== "observing"
   const transitVisible = ["characterizing", "measuring"].includes(state.phase)
   const alternativesVisible = ["challenging", "reviewing", "testing"].includes(state.phase)
+  const locked = state.phase === "locked"
+
+  useFrame(() => {
+    if (!systemGroup.current) return
+
+    const currentViewport = viewport.getCurrentViewport(camera, sceneCenter)
+    const horizontalOffset = size.width > 900 ? currentViewport.width * 0.25 : 0
+
+    cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
+    systemGroup.current.position
+      .copy(sceneCenter)
+      .addScaledVector(cameraRight, horizontalOffset)
+  })
+
+  return (
+    <group ref={systemGroup} position={[0, 1.25, 0]}>
+      <TargetStar quiet={quiet} />
+      <CandidateSystem
+        visible={candidateVisible}
+        transitVisible={transitVisible}
+        alternativesVisible={alternativesVisible}
+        locked={locked}
+      />
+    </group>
+  )
+}
+
+function InvestigationWorld({ state }: { state: InvestigationPresentationState }) {
   const locked = state.phase === "locked"
   const quiet = state.phase === "measuring" || state.phase === "locked"
 
@@ -192,15 +230,7 @@ function InvestigationWorld({ state }: { state: InvestigationPresentationState }
         fade
         speed={locked ? 0 : 0.08}
       />
-      <group position={[0, 1.25, 0]}>
-        <TargetStar quiet={quiet} />
-        <CandidateSystem
-          visible={candidateVisible}
-          transitVisible={transitVisible}
-          alternativesVisible={alternativesVisible}
-          locked={locked}
-        />
-      </group>
+      <RightHalfSystem state={state} quiet={quiet} />
       <InvestigationCamera pose={state.cameraPose} />
       <EffectComposer multisampling={0}>
         <Bloom intensity={0.32} luminanceThreshold={0.94} mipmapBlur />
@@ -212,9 +242,6 @@ function InvestigationWorld({ state }: { state: InvestigationPresentationState }
 }
 
 export function CentralOrbitScene({ state }: { state: InvestigationPresentationState }) {
-  const candidateVisible = state.phase !== "observing"
-  const alternativesVisible = ["challenging", "reviewing", "testing"].includes(state.phase)
-
   return (
     <section
       className="investigation-canvas"
@@ -228,21 +255,28 @@ export function CentralOrbitScene({ state }: { state: InvestigationPresentationS
       >
         <InvestigationWorld state={state} />
       </Canvas>
-
-      <div className="scene-caption" aria-live="polite">
-        <span className="scene-caption-label">
-          {alternativesVisible
-            ? "Other orbits being tested"
-            : candidateVisible
-              ? "Possible orbit"
-              : "Brightness only"}
-        </span>
-        <span>
-          {candidateVisible
-            ? "orbit sketch from measured timing · not a direct image"
-            : "no orbit has been inferred yet"}
-        </span>
-      </div>
     </section>
+  )
+}
+
+export function OrbitSceneStatus({ state }: { state: InvestigationPresentationState }) {
+  const candidateVisible = state.phase !== "observing"
+  const alternativesVisible = ["challenging", "reviewing", "testing"].includes(state.phase)
+
+  return (
+    <div className="scene-caption" aria-live="polite">
+      <span className="scene-caption-label">
+        {alternativesVisible
+          ? "Other orbits being tested"
+          : candidateVisible
+            ? "Possible orbit"
+            : "Brightness only"}
+      </span>
+      <span>
+        {candidateVisible
+          ? "orbit sketch from measured timing · not a direct image"
+          : "no orbit has been inferred yet"}
+      </span>
+    </div>
   )
 }

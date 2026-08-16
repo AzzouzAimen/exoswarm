@@ -17,6 +17,29 @@ export function applyPresentationEvent(
   state: InvestigationPresentationState,
   event: PresentationEvent,
 ): InvestigationPresentationState {
+  const eventMetadata = (() => {
+    switch (event.type) {
+      case "agent.started":
+      case "agent.decision":
+        return { agentId: event.agentId }
+      case "agent.handoff":
+        return {
+          agentId:
+            event.to === "science-tool" || event.to === "evidence-ledger"
+              ? undefined
+              : event.to,
+          handoff: { from: event.from, to: event.to, kind: event.kind },
+        }
+      case "critic.review":
+        return { agentId: "critic" as const }
+      case "tool.started":
+      case "tool.completed":
+        return { tool: event.tool }
+      default:
+        return {}
+    }
+  })()
+
   const next: InvestigationPresentationState = {
     ...state,
     ...event.view,
@@ -25,9 +48,11 @@ export function applyPresentationEvent(
       ...state.timeline,
       {
         ...event.trace,
+        ...eventMetadata,
         id: event.eventId,
         sequence: state.timeline.length + 1,
         timestamp: event.timestamp,
+        eventType: event.type,
       },
     ],
   }
